@@ -7,7 +7,15 @@ import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.graphics.Color;
 import android.net.Uri;
+import android.os.Build;
 import android.os.Bundle;
+import android.os.CancellationSignal;
+import android.app.KeyguardManager;
+import android.hardware.biometrics.BiometricManager;
+import android.hardware.biometrics.BiometricPrompt;
+import android.view.HapticFeedbackConstants;
+import java.io.FileOutputStream;
+import java.nio.charset.StandardCharsets;
 import android.provider.MediaStore;
 import android.webkit.ValueCallback;
 
@@ -42,6 +50,8 @@ public class MainActivity extends Activity {
     static final String HOST = "zkskslsk-del.github.io";
     static final int REQ_MIC = 7;
     static final int REQ_FILE = 8;
+    static final int REQ_AUTH = 9;
+    long versionCode = 1;
 
     ValueCallback<Uri[]> fileCallback;
     Uri cameraUri;
@@ -68,9 +78,15 @@ public class MainActivity extends Activity {
         s.setDatabaseEnabled(true);
         s.setMediaPlaybackRequiresUserGesture(false);
         s.setCacheMode(WebSettings.LOAD_DEFAULT);
-        s.setUserAgentString(s.getUserAgentString() + " GagyebuApp/1");
+        try {
+            versionCode = Build.VERSION.SDK_INT >= 28
+                ? getPackageManager().getPackageInfo(getPackageName(), 0).getLongVersionCode()
+                : getPackageManager().getPackageInfo(getPackageName(), 0).versionCode;
+        } catch (Exception ignored) { }
+        s.setUserAgentString(s.getUserAgentString() + " GagyebuApp/" + versionCode);
 
         web.addJavascriptInterface(new NativeSpeech(), "NativeSpeech");
+        web.addJavascriptInterface(new NativeApp(), "NativeApp");
         web.setWebChromeClient(new WebChromeClient() {
             @Override
             public void onPermissionRequest(final PermissionRequest request) {
@@ -142,10 +158,14 @@ public class MainActivity extends Activity {
         super.onDestroy();
     }
 
+    /** 뒤로가기: 먼저 화면(열린 창·다른 탭)에 물어보고, 처리할 게 없으면 앱을 뒤로 보냄(다시 열 때 빠름) */
     @Override
     public void onBackPressed() {
-        if (web.canGoBack()) web.goBack();
-        else super.onBackPressed();
+        web.evaluateJavascript("(function(){ try { return window.__onBack ? !!window.__onBack() : false; } catch(e) { return false; } })()", value -> {
+            if ("true".equals(value)) return;
+            if (web.canGoBack()) web.goBack();
+            else moveTaskToBack(true);
+        });
     }
 
     @Override
@@ -160,6 +180,96 @@ public class MainActivity extends Activity {
         }
     }
 
+
+    /* ---------- 앱 기능: 진동, 상태바, 공유, 잠금 ---------- */
+
+    void authDone(boolean ok, String reason) {
+        js0("window.__app && window.__app.authResult(" + ok + "," + JSONObject.quote(reason == null ? "" : reason) + ")");
+    }
+
+    void js0(final String code) {
+        runOnUiThread(() -> web.evaluateJavascript("(function(){ try{ " + code + " }catch(e){} })()", null));
+    }
+
+    boolean deviceSecure() {
+        KeyguardManager km = (KeyguardManager) getSystemService(KEYGUARD_SERVICE);
+        return km != null && km.isDeviceSecure();
+    }
+
+    void startAuth() {
+        if (!deviceSecure()) { authDone(false, "no-lock"); return; }
+        if (Build.VERSION.SDK_INT >= 30) {
+            BiometricPrompt bp = new BiometricPrompt.Builder(this)
+                .setTitle("가계부 잠금 해제")
+                .setSubtitle("지문, 얼굴 또는 화면 잠금으로 확인해 주세요")
+                .setAllowedAuthenticators(BiometricManager.Authenticators.BIOMETRIC_WEAK | BiometricManager.Authenticators.DEVICE_CREDENTIAL)
+                .build();
+            bp.authenticate(new CancellationSignal(), getMainExecutor(), new BiometricPrompt.AuthenticationCallback() {
+                @Override public void onAuthenticationSucceeded(BiometricPrompt.AuthenticationResult r) { authDone(true, ""); }
+                @Override public void onAuthenticationError(int code, CharSequence msg) { authDone(false, String.valueOf(msg)); }
+            });
+        } else if (Build.VERSION.SDK_INT == 29) {
+            BiometricPrompt bp = new BiometricPrompt.Builder(this)
+                .setTitle("가계부 잠금 해제")
+                .setDeviceCredentialAllowed(true)
+                .build();
+            bp.authenticate(new CancellationSignal(), getMainExecutor(), new BiometricPrompt.AuthenticationCallback() {
+                @Override public void onAuthenticationSucceeded(BiometricPrompt.AuthenticationResult r) { authDone(true, ""); }
+                @Override public void onAuthenticationError(int code, CharSequence msg) { authDone(false, String.valueOf(msg)); }
+            });
+        } else {
+            KeyguardManager km = (KeyguardManager) getSystemService(KEYGUARD_SERVICE);
+            Intent i = km.createConfirmDeviceCredentialIntent("가계부 잠금 해제", "화면 잠금으로 확인해 주세요");
+            if (i == null) { authDone(false, "no-lock"); return; }
+            startActivityForResult(i, REQ_AUTH);
+        }
+    }
+
+    void shareFile(String name, String mime, String text) {
+        try {
+            File dir = new File(getCacheDir(), "share");
+            if (!dir.exists()) dir.mkdirs();
+            String safe = name.replaceAll("[\\\\/:*?\"<>|]", "_");
+            File f = new File(dir, safe);
+            try (FileOutputStream out = new FileOutputStream(f)) {
+                if (safe.endsWith(".csv")) out.write(new byte[]{(byte) 0xEF, (byte) 0xBB, (byte) 0xBF});
+                out.write(text.getBytes(StandardCharsets.UTF_8));
+            }
+            Uri u = FileProvider.getUriForFile(this, getPackageName() + ".files", f);
+            Intent send = new Intent(Intent.ACTION_SEND);
+            send.setType(mime);
+            send.putExtra(Intent.EXTRA_STREAM, u);
+            send.putExtra(Intent.EXTRA_SUBJECT, safe);
+            send.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+            startActivity(Intent.createChooser(send, "내보내기"));
+        } catch (Exception e) {
+            js0("window.__app && window.__app.toast(" + JSONObject.quote("내보내기 실패: " + e.getMessage()) + ")");
+        }
+    }
+
+    class NativeApp {
+        @JavascriptInterface public long version() { return versionCode; }
+        @JavascriptInterface public void vibrate() {
+            runOnUiThread(() -> web.performHapticFeedback(Build.VERSION.SDK_INT >= 30 ? HapticFeedbackConstants.CONFIRM : HapticFeedbackConstants.VIRTUAL_KEY));
+        }
+        @JavascriptInterface public void statusBar(final String hex, final boolean darkIcons) {
+            runOnUiThread(() -> {
+                try {
+                    getWindow().setStatusBarColor(Color.parseColor(hex));
+                    View d = getWindow().getDecorView();
+                    int f = d.getSystemUiVisibility();
+                    f = darkIcons ? (f | View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR) : (f & ~View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR);
+                    d.setSystemUiVisibility(f);
+                } catch (Exception ignored) { }
+            });
+        }
+        @JavascriptInterface public boolean canLock() { return deviceSecure(); }
+        @JavascriptInterface public void authenticate() { runOnUiThread(() -> startAuth()); }
+        @JavascriptInterface public void share(final String name, final String mime, final String text) { runOnUiThread(() -> shareFile(name, mime, text)); }
+        @JavascriptInterface public void openExternal(final String url) {
+            runOnUiThread(() -> { try { startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse(url))); } catch (Exception ignored) { } });
+        }
+    }
 
     /* ---------- 영수증 사진: 카메라 또는 앨범 ---------- */
 
@@ -203,6 +313,7 @@ public class MainActivity extends Activity {
     @Override
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
+        if (requestCode == REQ_AUTH) { authDone(resultCode == RESULT_OK, resultCode == RESULT_OK ? "" : "canceled"); return; }
         if (requestCode != REQ_FILE || fileCallback == null) return;
         Uri[] result = null;
         if (resultCode == RESULT_OK) {
