@@ -9,7 +9,8 @@ var SH_TX = '거래내역', SH_CAT = '카테고리', SH_REC = '고정지출', SH
 var WISH_HEAD = ['ID', '이름', '가격', '링크', '분류', '메모', '조건', '목표금액', '상태', '요청자', '요청메시지', '답장', '처리자', '생성시각', '처리시각', '필요한 이유', '필요한 날짜', '필수'];
 var WISH_STATUS = ['원함', '요청', '승인', '거절', '보류', '구매함'];
 var TX_HEAD = ['ID', '날짜', '구분', '카테고리', '금액', '내용', '결제수단', '입력자', '메모', '입력시각', '공용/개인'];
-var CAT_HEAD = ['구분', '카테고리', '월예산', '키워드(쉼표로 구분)', '순서'];
+var CAT_HEAD = ['구분', '카테고리', '월예산', '키워드(쉼표로 구분)', '순서', '고정·필수'];
+var FIXED_RE = /(주거|관리비|월세|통신|보험|대출|이자|세금|공과금|교육|학원|육아|의료|병원|교통)/;
 var REC_HEAD = ['ID', '구분', '카테고리', '내용', '금액', '매월(일)', '결제수단', '사용'];
 var CFG_HEAD = ['항목', '값'];
 
@@ -194,9 +195,13 @@ function readCats_() {
   var sh = sheet_(SH_CAT, CAT_HEAD);
   var n = sh.getLastRow();
   if (n < 2) return [];
-  return sh.getRange(2, 1, n - 1, 5).getValues()
+  var w = Math.min(sh.getLastColumn(), 6);
+  return sh.getRange(2, 1, n - 1, w).getValues()
     .filter(function (r) { return r[1]; })
-    .map(function (r, i) { return { type: String(r[0]), name: String(r[1]), budget: Number(r[2]) || 0, keywords: String(r[3] || ''), order: Number(r[4]) || i + 1 }; })
+    .map(function (r, i) {
+      var fx = r[5] === 'Y' ? true : r[5] === 'N' ? false : FIXED_RE.test(String(r[1]));
+      return { type: String(r[0]), name: String(r[1]), budget: Number(r[2]) || 0, keywords: String(r[3] || ''), order: Number(r[4]) || i + 1, fixed: fx };
+    })
     .sort(function (a, b) { return a.order - b.order; });
 }
 
@@ -240,7 +245,9 @@ function load_(p) {
   since.setMonth(since.getMonth() - months + 1, 1);
   var sinceStr = Utilities.formatDate(since, TZ, 'yyyy-MM-dd');
   return {
-    cfg: { members: (cfg['구성원'] || '').split(',').map(trim_).filter(String), methods: (cfg['결제수단'] || '').split(',').map(trim_).filter(String), kids: (cfg['자녀'] || '').split(',').map(trim_).filter(String), avatars: avatars_(cfg) },
+    cfg: { members: (cfg['구성원'] || '').split(',').map(trim_).filter(String), methods: (cfg['결제수단'] || '').split(',').map(trim_).filter(String), kids: (cfg['자녀'] || '').split(',').map(trim_).filter(String), avatars: avatars_(cfg),
+      cards: cards_(cfg),
+      monthStart: Math.min(28, Math.max(1, Number(cfg['한달시작일']) || 1)), hide: (cfg['개인숨김'] || '').split(',').map(trim_).filter(String) },
     wishes: readWish_(),
     cats: readCats_(),
     rec: readRec_(),
@@ -307,12 +314,12 @@ function deleteTx_(id) {
 function saveCats_(cats) {
   var sh = sheet_(SH_CAT, CAT_HEAD);
   var rows = cats.filter(function (c) { return c && c.name; }).map(function (c, i) {
-    return [['지출', '수입', '저축'].indexOf(c.type) >= 0 ? c.type : '지출', String(c.name).slice(0, 30), Math.max(0, Math.round(Number(c.budget) || 0)), String(c.keywords || '').slice(0, 500), i + 1];
+    return [['지출', '수입', '저축'].indexOf(c.type) >= 0 ? c.type : '지출', String(c.name).slice(0, 30), Math.max(0, Math.round(Number(c.budget) || 0)), String(c.keywords || '').slice(0, 500), i + 1, c.fixed ? 'Y' : 'N'];
   });
   if (!rows.length) throw new Error('카테고리가 하나는 있어야 해요.');
   var n = sh.getLastRow();
-  if (n >= 2) sh.getRange(2, 1, n - 1, 5).clearContent();
-  sh.getRange(2, 1, rows.length, 5).setValues(rows);
+  if (n >= 2) sh.getRange(2, 1, n - 1, 6).clearContent();
+  sh.getRange(2, 1, rows.length, 6).setValues(rows);
   return { ok: true };
 }
 
@@ -320,11 +327,26 @@ function saveCfg_(p) {
   if (p.members) writeCfg_('구성원', p.members.map(trim_).filter(String).join(','));
   if (p.methods) writeCfg_('결제수단', p.methods.map(trim_).filter(String).join(','));
   if (p.kids) writeCfg_('자녀', p.kids.map(trim_).filter(String).join(','));
+  if (p.monthStart != null) { var ms = Math.round(Number(p.monthStart)); if (!(ms >= 1 && ms <= 28)) throw new Error('시작일은 1~28일 중에서 골라 주세요.'); writeCfg_('한달시작일', String(ms)); }
+  if (p.cards) writeCfg_('카드', JSON.stringify(cleanCards_(p.cards)));
+  if (p.hide) writeCfg_('개인숨김', p.hide.map(trim_).filter(String).join(','));
   if (p.newPin) {
     if (!/^\d{4,8}$/.test(String(p.newPin))) throw new Error('숫자 4~8자리로 정해 주세요.');
     writeCfg_('PIN', String(p.newPin));
   }
   return { ok: true };
+}
+
+/** 실적 카드: [{name, kind, target, benefits, exclude:[카테고리], memo}] */
+function cards_(cfg) {
+  try { var a = JSON.parse(cfg['카드'] || '[]'); return Array.isArray(a) ? a : []; } catch (e) { return []; }
+}
+function cleanCards_(list) {
+  return (list || []).slice(0, 20).filter(function (c) { return c && String(c.name || '').trim(); }).map(function (c) {
+    return { name: String(c.name).trim().slice(0, 30), kind: ['신용', '체크', '기타'].indexOf(c.kind) >= 0 ? c.kind : '신용',
+      target: Math.max(0, Math.round(Number(c.target) || 0)), benefits: String(c.benefits || '').slice(0, 1000),
+      exclude: (c.exclude || []).slice(0, 30).map(function (x) { return String(x).slice(0, 30); }), memo: String(c.memo || '').slice(0, 300) };
+  });
 }
 
 function avatars_(cfg) {
@@ -357,6 +379,8 @@ function renameMember_(p) {
   writeCfg_('구성원', mem.map(function (m) { return m === from ? to : m; }).join(','));
   var kd = (cfg['자녀'] || '').split(',').map(trim_).filter(String);
   writeCfg_('자녀', kd.map(function (m) { return m === from ? to : m; }).join(','));
+  var hd = (cfg['개인숨김'] || '').split(',').map(trim_).filter(String);
+  if (hd.indexOf(from) >= 0) writeCfg_('개인숨김', hd.map(function (m) { return m === from ? to : m; }).join(','));
   if (cfg['사진:' + from]) { writeCfg_('사진:' + to, cfg['사진:' + from]); writeCfg_('사진:' + from, ''); }
   var fix = function (sh, cols) {
     var n = sh.getLastRow(); if (n < 2) return 0;

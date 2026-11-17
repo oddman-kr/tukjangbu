@@ -340,6 +340,9 @@ public class MainActivity extends Activity {
         @JavascriptInterface public boolean canLock() { return deviceSecure(); }
         @JavascriptInterface public void authenticate() { runOnUiThread(() -> startAuth()); }
         @JavascriptInterface public void share(final String name, final String mime, final String text) { runOnUiThread(() -> shareFile(name, mime, text)); }
+        @JavascriptInterface public void setWidget(final String json) {
+            try { SpendWidget.save(getApplicationContext(), json); } catch (Exception ignored) { }
+        }
         @JavascriptInterface public void openExternal(final String url) {
             runOnUiThread(() -> { try { startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse(url))); } catch (Exception ignored) { } });
         }
