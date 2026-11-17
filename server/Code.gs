@@ -6,9 +6,9 @@
 
 var TZ = 'Asia/Seoul';
 var SH_TX = '거래내역', SH_CAT = '카테고리', SH_REC = '고정지출', SH_CFG = '설정', SH_WISH = '위시리스트';
-var WISH_HEAD = ['ID', '이름', '가격', '링크', '분류', '메모', '조건', '목표금액', '상태', '요청자', '요청메시지', '답장', '처리자', '생성시각', '처리시각'];
+var WISH_HEAD = ['ID', '이름', '가격', '링크', '분류', '메모', '조건', '목표금액', '상태', '요청자', '요청메시지', '답장', '처리자', '생성시각', '처리시각', '필요한 이유', '필요한 날짜'];
 var WISH_STATUS = ['원함', '요청', '승인', '거절', '구매함'];
-var TX_HEAD = ['ID', '날짜', '구분', '카테고리', '금액', '내용', '결제수단', '입력자', '메모', '입력시각'];
+var TX_HEAD = ['ID', '날짜', '구분', '카테고리', '금액', '내용', '결제수단', '입력자', '메모', '입력시각', '공용/개인'];
 var CAT_HEAD = ['구분', '카테고리', '월예산', '키워드(쉼표로 구분)', '순서'];
 var REC_HEAD = ['ID', '구분', '카테고리', '내용', '금액', '매월(일)', '결제수단', '사용'];
 var CFG_HEAD = ['항목', '값'];
@@ -90,6 +90,7 @@ function api(pin, action, payload) {
       case 'delete': return withLock_(function () { return out_(deleteTx_(payload.id)); });
       case 'saveCats': return withLock_(function () { return out_(saveCats_(payload.cats || [])); });
       case 'saveCfg': return withLock_(function () { return out_(saveCfg_(payload)); });
+      case 'renameMember': return withLock_(function () { return out_(renameMember_(payload)); });
       case 'saveRec': return withLock_(function () { return out_(saveRec_(payload.list || [])); });
       case 'saveWish': return withLock_(function () { return out_(saveWish_(payload.wish)); });
       case 'deleteWish': return withLock_(function () { return out_(deleteWish_(payload.id)); });
@@ -119,6 +120,10 @@ function sheet_(name, head) {
     sh = ss.insertSheet(name);
     sh.getRange(1, 1, 1, head.length).setValues([head]).setFontWeight('bold').setBackground('#1F3864').setFontColor('#FFFFFF');
     sh.setFrozenRows(1);
+  } else if (sh.getLastColumn() < head.length) {
+    // 새 열이 생긴 경우 머리글만 채워 넣어요 (기존 데이터는 그대로)
+    var have = sh.getLastColumn();
+    sh.getRange(1, have + 1, 1, head.length - have).setValues([head.slice(have)]).setFontWeight('bold').setBackground('#1F3864').setFontColor('#FFFFFF');
   }
   return sh;
 }
@@ -209,11 +214,11 @@ function readRec_() {
 function rowToTx_(r) {
   return { id: String(r[0]), date: fmtDate_(r[1]), type: String(r[2]), category: String(r[3]), amount: Number(r[4]) || 0,
     desc: String(r[5] || ''), method: String(r[6] || ''), who: String(r[7] || ''), memo: String(r[8] || ''),
-    created: r[9] instanceof Date ? r[9].toISOString() : String(r[9] || '') };
+    created: r[9] instanceof Date ? r[9].toISOString() : String(r[9] || ''), scope: String(r[10] || '') === '개인' ? '개인' : '공용' };
 }
 
 function txToRow_(t, created) {
-  return [String(t.id), t.date, t.type || '지출', t.category || '', Number(t.amount) || 0, t.desc || '', t.method || '', t.who || '', t.memo || '', created || new Date()];
+  return [String(t.id), t.date, t.type || '지출', t.category || '', Number(t.amount) || 0, t.desc || '', t.method || '', t.who || '', t.memo || '', created || new Date(), t.scope === '개인' ? '개인' : '공용'];
 }
 
 function readTx_(sinceStr) {
@@ -261,7 +266,7 @@ function cleanTx_(t) {
   if (!isFinite(amt) || amt === 0) throw new Error('금액 오류');
   return { id: String(t.id).slice(0, 40), date: String(t.date), type: ['지출', '수입', '저축'].indexOf(t.type) >= 0 ? t.type : '지출',
     category: String(t.category || '').slice(0, 30), amount: amt, desc: String(t.desc || '').slice(0, 100),
-    method: String(t.method || '').slice(0, 30), who: String(t.who || '').slice(0, 20), memo: String(t.memo || '').slice(0, 200) };
+    method: String(t.method || '').slice(0, 30), who: String(t.who || '').slice(0, 20), memo: String(t.memo || '').slice(0, 200), scope: t.scope === '개인' ? '개인' : '공용' };
 }
 
 function addTx_(items) {
@@ -319,6 +324,34 @@ function saveCfg_(p) {
     writeCfg_('PIN', String(p.newPin));
   }
   return { ok: true };
+}
+
+/** 구성원 이름 바꾸기: 설정·과거 내역·위시의 이름까지 함께 바꿔요 */
+function renameMember_(p) {
+  var from = trim_(p.from || ''), to = trim_(p.to || '').slice(0, 20);
+  if (!from || !to) throw new Error('이름을 적어 주세요.');
+  if (/[,]/.test(to)) throw new Error('이름에 쉼표는 쓸 수 없어요.');
+  var cfg = readCfg_();
+  var mem = (cfg['구성원'] || '').split(',').map(trim_).filter(String);
+  if (mem.indexOf(from) < 0) throw new Error('구성원 목록에 없는 이름이에요.');
+  if (from === to) return { ok: true };
+  if (mem.indexOf(to) >= 0) throw new Error('이미 같은 이름의 구성원이 있어요.');
+  writeCfg_('구성원', mem.map(function (m) { return m === from ? to : m; }).join(','));
+  var kd = (cfg['자녀'] || '').split(',').map(trim_).filter(String);
+  writeCfg_('자녀', kd.map(function (m) { return m === from ? to : m; }).join(','));
+  var fix = function (sh, cols) {
+    var n = sh.getLastRow(); if (n < 2) return 0;
+    var c = 0;
+    cols.forEach(function (col) {
+      var rg = sh.getRange(2, col, n - 1, 1), v = rg.getValues(), ch = false;
+      v.forEach(function (r) { if (String(r[0]) === from) { r[0] = to; ch = true; c++; } });
+      if (ch) rg.setValues(v);
+    });
+    return c;
+  };
+  var n = fix(sheet_(SH_TX, TX_HEAD), [8]);
+  fix(wishSheet_(), [10, 13]);
+  return { ok: true, changed: n };
 }
 
 function saveRec_(list) {
@@ -783,7 +816,8 @@ function readWish_() {
     var iso = function (v) { return v instanceof Date ? v.toISOString() : String(v || ''); };
     return { id: String(r[0]), name: String(r[1]), price: Number(r[2]) || 0, link: String(r[3] || ''), kind: String(r[4] || ''), memo: String(r[5] || ''),
       cond: String(r[6] || '없음'), target: Number(r[7]) || 0, status: String(r[8] || '원함'), by: String(r[9] || ''), msg: String(r[10] || ''),
-      reply: String(r[11] || ''), handledBy: String(r[12] || ''), created: iso(r[13]), handled: iso(r[14]) };
+      reply: String(r[11] || ''), handledBy: String(r[12] || ''), created: iso(r[13]), handled: iso(r[14]),
+      reason: String(r[15] || ''), needBy: r[16] instanceof Date ? fmtDate_(r[16]) : String(r[16] || '') };
   });
 }
 
@@ -795,7 +829,8 @@ function saveWish_(w) {
     String(w.kind || '').slice(0, 20), String(w.memo || '').slice(0, 300), ['없음', '저축', '부수입', '남은예산'].indexOf(w.cond) >= 0 ? w.cond : '없음',
     Math.max(0, Math.round(Number(w.target) || 0)), WISH_STATUS.indexOf(w.status) >= 0 ? w.status : '원함', String(w.by || '').slice(0, 20),
     String(w.msg || '').slice(0, 300), String(w.reply || '').slice(0, 300), String(w.handledBy || '').slice(0, 20),
-    w.created ? new Date(w.created) : new Date(), w.handled ? new Date(w.handled) : ''];
+    w.created ? new Date(w.created) : new Date(), w.handled ? new Date(w.handled) : '',
+    String(w.reason || '').slice(0, 300), /^\d{4}-\d{2}-\d{2}$/.test(String(w.needBy || '')) ? String(w.needBy) : ''];
   var sh = wishSheet_();
   var n = sh.getLastRow();
   if (n >= 2) {
@@ -805,7 +840,7 @@ function saveWish_(w) {
     }
   }
   sh.getRange(sh.getLastRow() + 1, 1, 1, WISH_HEAD.length).setValues([row]);
-  sh.getRange('C:C').setNumberFormat('#,##0'); sh.getRange('H:H').setNumberFormat('#,##0'); sh.getRange('A:A').setNumberFormat('@');
+  sh.getRange('C:C').setNumberFormat('#,##0'); sh.getRange('H:H').setNumberFormat('#,##0'); sh.getRange('A:A').setNumberFormat('@'); sh.getRange('Q:Q').setNumberFormat('@');
   return { ok: true };
 }
 
