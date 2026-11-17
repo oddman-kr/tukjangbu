@@ -184,6 +184,7 @@ public class MainActivity extends Activity {
     /* ---------- 앱 기능: 진동, 상태바, 공유, 잠금 ---------- */
 
     void authDone(boolean ok, String reason) {
+        authBusy = false;
         js0("window.__app && window.__app.authResult(" + ok + "," + JSONObject.quote(reason == null ? "" : reason) + ")");
     }
 
@@ -196,8 +197,21 @@ public class MainActivity extends Activity {
         return km != null && km.isDeviceSecure();
     }
 
+    boolean authBusy = false;
+
     void startAuth() {
-        if (!deviceSecure()) { authDone(false, "no-lock"); return; }
+        if (authBusy) return;
+        authBusy = true;
+        try {
+            startAuthInner();
+        } catch (Throwable e) {
+            authBusy = false;
+            authDone(false, "error: " + e.getMessage());
+        }
+    }
+
+    void startAuthInner() {
+        if (!deviceSecure()) { authBusy = false; authDone(false, "no-lock"); return; }
         if (Build.VERSION.SDK_INT >= 30) {
             BiometricPrompt bp = new BiometricPrompt.Builder(this)
                 .setTitle("가계부 잠금 해제")

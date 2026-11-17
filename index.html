@@ -197,7 +197,7 @@ h3{font-size:15px;margin:0 0 8px}
 </div>
 <div class="sheet-bg" id="sheetBg"><div class="sheet" id="sheet" role="dialog" aria-modal="true" aria-label="내역 입력"></div></div>
 <div class="toast" id="toast" role="status" aria-live="polite" style="white-space:pre-line"></div>
-<div class="lockscreen hidden" id="lock"><div style="font-size:44px">🔒</div><h2 style="margin:0">가계부가 잠겨 있어요</h2><div class="muted sm">지문, 얼굴 또는 화면 잠금으로 열 수 있어요.</div><button class="btn pri" id="unlockBtn" style="width:220px">잠금 해제</button></div>
+<div class="lockscreen hidden" id="lock"><div style="font-size:44px">🔒</div><h2 style="margin:0">가계부가 잠겨 있어요</h2><div class="muted sm">지문, 얼굴 또는 화면 잠금으로 열 수 있어요.</div><button class="btn pri" id="unlockBtn" style="width:240px">지문·얼굴로 열기</button><div class="faint sm" id="lockMsg" style="max-width:300px"></div><div id="pinUnlock" style="display:flex;flex-direction:column;gap:8px;align-items:center;margin-top:6px"><input class="inp pin" id="lockPin" type="password" inputmode="numeric" maxlength="8" placeholder="가족 비밀번호" style="width:240px;margin:0;font-size:22px;letter-spacing:6px" aria-label="가족 비밀번호"><button class="btn ghost" id="lockPinGo" style="width:240px">비밀번호로 열기</button></div></div>
 
 <script>
 /* 한국어 지출 문장 파서: "어제 점심 김밥천국 8천원, 커피 4500원 카드" → 항목 배열 */
@@ -1184,6 +1184,7 @@ function bindSettings(){
   $('#sReload').onclick = function(){ load().then(flush); };
   var tl = $('#tLock'); if (tl) tl.onchange = function(){
     if (tl.checked && !NativeApp.canLock()) { tl.checked = false; return toast('휴대폰에 화면 잠금(지문·PIN 등)을 먼저 설정해 주세요.'); }
+    if (tl.checked && !bioOK()) { tl.checked = false; return toast('앱을 최신 버전으로 업데이트한 뒤에 켤 수 있어요.'); }
     LS.set('appLock', tl.checked); toast(tl.checked ? '다음에 열 때부터 잠금을 확인해요' : '앱 잠금을 껐어요');
   };
   $('#exMonth').onclick = function(){ exportCSV(txOfMonth(ym(new Date())), '가계부_' + ym(new Date()) + '.csv'); };
@@ -1230,21 +1231,43 @@ function checkUpdate(manual){
 
 /* ---------- 앱 잠금 ---------- */
 window.__app = {
-  authResult: function(ok){ if (ok) { unlock(); } else { $('#unlockBtn').textContent = '다시 시도'; } },
+  authResult: function(ok, reason){
+    LS.del('authPending');
+    if (ok) return unlock();
+    if (reason === 'no-lock') { LS.set('appLock', false); unlock(); return toast('휴대폰 화면 잠금이 꺼져 있어서 앱 잠금을 껐어요.'); }
+    $('#unlockBtn').textContent = '다시 시도';
+    $('#lockMsg').textContent = '확인이 취소됐어요. 다시 시도하거나 가족 비밀번호로 열어 주세요.';
+  },
   toast: function(m){ toast(m); }
 };
 function lockOn(){ return !!(window.NativeApp && NativeApp.canLock && LS.get('appLock', false)); }
+function bioOK(){ return appVersion() >= 6; } // 5 이하 앱은 지문 권한이 빠져 있어 비밀번호로만 열기
+function askBio(){
+  if (!bioOK()) return;
+  LS.set('authPending', Date.now());
+  try { NativeApp.authenticate(); } catch (e) { LS.del('authPending'); $('#lockMsg').textContent = '지문 확인을 시작하지 못했어요. 비밀번호로 열어 주세요.'; }
+}
 function lock(){
   if (!lockOn()) return false;
   S.locked = true; $('#lock').classList.remove('hidden');
-  try { NativeApp.authenticate(); } catch (e) {}
+  $('#lockMsg').textContent = ''; $('#lockPin').value = '';
+  $('#unlockBtn').style.display = bioOK() ? '' : 'none';
+  if (!bioOK()) { $('#lockMsg').textContent = '앱을 최신 버전으로 업데이트하면 지문으로 열 수 있어요.'; return true; }
+  if (LS.get('authPending', 0)) { LS.del('authPending'); $('#lockMsg').textContent = '지난번 지문 확인이 끝나지 않았어요. 버튼을 눌러 다시 시도하거나 비밀번호로 열어 주세요.'; return true; }
+  setTimeout(function(){ if (S.locked && document.visibilityState === 'visible') askBio(); }, 500);
   return true;
 }
 function unlock(){
-  S.locked = false; $('#lock').classList.add('hidden'); $('#unlockBtn').textContent = '잠금 해제';
+  S.locked = false; $('#lock').classList.add('hidden'); $('#unlockBtn').textContent = '지문·얼굴로 열기';
   if (S.afterUnlock) { var f = S.afterUnlock; S.afterUnlock = null; f(); }
 }
-$('#unlockBtn').onclick = function(){ try { NativeApp.authenticate(); } catch (e) {} };
+$('#unlockBtn').onclick = function(){ askBio(); };
+$('#lockPinGo').onclick = function(){
+  var v = $('#lockPin').value.trim();
+  if (v && v === String(S.pin)) { unlock(); toast('비밀번호로 열었어요. 지문 잠금이 계속 안 되면 설정에서 앱 잠금을 꺼 주세요.', null, null, 4500); }
+  else { $('#lockMsg').textContent = '가족 비밀번호가 맞지 않아요.'; $('#lockPin').value = ''; }
+};
+$('#lockPin').onkeydown = function(e){ if (e.key === 'Enter') $('#lockPinGo').click(); };
 
 /* ---------- 뒤로가기 (안드로이드) ---------- */
 window.__onBack = function(){
