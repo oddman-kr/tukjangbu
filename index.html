@@ -534,7 +534,7 @@ function showGate(){
         if ($('#pinIn2').value.trim() !== p) return toast('두 번 입력한 비밀번호가 달라요.');
         call('setPin', { pin: p }).then(function(){ S.pin = p; LS.set('pin', p); start(); }).catch(function(e){ toast(e.message); });
       } else {
-        S.pin = p; call('load', { months: 1 }).then(function(){ LS.set('pin', p); start(); }).catch(function(e){ S.pin = ''; toast(e.code === 'PIN' ? '비밀번호가 맞지 않아요.' : '연결 오류: ' + e.message); });
+        S.pin = p; call('load', { months: 13 }).then(function(d){ LS.set('pin', p); S.data = d; LS.set('cache', d); start(true); }).catch(function(e){ S.pin = ''; toast(e.code === 'PIN' ? '비밀번호가 맞지 않아요.' : '연결 오류: ' + e.message); });
       }
     };
     $('#pinGo').onclick = go;
@@ -551,8 +551,9 @@ function showWho(){
   g.querySelectorAll('[data-m]').forEach(function(b){ b.onclick = function(){ S.me = b.dataset.m; LS.set('me', S.me); g.classList.add('hidden'); $('#app').classList.remove('hidden'); render(); }; });
 }
 
-function start(){
+function start(fresh){
   $('#gate').classList.add('hidden'); $('#app').classList.remove('hidden');
+  if (fresh && S.data) { if (!S.me && S.data.cfg.members.length) return showWho(); render(); flush(); return; }
   var q = location.search;
   if (S.data) { render(); maybeAutoListen(/voice=1/.test(q)); } else $('#view').innerHTML = '<div class="loading">불러오는 중…</div>';
   if (/manual=1/.test(q) && S.data) openEdit(null);

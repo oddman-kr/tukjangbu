@@ -316,6 +316,7 @@ function saveCfg_(p) {
 }
 
 function saveRec_(list) {
+  CacheService.getScriptCache().remove('recDone_' + Utilities.formatDate(new Date(), TZ, 'yyyyMMdd'));
   var sh = sheet_(SH_REC, REC_HEAD);
   var rows = list.filter(function (r) { return r && r.id && r.amount; }).map(function (r) {
     return [String(r.id), ['지출', '수입', '저축'].indexOf(r.type) >= 0 ? r.type : '지출', String(r.category || ''), String(r.desc || '').slice(0, 100),
@@ -329,7 +330,11 @@ function saveRec_(list) {
 
 /** 고정지출: 이번 달 지정일이 지났고 아직 기록이 없으면 자동으로 한 줄 추가 */
 function runRecurring_() {
+  var cache = CacheService.getScriptCache();
+  var dayKey = 'recDone_' + Utilities.formatDate(new Date(), TZ, 'yyyyMMdd');
+  if (cache.get(dayKey)) return; // 오늘 이미 확인함 → 시트 읽기 생략(속도)
   var rec = readRec_().filter(function (r) { return r.active && r.amount; });
+  cache.put(dayKey, '1', 21600);
   if (!rec.length) return;
   withLock_(function () {
     var now = new Date();
