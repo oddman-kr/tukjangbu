@@ -1224,7 +1224,7 @@ function toast(msg, actLabel, actFn, ms){
   t.classList.add('on'); clearTimeout(toast._t); toast._t = setTimeout(function(){ t.classList.remove('on'); }, ms || (actFn ? 5000 : 2400));
 }
 function haptic(){ try { if (window.NativeApp && NativeApp.vibrate) NativeApp.vibrate(); else if (navigator.vibrate) navigator.vibrate(12); } catch (e) {} }
-var WEB_VER = '2026.11.18p';
+var WEB_VER = '2026.11.18q';
 (function(){ try { var v = window.NativeApp ? Number(NativeApp.version()) : 0; var a = (navigator.userAgent.match(/Android (\d+)/) || [])[1]; if (v && v <= 6 && Number(a) >= 15) document.documentElement.classList.add('old-native'); } catch (e) {} })();
 var errShown = 0;
 function logErr(kind, msg, where){
@@ -2833,6 +2833,20 @@ function upcomingRec(){
     return d <= r.remind && !seen[r.id + '_' + nx] ? { r: r, date: nx, d: d } : null;
   }).filter(Boolean).sort(function(a, b){ return a.d - b.d; });
 }
+// 대부분의 집에서 나가는 정기 지출: 골라서 금액만 넣으면 돼요 [이름, 주기, 몇마다, 기준 월(0=이번 달부터), 일, 종류]
+var REC_PRESETS = [
+  ['월세·관리비', '월', 1, 0, 25], ['통신비', '월', 1, 0, 20], ['인터넷·TV', '월', 1, 0, 20], ['보험료', '월', 1, 0, 25],
+  ['대출 이자', '월', 1, 0, 15], ['OTT 구독', '월', 1, 0, 10], ['정수기·렌탈', '월', 1, 0, 15], ['학원비', '월', 1, 0, 5],
+  ['적금', '월', 1, 0, 25, '저축'], ['모임 회비', '월', 1, 0, 1], ['자동차 보험', '년', 1, 0, 1], ['자동차세', '월', 6, 12, 16],
+  ['카드 연회비', '년', 1, 0, 1], ['재산세', '년', 1, 7, 16], ['주민세', '년', 1, 8, 16], ['종합소득세', '년', 1, 5, 31], ['건강검진', '년', 2, 0, 1]
+];
+function presetStart(mo, day){
+  var t = new Date(); t.setHours(0, 0, 0, 0);
+  var y = t.getFullYear(), m0 = mo ? mo - 1 : t.getMonth();
+  var d = new Date(y, m0, Math.min(day, new Date(y, m0 + 1, 0).getDate()));
+  if (d < t) { if (mo) y++; else m0++; d = new Date(y, m0, Math.min(day, new Date(y, m0 + 1, 0).getDate())); }
+  return ymd(d);
+}
 function openRec(r0){
   var isNew = !r0, sh = $('#sheet');
   var e = r0 ? JSON.parse(JSON.stringify(r0)) : { id: uid(), desc: '', amount: 0, type: '지출', category: (cats('지출')[0] || {}).name || '', method: LS.get('lastMethod', '') || methods()[0] || '', active: true, cycle: '월', every: 1, start: ymd(new Date()), remind: 0, created: ymd(new Date()) };
@@ -2842,7 +2856,8 @@ function openRec(r0){
     var occ = Recur.between(e, ymd(new Date()), ymd(new Date(Date.now() + 800 * 864e5))).slice(0, 3);
     sh.innerHTML = '<div class="row between"><h3 style="margin:0">' + (isNew ? '정기 지출 추가' : '정기 지출 고치기') + '</h3><button class="x" id="rClose" aria-label="닫기" style="font-size:24px">×</button></div>' +
       '<div class="seg" style="margin-top:12px">' + TYPES.map(function(x){ return '<button data-rty="' + x + '" class="' + (x === e.type ? 'on' : '') + '">' + x + '</button>'; }).join('') + '</div>' +
-      '<div class="fld"><label>내용</label><input class="inp" id="rDesc" value="' + esc(e.desc) + '" placeholder="예) 자동차세, 종합소득세, 건강검진, 넷플릭스"></div>' +
+      (isNew ? '<div class="fld"><label>자주 나가는 항목 <span class="faint xs">고르면 주기·날짜가 채워져요. 금액만 넣으세요</span></label><div class="chips">' + REC_PRESETS.map(function(x, i){ return '<button class="chip' + (e.desc === x[0] ? ' on' : '') + '" data-rp="' + i + '">' + esc(x[0]) + '</button>'; }).join('') + '</div></div>' : '') +
+      '<div class="fld"><label>내용' + (isNew ? ' <span class="faint xs">목록에 없으면 직접 적어도 돼요</span>' : '') + '</label><input class="inp" id="rDesc" value="' + esc(e.desc) + '" placeholder="예) 자동차세, 종합소득세, 건강검진, 넷플릭스"></div>' +
       '<div class="fld"><label>금액 (원)</label><input class="inp num" id="rAmt" inputmode="numeric" value="' + (e.amount ? won(e.amount) : '') + '" placeholder="0"></div>' +
       '<div class="fld"><label>얼마나 자주?</label><div class="seg">' + [['주', '매주'], ['월', '매달'], ['년', '매년'], ['일', '며칠마다']].map(function(o){ return '<button data-rcy="' + o[0] + '" class="' + (o[0] === e.cycle ? 'on' : '') + '">' + o[1] + '</button>'; }).join('') + '</div>' +
         '<div class="row" style="gap:8px;margin-top:8px;align-items:center"><input class="inp num" id="rEvery" inputmode="numeric" style="width:80px;text-align:center" value="' + e.every + '"><span class="sm">' + UNIT[e.cycle] + '마다</span><span class="faint xs grow">' + (e.cycle === '월' ? '예) 자동차세는 6달마다' : e.cycle === '년' ? '예) 건강검진은 2년마다' : e.cycle === '일' ? '예) 28일마다' : '예) 격주는 2주마다') + '</span></div></div>' +
@@ -2856,6 +2871,14 @@ function openRec(r0){
     sh.querySelectorAll('[data-rty]').forEach(function(b){ b.onclick = function(){ pull(); e.type = b.dataset.rty; e.category = (cats(e.type)[0] || {}).name || ''; draw(); }; });
     sh.querySelectorAll('[data-rcy]').forEach(function(b){ b.onclick = function(){ pull(); e.cycle = b.dataset.rcy; if (e.cycle === '일' && e.every < 2) e.every = 7; else if (e.cycle !== '일' && e.every > 24) e.every = 1; draw(); }; });
     // 다시 그리지 않고 안내 문구만 바꿔요 (입력 중 버튼이 밀리지 않게)
+    sh.querySelectorAll('[data-rp]').forEach(function(b){ b.onclick = function(){
+      pull(); var x = REC_PRESETS[+b.dataset.rp];
+      e.desc = x[0]; e.cycle = x[1]; e.every = x[2]; e.start = presetStart(x[3], x[4]); e.type = x[5] || '지출';
+      var g = Parser.guessCategory(e.desc, e.desc, cats(), history());
+      e.category = g.category && g.type === e.type ? g.category : (cats(e.type)[0] || {}).name || '';
+      if (!e.remind) e.remind = e.cycle === '월' && e.every === 1 ? 0 : 7;
+      draw(); setTimeout(function(){ var a = $('#rAmt'); if (a) a.focus(); }, 50);
+    }; });
     $('#rEvery').oninput = $('#rStart').oninput = $('#rEvery').onchange = $('#rStart').onchange = function(){
       pull(); var occ2 = Recur.between(e, ymd(new Date()), ymd(new Date(Date.now() + 800 * 864e5))).slice(0, 3);
       sh.querySelector('.tip').textContent = Recur.label(e) + (occ2.length ? ' · 다음: ' + occ2.map(function(d){ return d.slice(2).replace(/-/g, '.'); }).join(', ') : '');
