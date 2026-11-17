@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
 <title>툭장부</title>
-<meta name="theme-color" content="#0F766E">
+<meta name="theme-color" content="#2F4B7C">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="툭장부">
@@ -527,13 +527,13 @@ var Receipt = (function () {
 <style>
 :root{
   --bg:#F6F5F1; --card:#FFFFFF; --ink:#1C1B19; --ink2:#5F5C55; --ink3:#9A968C; --line:#E7E4DC;
-  --pri:#0F766E; --pri-ink:#FFFFFF; --pri-soft:#E2F1EE; --exp:#1C1B19; --inc:#2459C9; --sav:#0F7A3D;
+  --pri:#2F4B7C; --pri-ink:#FFFFFF; --pri-soft:#E7EDF6; --exp:#1C1B19; --inc:#2459C9; --sav:#0F7A3D;
   --warn:#B45309; --warn-soft:#FDF0DC; --bad:#C2410C; --bad-soft:#FCE6DB; --chip:#F0EEE8;
   --shadow:0 1px 2px rgba(0,0,0,.05),0 4px 16px rgba(0,0,0,.04); --r:16px;
 }
 @media (prefers-color-scheme: dark){
   :root{ --bg:#141413; --card:#1F1E1C; --ink:#F2F0EA; --ink2:#B9B5AB; --ink3:#7E7A71; --line:#2E2C29;
-    --pri:#2DD4BF; --pri-ink:#062A26; --pri-soft:#143430; --exp:#F2F0EA; --inc:#7FA7FF; --sav:#5BD08A;
+    --pri:#9DB8EA; --pri-ink:#0E1A33; --pri-soft:#1C2A44; --exp:#F2F0EA; --inc:#7FA7FF; --sav:#5BD08A;
     --warn:#F5B556; --warn-soft:#3A2D16; --bad:#FF8A5C; --bad-soft:#3D2117; --chip:#2A2926; --shadow:none; }
 }
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
@@ -561,7 +561,7 @@ textarea.say{width:100%;min-height:64px;border:1.5px solid var(--line);border-ra
 textarea.say:focus{border-color:var(--pri)}
 .saybox{position:relative}
 .voice{display:flex;align-items:center;gap:14px;margin:4px 0 12px}
-.micbig{flex:none;width:76px;height:76px;border-radius:50%;border:0;background:var(--pri);color:var(--pri-ink);display:flex;align-items:center;justify-content:center;box-shadow:0 6px 18px rgba(15,118,110,.28);cursor:pointer;position:relative}
+.micbig{flex:none;width:76px;height:76px;border-radius:50%;border:0;background:var(--pri);color:var(--pri-ink);display:flex;align-items:center;justify-content:center;box-shadow:0 6px 18px rgba(47,75,124,.28);cursor:pointer;position:relative}
 .micbig svg{width:34px;height:34px}
 .micbig.rec{background:var(--bad);box-shadow:0 0 0 0 rgba(194,65,12,.5);animation:ring 1.4s infinite}
 @keyframes ring{0%{box-shadow:0 0 0 0 rgba(194,65,12,.45)}70%{box-shadow:0 0 0 18px rgba(194,65,12,0)}100%{box-shadow:0 0 0 0 rgba(194,65,12,0)}}
@@ -581,7 +581,7 @@ textarea.say:focus{border-color:var(--pri)}
 .spin{width:18px;height:18px;border-radius:50%;border:2.5px solid var(--line);border-top-color:var(--pri);animation:sp .8s linear infinite;flex:none}
 @keyframes sp{to{transform:rotate(360deg)}}
 .toast .tact{margin-left:12px;border:0;background:transparent;color:#5EEAD4;font-weight:700;padding:6px 4px;pointer-events:auto;flex:none}
-@media (prefers-color-scheme: dark){ .toast .tact{color:#0F766E} }
+@media (prefers-color-scheme: dark){ .toast .tact{color:#2F4B7C} }
 .toast.has-act{pointer-events:auto;display:flex;align-items:center;width:min(92vw,440px)}
 .toast.has-act span{flex:1;min-width:0}
 .banner{display:flex;align-items:center;gap:10px;background:var(--pri-soft);border-radius:14px;padding:12px 14px;margin:12px 0;font-size:14px}
@@ -622,7 +622,7 @@ textarea.say:focus{border-color:var(--pri)}
 .item.locked .t{color:var(--ink2)}
 .flex-row{padding:6px 0}
 .addrow{display:flex;gap:8px;margin-top:10px;align-items:center}
-.micsm{flex:none;width:48px;height:48px;border-radius:50%;border:0;background:var(--pri);color:var(--pri-ink);display:flex;align-items:center;justify-content:center;cursor:pointer;box-shadow:0 2px 6px rgba(15,118,110,.25)}
+.micsm{flex:none;width:48px;height:48px;border-radius:50%;border:0;background:var(--pri);color:var(--pri-ink);display:flex;align-items:center;justify-content:center;cursor:pointer;box-shadow:0 2px 6px rgba(47,75,124,.25)}
 .micsm svg{width:22px;height:22px}
 .micsm.rec{background:var(--bad);animation:pulse 1.2s infinite}
 @keyframes pulse{0%{box-shadow:0 0 0 0 rgba(194,65,12,.45)}100%{box-shadow:0 0 0 14px rgba(194,65,12,0)}}
@@ -770,7 +770,7 @@ html,body{font-family:"Pretendard","Pretendard Variable","Apple SD Gothic Neo","
 .top{padding:10px 0 6px}
 .top h1{display:flex;align-items:center;gap:8px;font-size:21px;font-weight:800;letter-spacing:-.6px}
 .top h1 .logo{width:30px;height:30px;flex:none;border-radius:9px}
-.gatelogo .logo{width:76px;height:76px;border-radius:22px;box-shadow:0 10px 30px rgba(15,118,110,.3)}
+.gatelogo .logo{width:76px;height:76px;border-radius:22px;box-shadow:0 10px 30px rgba(47,75,124,.3)}
 .card{border-radius:var(--r);padding:18px;border-color:transparent}
 @media (prefers-color-scheme: dark){ .card{border-color:var(--line)} }
 .card h3{font-size:16px;font-weight:750;letter-spacing:-.3px}
@@ -782,7 +782,7 @@ html,body{font-family:"Pretendard","Pretendard Variable","Apple SD Gothic Neo","
 .item{padding:12px 2px}
 .item .t{font-weight:650}
 /* 홈 요약 카드: 브랜드 색 */
-.card.hero{background:linear-gradient(145deg,#14A08F 0%,#0F766E 55%,#0B5E57 100%);color:#fff;border:0;box-shadow:0 12px 30px rgba(15,118,110,.28)}
+.card.hero{background:linear-gradient(145deg,#41639E 0%,#2F4B7C 55%,#22375C 100%);color:#fff;border:0;box-shadow:0 12px 30px rgba(47,75,124,.28)}
 .card.hero .muted,.card.hero .faint{color:rgba(255,255,255,.78)}
 .card.hero .big{font-size:34px}
 .card.hero .bar{background:rgba(255,255,255,.22)}
@@ -793,12 +793,12 @@ html,body{font-family:"Pretendard","Pretendard Variable","Apple SD Gothic Neo","
 .card.hero .sumrow .v,.card.hero .amt-수입,.card.hero .amt-저축{color:#fff}
 .card.hero .seg{background:rgba(0,0,0,.16)}
 .card.hero .seg button{color:rgba(255,255,255,.8)}
-.card.hero .seg button.on{background:#fff;color:#0B5E57;box-shadow:none}
+.card.hero .seg button.on{background:#fff;color:#22375C;box-shadow:none}
 .card.hero .fc{background:rgba(0,0,0,.14);color:#fff}
 .card.hero b[style*="--bad"]{color:#FFD6C7 !important}
 .card.hero .num b,.card.hero b{color:#fff}
 /* 마이크 */
-.micbig{width:84px;height:84px;background:radial-gradient(circle at 35% 30%,#1FB5A2,#0F766E 70%);box-shadow:0 0 0 8px var(--pri-soft),0 10px 24px rgba(15,118,110,.32)}
+.micbig{width:84px;height:84px;background:radial-gradient(circle at 35% 30%,#4F74B3,#2F4B7C 70%);box-shadow:0 0 0 8px var(--pri-soft),0 10px 24px rgba(47,75,124,.32)}
 .voice{gap:16px;margin:6px 0 14px}
 .vt b{font-size:17px;font-weight:750}
 /* 아래 메뉴 */
@@ -816,7 +816,7 @@ html,body{font-family:"Pretendard","Pretendard Variable","Apple SD Gothic Neo","
 <div id="app" class="hidden">
   <div class="wrap">
     <div class="top">
-      <h1 id="title"><svg class="logo" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">  <defs>    <linearGradient id="lgbg" x1="0" y1="0" x2="1" y2="1">      <stop offset="0" stop-color="#14A08F"/>      <stop offset="1" stop-color="#0B5E57"/>    </linearGradient>    <linearGradient id="lgcoin" x1="0" y1="0" x2="0" y2="1">      <stop offset="0" stop-color="#FFD27A"/>      <stop offset="1" stop-color="#F2A93B"/>    </linearGradient>  </defs>  <rect width="512" height="512" rx="116" fill="url(#lgbg)"/>    <rect x="100" y="140" width="290" height="214" rx="68" fill="#FFFFFF"/>  <path d="M150 330 L132 414 Q130 424 140 419 L232 350 Z" fill="#FFFFFF"/>    <rect x="148" y="214" width="170" height="24" rx="12" fill="#0F766E" opacity=".9"/>  <rect x="148" y="262" width="112" height="24" rx="12" fill="#0F766E" opacity=".35"/>    <circle cx="356" cy="162" r="58" fill="url(#lgcoin)" stroke="#FFFFFF" stroke-width="10"/>  <rect x="348" y="134" width="16" height="56" rx="8" fill="#B8741A" opacity=".55"/>    <path d="M424 92l22-22M436 132l30-6M398 72l6-30" stroke="#FFFFFF" stroke-width="12" stroke-linecap="round" opacity=".9"/></svg><span>툭장부</span></h1>
+      <h1 id="title"><svg class="logo" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200"><rect width="200" height="200" rx="46" fill="#FFF8EF"/><g transform="rotate(-6 100 106)" fill="none" stroke="#C2362F"><rect x="27" y="29" width="146" height="146" rx="26" stroke-width="10"/><g stroke-width="12.5" stroke-linecap="square" stroke-linejoin="miter" transform="translate(0 2)"><path d="M134 56H66V92H134"/><path d="M66 74H128"/><path d="M50 112H150"/><path d="M100 112V124"/><path d="M68 140H132V156"/></g></g></svg><span>툭장부</span></h1>
       <div class="sync" id="sync"><span class="dot"></span><span>동기화됨</span></div>
     </div>
     <div id="view"></div>
@@ -1225,7 +1225,7 @@ function toast(msg, actLabel, actFn, ms){
   t.classList.add('on'); clearTimeout(toast._t); toast._t = setTimeout(function(){ t.classList.remove('on'); }, ms || (actFn ? 5000 : 2400));
 }
 function haptic(){ try { if (window.NativeApp && NativeApp.vibrate) NativeApp.vibrate(); else if (navigator.vibrate) navigator.vibrate(12); } catch (e) {} }
-var WEB_VER = '2026.11.18q';
+var WEB_VER = '2026.11.18r';
 (function(){ try { var v = window.NativeApp ? Number(NativeApp.version()) : 0; var a = (navigator.userAgent.match(/Android (\d+)/) || [])[1]; if (v && v <= 6 && Number(a) >= 15) document.documentElement.classList.add('old-native'); } catch (e) {} })();
 var errShown = 0;
 function logErr(kind, msg, where){
@@ -1332,7 +1332,7 @@ function isFixed(c){ return c.fixed != null ? !!c.fixed : FIXED_RE.test(c.name);
 function cards(){ return S.data && S.data.cfg.cards ? S.data.cfg.cards : []; }
 function cardOf(name){ return cards().filter(function(c){ return c.name === name; })[0]; }
 var PAY_KINDS = ['신용', '체크', '현금', '계좌이체', '페이', '기타'];
-var PAY_COLORS = ['#0F766E', '#2459C9', '#C2410C', '#9333EA', '#BE185D', '#B45309', '#0F7A3D', '#1C1B19', '#64748B', '#0891B2'];
+var PAY_COLORS = ['#2F4B7C', '#2459C9', '#C2410C', '#9333EA', '#BE185D', '#B45309', '#0F7A3D', '#1C1B19', '#64748B', '#0891B2'];
 function guessKind(n){ return /체크/.test(n) ? '체크' : /현금/.test(n) ? '현금' : /이체|계좌|송금/.test(n) ? '계좌이체' : /페이/.test(n) ? '페이' : '신용'; }
 // 결제수단 정보: 등록한 카드면 그 정보, 아니면 이름으로 짐작
 function payInfo(n){ var c = cardOf(n) || {}; return { name: n, kind: c.kind || guessKind(n), color: c.color || '#9A968C', owner: c.owner || '', target: c.target || 0, benefits: c.benefits || '', exclude: c.exclude || [], memo: c.memo || '' }; }
@@ -1412,7 +1412,7 @@ function showGate(){
   g.innerHTML = '<div class="loading">확인 중…</div>';
   call('status').then(function(r){
     var first = !r.hasPin;
-    g.innerHTML = '<div class="gatelogo"><svg class="logo" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">  <defs>    <linearGradient id="glbg" x1="0" y1="0" x2="1" y2="1">      <stop offset="0" stop-color="#14A08F"/>      <stop offset="1" stop-color="#0B5E57"/>    </linearGradient>    <linearGradient id="glcoin" x1="0" y1="0" x2="0" y2="1">      <stop offset="0" stop-color="#FFD27A"/>      <stop offset="1" stop-color="#F2A93B"/>    </linearGradient>  </defs>  <rect width="512" height="512" rx="116" fill="url(#glbg)"/>    <rect x="100" y="140" width="290" height="214" rx="68" fill="#FFFFFF"/>  <path d="M150 330 L132 414 Q130 424 140 419 L232 350 Z" fill="#FFFFFF"/>    <rect x="148" y="214" width="170" height="24" rx="12" fill="#0F766E" opacity=".9"/>  <rect x="148" y="262" width="112" height="24" rx="12" fill="#0F766E" opacity=".35"/>    <circle cx="356" cy="162" r="58" fill="url(#glcoin)" stroke="#FFFFFF" stroke-width="10"/>  <rect x="348" y="134" width="16" height="56" rx="8" fill="#B8741A" opacity=".55"/>    <path d="M424 92l22-22M436 132l30-6M398 72l6-30" stroke="#FFFFFF" stroke-width="12" stroke-linecap="round" opacity=".9"/></svg></div><h2>툭장부</h2><div class="muted sm" style="margin-top:-4px">말로 툭, 가족 가계부</div>' +
+    g.innerHTML = '<div class="gatelogo"><svg class="logo" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200"><rect width="200" height="200" rx="46" fill="#FFF8EF"/><g transform="rotate(-6 100 106)" fill="none" stroke="#C2362F"><rect x="27" y="29" width="146" height="146" rx="26" stroke-width="10"/><g stroke-width="12.5" stroke-linecap="square" stroke-linejoin="miter" transform="translate(0 2)"><path d="M134 56H66V92H134"/><path d="M66 74H128"/><path d="M50 112H150"/><path d="M100 112V124"/><path d="M68 140H132V156"/></g></g></svg></div><h2>툭장부</h2><div class="muted sm" style="margin-top:-4px">말로 툭, 가족 가계부</div>' +
       '<div class="muted">' + (first ? '처음이시네요. 가족이 함께 쓸 <b>비밀번호</b>(숫자 4~8자리)를 정해 주세요.' : '가족 비밀번호를 입력해 주세요.') + '</div>' +
       '<input id="pinIn" class="inp pin" type="password" inputmode="numeric" maxlength="8" autocomplete="off">' +
       (first ? '<input id="pinIn2" class="inp pin" style="margin-top:0" type="password" inputmode="numeric" maxlength="8" placeholder="한 번 더">' : '') +

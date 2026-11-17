@@ -1,3 +1,9 @@
-<vector xmlns:android="http://schemas.android.com/apk/res/android" android:width="24dp" android:height="24dp" android:viewportWidth="24" android:viewportHeight="24">
-    <path android:fillColor="#FFFFFFFF" android:pathData="M6,5h10a4,4 0,0 1,4 4v5a4,4 0,0 1,-4 4h-6l-4,3v-3a4,4 0,0 1,-4 -4v-5a4,4 0,0 1,4 -4zM7,10v2h8v-2zM7,13v2h5v-2z"/>
+<!-- 알림 아이콘: 툭 도장(A안) 흰색 실루엣 -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android" android:width="24dp" android:height="24dp" android:viewportWidth="200" android:viewportHeight="200">
+    <group android:rotation="-6" android:pivotX="100" android:pivotY="106">
+        <path android:strokeColor="#FFFFFFFF" android:strokeWidth="13" android:fillColor="#00000000"
+            android:pathData="M53,29H147A26,26 0,0 1,173 55V149A26,26 0,0 1,147 175H53A26,26 0,0 1,27 149V55A26,26 0,0 1,53 29Z"/>
+        <path android:strokeColor="#FFFFFFFF" android:strokeWidth="16" android:fillColor="#00000000" android:strokeLineCap="square"
+            android:pathData="M134,58H66V94H134M66,76H128M50,114H150M100,114V126M68,142H132V158"/>
+    </group>
 </vector>

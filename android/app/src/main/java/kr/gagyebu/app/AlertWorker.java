@@ -129,7 +129,7 @@ public class AlertWorker extends Worker {
         i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_SINGLE_TOP);
         PendingIntent pi = PendingIntent.getActivity(ctx, id, i, PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
         NotificationCompat.Builder nb = new NotificationCompat.Builder(ctx, CHANNEL)
-            .setSmallIcon(R.drawable.ic_stat).setColor(0xFF0F766E)
+            .setSmallIcon(R.drawable.ic_stat).setColor(0xFFC2362F)
             .setContentTitle(title).setContentText(body)
             .setStyle(new NotificationCompat.BigTextStyle().bigText(body))
             .setAutoCancel(true).setContentIntent(pi);
