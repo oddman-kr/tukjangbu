@@ -8,6 +8,12 @@ import android.content.pm.PackageManager;
 import android.graphics.Color;
 import android.net.Uri;
 import android.os.Bundle;
+import android.provider.MediaStore;
+import android.webkit.ValueCallback;
+
+import androidx.core.content.FileProvider;
+
+import java.io.File;
 import android.speech.RecognitionListener;
 import android.speech.RecognizerIntent;
 import android.speech.SpeechRecognizer;
@@ -35,6 +41,10 @@ public class MainActivity extends Activity {
     static final String HOME = "https://zkskslsk-del.github.io/gagyebu/";
     static final String HOST = "zkskslsk-del.github.io";
     static final int REQ_MIC = 7;
+    static final int REQ_FILE = 8;
+
+    ValueCallback<Uri[]> fileCallback;
+    Uri cameraUri;
 
     WebView web;
     SpeechRecognizer recognizer;
@@ -65,6 +75,11 @@ public class MainActivity extends Activity {
             @Override
             public void onPermissionRequest(final PermissionRequest request) {
                 runOnUiThread(() -> request.deny());
+            }
+
+            @Override
+            public boolean onShowFileChooser(WebView view, ValueCallback<Uri[]> callback, FileChooserParams params) {
+                return openFileChooser(callback, params);
             }
         });
         web.setWebViewClient(new WebViewClient() {
@@ -143,6 +158,59 @@ public class MainActivity extends Activity {
             if (ok) startRecognizer(pendingLang);
             else { js("__nsr.error('not-allowed')"); js("__nsr.end()"); }
         }
+    }
+
+
+    /* ---------- 영수증 사진: 카메라 또는 앨범 ---------- */
+
+    boolean openFileChooser(ValueCallback<Uri[]> callback, WebChromeClient.FileChooserParams params) {
+        if (fileCallback != null) fileCallback.onReceiveValue(null);
+        fileCallback = callback;
+        cameraUri = null;
+        Intent camera = new Intent(MediaStore.ACTION_IMAGE_CAPTURE);
+        try {
+            File dir = new File(getCacheDir(), "images");
+            if (!dir.exists()) dir.mkdirs();
+            File f = File.createTempFile("receipt_", ".jpg", dir);
+            cameraUri = FileProvider.getUriForFile(this, getPackageName() + ".files", f);
+            camera.putExtra(MediaStore.EXTRA_OUTPUT, cameraUri);
+            camera.addFlags(Intent.FLAG_GRANT_WRITE_URI_PERMISSION | Intent.FLAG_GRANT_READ_URI_PERMISSION);
+        } catch (Exception e) {
+            camera = null;
+        }
+        Intent pick = new Intent(Intent.ACTION_GET_CONTENT);
+        pick.addCategory(Intent.CATEGORY_OPENABLE);
+        pick.setType("image/*");
+        Intent target;
+        if (params != null && params.isCaptureEnabled() && camera != null) {
+            target = camera;
+        } else {
+            target = Intent.createChooser(pick, "영수증 사진");
+            if (camera != null) target.putExtra(Intent.EXTRA_INITIAL_INTENTS, new Intent[]{camera});
+        }
+        try {
+            startActivityForResult(target, REQ_FILE);
+            return true;
+        } catch (Exception e) {
+            if (camera != null && target == camera) {
+                try { startActivityForResult(Intent.createChooser(pick, "영수증 사진"), REQ_FILE); return true; } catch (Exception ignored) { }
+            }
+            fileCallback = null;
+            return false;
+        }
+    }
+
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+        if (requestCode != REQ_FILE || fileCallback == null) return;
+        Uri[] result = null;
+        if (resultCode == RESULT_OK) {
+            if (data != null && data.getData() != null) result = new Uri[]{data.getData()};
+            else if (cameraUri != null) result = new Uri[]{cameraUri};
+        }
+        fileCallback.onReceiveValue(result);
+        fileCallback = null;
     }
 
     /* ---------- 음성 인식 ---------- */
