@@ -6,8 +6,8 @@
 
 var TZ = 'Asia/Seoul';
 var SH_TX = '거래내역', SH_CAT = '카테고리', SH_REC = '고정지출', SH_CFG = '설정', SH_WISH = '위시리스트';
-var WISH_HEAD = ['ID', '이름', '가격', '링크', '분류', '메모', '조건', '목표금액', '상태', '요청자', '요청메시지', '답장', '처리자', '생성시각', '처리시각', '필요한 이유', '필요한 날짜'];
-var WISH_STATUS = ['원함', '요청', '승인', '거절', '구매함'];
+var WISH_HEAD = ['ID', '이름', '가격', '링크', '분류', '메모', '조건', '목표금액', '상태', '요청자', '요청메시지', '답장', '처리자', '생성시각', '처리시각', '필요한 이유', '필요한 날짜', '필수'];
+var WISH_STATUS = ['원함', '요청', '승인', '거절', '보류', '구매함'];
 var TX_HEAD = ['ID', '날짜', '구분', '카테고리', '금액', '내용', '결제수단', '입력자', '메모', '입력시각', '공용/개인'];
 var CAT_HEAD = ['구분', '카테고리', '월예산', '키워드(쉼표로 구분)', '순서'];
 var REC_HEAD = ['ID', '구분', '카테고리', '내용', '금액', '매월(일)', '결제수단', '사용'];
@@ -90,6 +90,7 @@ function api(pin, action, payload) {
       case 'delete': return withLock_(function () { return out_(deleteTx_(payload.id)); });
       case 'saveCats': return withLock_(function () { return out_(saveCats_(payload.cats || [])); });
       case 'saveCfg': return withLock_(function () { return out_(saveCfg_(payload)); });
+      case 'saveAvatar': return withLock_(function () { return out_(saveAvatar_(payload)); });
       case 'renameMember': return withLock_(function () { return out_(renameMember_(payload)); });
       case 'saveRec': return withLock_(function () { return out_(saveRec_(payload.list || [])); });
       case 'saveWish': return withLock_(function () { return out_(saveWish_(payload.wish)); });
@@ -239,7 +240,7 @@ function load_(p) {
   since.setMonth(since.getMonth() - months + 1, 1);
   var sinceStr = Utilities.formatDate(since, TZ, 'yyyy-MM-dd');
   return {
-    cfg: { members: (cfg['구성원'] || '').split(',').map(trim_).filter(String), methods: (cfg['결제수단'] || '').split(',').map(trim_).filter(String), kids: (cfg['자녀'] || '').split(',').map(trim_).filter(String) },
+    cfg: { members: (cfg['구성원'] || '').split(',').map(trim_).filter(String), methods: (cfg['결제수단'] || '').split(',').map(trim_).filter(String), kids: (cfg['자녀'] || '').split(',').map(trim_).filter(String), avatars: avatars_(cfg) },
     wishes: readWish_(),
     cats: readCats_(),
     rec: readRec_(),
@@ -326,6 +327,23 @@ function saveCfg_(p) {
   return { ok: true };
 }
 
+function avatars_(cfg) {
+  var o = {};
+  Object.keys(cfg).forEach(function (k) { if (k.indexOf('사진:') === 0 && cfg[k]) o[k.slice(3)] = cfg[k]; });
+  return o;
+}
+
+/** 프로필 사진: 휴대폰에서 작게 줄인 JPEG(data URL)을 설정 탭에 보관해요 */
+function saveAvatar_(p) {
+  var name = trim_(p.name || ''), data = String(p.data || '');
+  var mem = (readCfg_()['구성원'] || '').split(',').map(trim_).filter(String);
+  if (mem.indexOf(name) < 0) throw new Error('구성원 목록에 없는 이름이에요.');
+  if (data && !/^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+\/=]+$/.test(data)) throw new Error('사진 형식이 올바르지 않아요.');
+  if (data.length > 45000) throw new Error('사진이 너무 커요.');
+  writeCfg_('사진:' + name, data);
+  return { ok: true };
+}
+
 /** 구성원 이름 바꾸기: 설정·과거 내역·위시의 이름까지 함께 바꿔요 */
 function renameMember_(p) {
   var from = trim_(p.from || ''), to = trim_(p.to || '').slice(0, 20);
@@ -339,6 +357,7 @@ function renameMember_(p) {
   writeCfg_('구성원', mem.map(function (m) { return m === from ? to : m; }).join(','));
   var kd = (cfg['자녀'] || '').split(',').map(trim_).filter(String);
   writeCfg_('자녀', kd.map(function (m) { return m === from ? to : m; }).join(','));
+  if (cfg['사진:' + from]) { writeCfg_('사진:' + to, cfg['사진:' + from]); writeCfg_('사진:' + from, ''); }
   var fix = function (sh, cols) {
     var n = sh.getLastRow(); if (n < 2) return 0;
     var c = 0;
@@ -817,7 +836,8 @@ function readWish_() {
     return { id: String(r[0]), name: String(r[1]), price: Number(r[2]) || 0, link: String(r[3] || ''), kind: String(r[4] || ''), memo: String(r[5] || ''),
       cond: String(r[6] || '없음'), target: Number(r[7]) || 0, status: String(r[8] || '원함'), by: String(r[9] || ''), msg: String(r[10] || ''),
       reply: String(r[11] || ''), handledBy: String(r[12] || ''), created: iso(r[13]), handled: iso(r[14]),
-      reason: String(r[15] || ''), needBy: r[16] instanceof Date ? fmtDate_(r[16]) : String(r[16] || '') };
+      reason: String(r[15] || ''), needBy: r[16] instanceof Date ? fmtDate_(r[16]) : String(r[16] || ''),
+      need: r[17] === true || String(r[17]) === 'Y' || (r[17] === '' && (String(r[4]) === '생필품' || String(r[4]) === '식재료')) };
   });
 }
 
@@ -830,7 +850,7 @@ function saveWish_(w) {
     Math.max(0, Math.round(Number(w.target) || 0)), WISH_STATUS.indexOf(w.status) >= 0 ? w.status : '원함', String(w.by || '').slice(0, 20),
     String(w.msg || '').slice(0, 300), String(w.reply || '').slice(0, 300), String(w.handledBy || '').slice(0, 20),
     w.created ? new Date(w.created) : new Date(), w.handled ? new Date(w.handled) : '',
-    String(w.reason || '').slice(0, 300), /^\d{4}-\d{2}-\d{2}$/.test(String(w.needBy || '')) ? String(w.needBy) : ''];
+    String(w.reason || '').slice(0, 300), /^\d{4}-\d{2}-\d{2}$/.test(String(w.needBy || '')) ? String(w.needBy) : '', w.need ? 'Y' : 'N'];
   var sh = wishSheet_();
   var n = sh.getLastRow();
   if (n >= 2) {
