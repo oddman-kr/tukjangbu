@@ -533,7 +533,7 @@ function showGate(){
     $('#pinGo').onclick = go;
     g.querySelectorAll('input').forEach(function(i){ i.onkeydown = function(e){ if (e.key === 'Enter') go(); }; });
     setTimeout(function(){ var i = $('#pinIn'); if (i) i.focus(); }, 50);
-  }).catch(function(e){ g.innerHTML = '<div class="empty">' + esc(e && e.code === 'CONFIG' ? e.message : e && e.code === 'BAD' ? e.message : '연결할 수 없어요. 인터넷 연결을 확인하고 다시 열어 주세요.') + '</div>'; });
+  }).catch(function(e){ g.innerHTML = '<div class="empty">' + esc(e && e.code === 'CONFIG' ? e.message : e && e.code === 'BAD' ? e.message : '서버에 연결하지 못했어요. 인터넷이 켜져 있다면, Apps Script의 배포 관리에서 “액세스 권한이 있는 사용자”가 “모든 사용자”인지와 새 서버 코드가 새 버전으로 배포됐는지 확인해 주세요.') + '<div style="margin-top:14px"><button class="btn pri" onclick="location.reload()">다시 시도</button></div></div>'; });
 }
 
 function showWho(){
