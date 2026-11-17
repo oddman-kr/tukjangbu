@@ -7,8 +7,9 @@ android {
         applicationId 'kr.gagyebu.app'
         minSdk 26
         targetSdk 35
-        versionCode (System.getenv('GITHUB_RUN_NUMBER') ?: '1').toInteger()
-        versionName "1.0." + (System.getenv('GITHUB_RUN_NUMBER') ?: '1')
+        def runNo = System.getenv('GITHUB_RUN_NUMBER') ?: '1'
+        versionCode Integer.parseInt(runNo)
+        versionName "1.0.${runNo}"
     }
     signingConfigs {
         release {
