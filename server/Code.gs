@@ -84,6 +84,7 @@ function api(pin, action, payload) {
 
     switch (action) {
       case 'load': return out_(load_(payload));
+      case 'alerts': return out_(alerts_(payload));
       case 'add': return withLock_(function () { return out_(addTx_(payload.items || [])); });
       case 'voice': return withLock_(function () { return out_(voice_(payload)); });
       case 'receipt': return out_(receipt_(payload));
@@ -389,6 +390,51 @@ function saveAvatar_(p) {
 }
 
 /** 구성원 이름 바꾸기: 설정·과거 내역·위시의 이름까지 함께 바꿔요 */
+/** 휴대폰 알림용: 앱이 꺼져 있어도 몇 시간마다 확인해서 알려 줄 것들 */
+function alerts_(p) {
+  var who = trim_(p.who || ''), out = [];
+  var cfg = readCfg_();
+  var kids = (cfg['자녀'] || '').split(',').map(trim_).filter(String);
+  var isKid = kids.indexOf(who) >= 0;
+  var today = Utilities.formatDate(new Date(), TZ, 'yyyy-MM-dd');
+  var since = String(p.since || '');
+  var wishes = readWish_();
+  if (isKid) {
+    wishes.filter(function (w) { return w.by === who && (w.status === '승인' || w.status === '거절' || w.status === '보류') && w.handled && w.handled > since; }).forEach(function (w) {
+      out.push({ id: 'ans_' + w.id + '_' + w.handled, title: (w.handledBy || '부모님') + '님이 “' + w.name + '” 요청을 ' + (w.status === '승인' ? '승인했어요 🙆' : w.status === '보류' ? '보류했어요 🤔' : '거절했어요'), body: w.reply || '앱에서 확인해 보세요' });
+    });
+    return { alerts: out };
+  }
+  // 1) 아이들 사 주세요 요청
+  wishes.filter(function (w) { return w.status === '요청'; }).forEach(function (w) {
+    out.push({ id: 'req_' + w.id, title: w.by + '님이 “' + w.name + '” 사 달래요', body: [w.price ? Number(w.price).toLocaleString() + '원' : '', w.reason].filter(String).join(' · ') || '앱에서 확인해 보세요' });
+  });
+  // 2) 자녀 용돈 50% 이하
+  var al = {}; try { al = JSON.parse(cfg['용돈'] || '{}'); } catch (e) {}
+  var ms = Math.min(28, Math.max(1, Number(cfg['한달시작일']) || 1));
+  var now = new Date(), tx = null;
+  kids.forEach(function (k) {
+    var v = al[k]; if (!v) return;
+    var amt = typeof v === 'object' ? Number(v.a) : Number(v), per = typeof v === 'object' && v.p === '주' ? '주' : '월';
+    if (!amt) return;
+    var from, to;
+    if (per === '주') { var mon = new Date(now.getFullYear(), now.getMonth(), now.getDate() - ((now.getDay() + 6) % 7)); from = Utilities.formatDate(mon, TZ, 'yyyy-MM-dd'); to = Utilities.formatDate(new Date(mon.getTime() + 6 * 864e5), TZ, 'yyyy-MM-dd'); }
+    else { var st = now.getDate() >= ms ? new Date(now.getFullYear(), now.getMonth(), ms) : new Date(now.getFullYear(), now.getMonth() - 1, ms); from = Utilities.formatDate(st, TZ, 'yyyy-MM-dd'); to = Utilities.formatDate(new Date(st.getFullYear(), st.getMonth() + 1, ms - 1), TZ, 'yyyy-MM-dd'); }
+    if (!tx) tx = readTx_(Utilities.formatDate(new Date(now.getTime() - 40 * 864e5), TZ, 'yyyy-MM-dd'));
+    var used = tx.filter(function (t) { return t.who === k && t.type === '지출' && t.scope === '개인' && t.date >= from && t.date <= to; }).reduce(function (a, t) { return a + t.amount; }, 0);
+    var left = amt - used;
+    if (left <= amt * 0.5) out.push({ id: 'allow_' + k + '_' + from + '_' + (left <= 0 ? 'out' : 'half'), title: k + '님 용돈이 ' + (left <= 0 ? '다 떨어졌어요' : '절반 이하로 남았어요'), body: (per === '주' ? '이번 주 ' : '이번 달 ') + used.toLocaleString() + ' / ' + amt.toLocaleString() + '원 썼어요' });
+  });
+  // 3) 다가오는 정기 지출 (미리 알림)
+  readRec_().filter(function (r) { return r.active && r.remind > 0; }).forEach(function (r) {
+    var nx = Recur.next(r, Utilities.formatDate(new Date(now.getTime() + 864e5), TZ, 'yyyy-MM-dd'));
+    if (!nx) return;
+    var d = Math.round((Recur.between({ cycle: '일', every: 1, start: today }, today, nx).length) - 1);
+    if (d >= 1 && d <= r.remind) out.push({ id: 'rec_' + r.id + '_' + nx, title: r.desc + ' ' + (d === 1 ? '내일' : d + '일 뒤') + ' 나가요', body: nx.slice(5).replace('-', '월 ') + '일 · ' + Number(r.amount).toLocaleString() + '원' });
+  });
+  return { alerts: out };
+}
+
 function renameMember_(p) {
   var from = trim_(p.from || ''), to = trim_(p.to || '').slice(0, 20);
   if (!from || !to) throw new Error('이름을 적어 주세요.');

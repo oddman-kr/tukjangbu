@@ -340,6 +340,16 @@ public class MainActivity extends Activity {
         @JavascriptInterface public boolean canLock() { return deviceSecure(); }
         @JavascriptInterface public void authenticate() { runOnUiThread(() -> startAuth()); }
         @JavascriptInterface public void share(final String name, final String mime, final String text) { runOnUiThread(() -> shareFile(name, mime, text)); }
+        @JavascriptInterface public void setNotify(final String json) {
+            try { AlertWorker.configure(getApplicationContext(), json); } catch (Exception ignored) { }
+        }
+        @JavascriptInterface public boolean notifyAllowed() {
+            if (Build.VERSION.SDK_INT < 33) return true;
+            return checkSelfPermission("android.permission.POST_NOTIFICATIONS") == PackageManager.PERMISSION_GRANTED;
+        }
+        @JavascriptInterface public void askNotify() {
+            if (Build.VERSION.SDK_INT >= 33) runOnUiThread(() -> requestPermissions(new String[]{"android.permission.POST_NOTIFICATIONS"}, 77));
+        }
         @JavascriptInterface public void setWidget(final String json) {
             try { SpendWidget.save(getApplicationContext(), json); } catch (Exception ignored) { }
         }

@@ -110,6 +110,20 @@ textarea.say:focus{border-color:var(--pri)}
 .btn .av{margin-right:8px}
 .item.locked .t{color:var(--ink2)}
 .flex-row{padding:6px 0}
+.addrow{display:flex;gap:8px;margin-top:10px;align-items:center}
+.micsm{flex:none;width:48px;height:48px;border-radius:50%;border:0;background:var(--pri);color:var(--pri-ink);display:flex;align-items:center;justify-content:center;cursor:pointer;box-shadow:0 2px 6px rgba(15,118,110,.25)}
+.micsm svg{width:22px;height:22px}
+.micsm.rec{background:var(--bad);animation:pulse 1.2s infinite}
+@keyframes pulse{0%{box-shadow:0 0 0 0 rgba(194,65,12,.45)}100%{box-shadow:0 0 0 14px rgba(194,65,12,0)}}
+.memrow{display:flex;align-items:center;gap:12px;padding:10px 0;border-top:1px solid var(--line)}
+.memrow:first-of-type{border-top:0}
+.rolebadge{font-size:12px;font-weight:700;padding:4px 10px;border-radius:999px;background:var(--chip);color:var(--ink2)}
+.rolebadge.kid{background:var(--warn-soft);color:var(--warn)}
+.linkbtn{border:0;background:none;color:var(--pri);font-weight:700;padding:0;text-decoration:underline;font-size:inherit;cursor:pointer}
+.settabs{display:flex;gap:6px;overflow-x:auto;margin:0 0 12px;padding-bottom:2px;scrollbar-width:none;position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--bg);padding-top:6px}
+.settabs::-webkit-scrollbar{display:none}
+.settabs button{flex:1 0 auto;border:1px solid var(--line);background:var(--card);color:var(--ink2);border-radius:999px;padding:9px 11px;font-weight:600;font-size:14px}
+.settabs button.on{background:var(--ink);color:var(--bg);border-color:var(--ink)}
 .pdot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:4px;vertical-align:1px}
 .paychip .pdot{width:10px;height:10px}
 .paychip small{opacity:.75}
@@ -227,6 +241,52 @@ h3{font-size:15px;margin:0 0 8px}
 .tip{background:var(--pri-soft);color:var(--ink);border-radius:12px;padding:10px 12px;font-size:13px;margin-top:10px}
 .loading{padding:40px 0;text-align:center;color:var(--ink3)}
 .badge{display:inline-block;font-size:11px;padding:1px 6px;border-radius:6px;background:var(--warn-soft);color:var(--warn);margin-left:4px;vertical-align:1px}
+
+/* ---------- 툭장부 디자인 다듬기 ---------- */
+html,body{font-family:"Pretendard","Pretendard Variable","Apple SD Gothic Neo","Noto Sans KR",-apple-system,BlinkMacSystemFont,Roboto,"Malgun Gothic",sans-serif;letter-spacing:-.15px}
+:root{--r:20px;--shadow:0 1px 1px rgba(16,24,20,.03),0 6px 20px rgba(16,24,20,.05)}
+.top{padding:10px 0 6px}
+.top h1{display:flex;align-items:center;gap:8px;font-size:21px;font-weight:800;letter-spacing:-.6px}
+.top h1 .logo{width:30px;height:30px;flex:none;border-radius:9px}
+.gatelogo .logo{width:76px;height:76px;border-radius:22px;box-shadow:0 10px 30px rgba(15,118,110,.3)}
+.card{border-radius:var(--r);padding:18px;border-color:transparent}
+@media (prefers-color-scheme: dark){ .card{border-color:var(--line)} }
+.card h3{font-size:16px;font-weight:750;letter-spacing:-.3px}
+.btn{border-radius:14px;font-weight:700}
+.btn.ghost{background:var(--card)}
+.chip{border-radius:999px;padding:7px 13px}
+.chip.on{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.ico{border-radius:14px}
+.item{padding:12px 2px}
+.item .t{font-weight:650}
+/* 홈 요약 카드: 브랜드 색 */
+.card.hero{background:linear-gradient(145deg,#14A08F 0%,#0F766E 55%,#0B5E57 100%);color:#fff;border:0;box-shadow:0 12px 30px rgba(15,118,110,.28)}
+.card.hero .muted,.card.hero .faint{color:rgba(255,255,255,.78)}
+.card.hero .big{font-size:34px}
+.card.hero .bar{background:rgba(255,255,255,.22)}
+.card.hero .bar>i{background:#fff}
+.card.hero .bar>i.warn{background:#FFD27A} .card.hero .bar>i.bad{background:#FFB199}
+.card.hero .sumrow>div{background:rgba(255,255,255,.13);backdrop-filter:blur(2px)}
+.card.hero .sumrow .k{color:rgba(255,255,255,.75)}
+.card.hero .sumrow .v,.card.hero .amt-수입,.card.hero .amt-저축{color:#fff}
+.card.hero .seg{background:rgba(0,0,0,.16)}
+.card.hero .seg button{color:rgba(255,255,255,.8)}
+.card.hero .seg button.on{background:#fff;color:#0B5E57;box-shadow:none}
+.card.hero .fc{background:rgba(0,0,0,.14);color:#fff}
+.card.hero b[style*="--bad"]{color:#FFD6C7 !important}
+.card.hero .num b,.card.hero b{color:#fff}
+/* 마이크 */
+.micbig{width:84px;height:84px;background:radial-gradient(circle at 35% 30%,#1FB5A2,#0F766E 70%);box-shadow:0 0 0 8px var(--pri-soft),0 10px 24px rgba(15,118,110,.32)}
+.voice{gap:16px;margin:6px 0 14px}
+.vt b{font-size:17px;font-weight:750}
+/* 아래 메뉴 */
+.nav{backdrop-filter:saturate(1.4) blur(14px);background:color-mix(in srgb,var(--card) 88%,transparent);border-top-color:transparent;box-shadow:0 -6px 20px rgba(16,24,20,.05)}
+.nav button{position:relative;padding:6px 14px;font-weight:600}
+.nav button.on::before{content:"";position:absolute;top:2px;left:50%;width:44px;height:30px;transform:translateX(-50%);background:var(--pri-soft);border-radius:999px;z-index:-1}
+.nav button svg{position:relative}
+.banner{border-radius:16px}
+.toast{border-radius:14px;box-shadow:0 10px 30px rgba(0,0,0,.18)}
+.sheet{border-radius:24px 24px 0 0}
 </style>
 </head>
 <body>
@@ -234,7 +294,7 @@ h3{font-size:15px;margin:0 0 8px}
 <div id="app" class="hidden">
   <div class="wrap">
     <div class="top">
-      <h1 id="title">툭장부</h1>
+      <h1 id="title"><svg class="logo" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">  <defs>    <linearGradient id="lgbg" x1="0" y1="0" x2="1" y2="1">      <stop offset="0" stop-color="#14A08F"/>      <stop offset="1" stop-color="#0B5E57"/>    </linearGradient>    <linearGradient id="lgcoin" x1="0" y1="0" x2="0" y2="1">      <stop offset="0" stop-color="#FFD27A"/>      <stop offset="1" stop-color="#F2A93B"/>    </linearGradient>  </defs>  <rect width="512" height="512" rx="116" fill="url(#lgbg)"/>    <rect x="100" y="140" width="290" height="214" rx="68" fill="#FFFFFF"/>  <path d="M150 330 L132 414 Q130 424 140 419 L232 350 Z" fill="#FFFFFF"/>    <rect x="148" y="214" width="170" height="24" rx="12" fill="#0F766E" opacity=".9"/>  <rect x="148" y="262" width="112" height="24" rx="12" fill="#0F766E" opacity=".35"/>    <circle cx="356" cy="162" r="58" fill="url(#lgcoin)" stroke="#FFFFFF" stroke-width="10"/>  <rect x="348" y="134" width="16" height="56" rx="8" fill="#B8741A" opacity=".55"/>    <path d="M424 92l22-22M436 132l30-6M398 72l6-30" stroke="#FFFFFF" stroke-width="12" stroke-linecap="round" opacity=".9"/></svg><span>툭장부</span></h1>
       <div class="sync" id="sync"><span class="dot"></span><span>동기화됨</span></div>
     </div>
     <div id="view"></div>
@@ -629,7 +689,7 @@ function toast(msg, actLabel, actFn, ms){
   t.classList.add('on'); clearTimeout(toast._t); toast._t = setTimeout(function(){ t.classList.remove('on'); }, ms || (actFn ? 5000 : 2400));
 }
 function haptic(){ try { if (window.NativeApp && NativeApp.vibrate) NativeApp.vibrate(); else if (navigator.vibrate) navigator.vibrate(12); } catch (e) {} }
-var WEB_VER = '2026.11.18i';
+var WEB_VER = '2026.11.18n';
 (function(){ try { var v = window.NativeApp ? Number(NativeApp.version()) : 0; var a = (navigator.userAgent.match(/Android (\d+)/) || [])[1]; if (v && v <= 6 && Number(a) >= 15) document.documentElement.classList.add('old-native'); } catch (e) {} })();
 var errShown = 0;
 function logErr(kind, msg, where){
@@ -812,23 +872,31 @@ function showGate(){
   g.innerHTML = '<div class="loading">확인 중…</div>';
   call('status').then(function(r){
     var first = !r.hasPin;
-    g.innerHTML = '<div style="font-size:44px">🏠</div><h2>툭장부</h2><div class="muted sm" style="margin-top:-4px">말로 툭, 가족 가계부</div>' +
+    g.innerHTML = '<div class="gatelogo"><svg class="logo" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">  <defs>    <linearGradient id="glbg" x1="0" y1="0" x2="1" y2="1">      <stop offset="0" stop-color="#14A08F"/>      <stop offset="1" stop-color="#0B5E57"/>    </linearGradient>    <linearGradient id="glcoin" x1="0" y1="0" x2="0" y2="1">      <stop offset="0" stop-color="#FFD27A"/>      <stop offset="1" stop-color="#F2A93B"/>    </linearGradient>  </defs>  <rect width="512" height="512" rx="116" fill="url(#glbg)"/>    <rect x="100" y="140" width="290" height="214" rx="68" fill="#FFFFFF"/>  <path d="M150 330 L132 414 Q130 424 140 419 L232 350 Z" fill="#FFFFFF"/>    <rect x="148" y="214" width="170" height="24" rx="12" fill="#0F766E" opacity=".9"/>  <rect x="148" y="262" width="112" height="24" rx="12" fill="#0F766E" opacity=".35"/>    <circle cx="356" cy="162" r="58" fill="url(#glcoin)" stroke="#FFFFFF" stroke-width="10"/>  <rect x="348" y="134" width="16" height="56" rx="8" fill="#B8741A" opacity=".55"/>    <path d="M424 92l22-22M436 132l30-6M398 72l6-30" stroke="#FFFFFF" stroke-width="12" stroke-linecap="round" opacity=".9"/></svg></div><h2>툭장부</h2><div class="muted sm" style="margin-top:-4px">말로 툭, 가족 가계부</div>' +
       '<div class="muted">' + (first ? '처음이시네요. 가족이 함께 쓸 <b>비밀번호</b>(숫자 4~8자리)를 정해 주세요.' : '가족 비밀번호를 입력해 주세요.') + '</div>' +
       '<input id="pinIn" class="inp pin" type="password" inputmode="numeric" maxlength="8" autocomplete="off">' +
       (first ? '<input id="pinIn2" class="inp pin" style="margin-top:0" type="password" inputmode="numeric" maxlength="8" placeholder="한 번 더">' : '') +
       '<button class="btn pri" id="pinGo" style="width:220px">' + (first ? '정하고 시작하기' : '들어가기') + '</button>' +
       '<div class="faint sm" style="margin-top:14px">' + (first ? '이 비밀번호를 함께 쓸 가족에게 알려 주세요.' : '비밀번호는 구글 시트의 “설정” 탭에서도 볼 수 있어요.') + '</div>';
+    var going = false;
     var go = function(){
+      if (going) return;
       var p = $('#pinIn').value.trim();
       if (!/^\d{4,8}$/.test(p)) return toast('숫자 4~8자리로 입력해 주세요.');
       if (first) {
         if ($('#pinIn2').value.trim() !== p) return toast('두 번 입력한 비밀번호가 달라요.');
-        call('setPin', { pin: p }).then(function(){ S.pin = p; LS.set('pin', p); start(); }).catch(function(e){ toast(e.message); });
+        going = true;
+        call('setPin', { pin: p }).finally(function(){ going = false; }).then(function(){ S.pin = p; LS.set('pin', p); LS.set('pinLen', p.length); LS.set('needSetup', true); start(); }).catch(function(e){ toast(e.message); });
       } else {
-        S.pin = p; call('load', { months: 13 }).then(function(d){ LS.set('pin', p); S.data = d; LS.set('cache', d); start(true); }).catch(function(e){ S.pin = ''; toast(e.code === 'PIN' ? '비밀번호가 맞지 않아요.' : '연결 오류: ' + e.message); });
+        going = true; S.pin = p; call('load', { months: 13 }).finally(function(){ going = false; }).then(function(d){ LS.set('pin', p); LS.set('pinLen', p.length); S.data = d; LS.set('cache', d); start(true); }).catch(function(e){ S.pin = ''; toast(e.code === 'PIN' ? '비밀번호가 맞지 않아요.' : '연결 오류: ' + e.message); });
       }
     };
     $('#pinGo').onclick = go;
+    // 숫자를 다 누르면 바로 들어가요 (처음엔 4자리, 다음부터는 정한 자리수)
+    var want = LS.get('pinLen', 4), tmA;
+    var pi = $('#pinIn'), p2 = $('#pinIn2');
+    pi.oninput = function(){ clearTimeout(tmA); if (!first && pi.value.length === want) tmA = setTimeout(go, 150); else if (first && pi.value.length >= 4 && p2 && !p2.value) { if (pi.value.length === 8) p2.focus(); } };
+    if (p2) p2.oninput = function(){ clearTimeout(tmA); if (p2.value.length === pi.value.length && p2.value.length >= 4) tmA = setTimeout(go, 150); };
     g.querySelectorAll('input').forEach(function(i){ i.onkeydown = function(e){ if (e.key === 'Enter') go(); }; });
     setTimeout(function(){ var i = $('#pinIn'); if (i) i.focus(); }, 50);
   }).catch(function(e){ g.innerHTML = '<div class="empty">' + esc(e && e.code === 'CONFIG' ? e.message : e && e.code === 'BAD' ? e.message : '서버에 연결하지 못했어요. 인터넷이 켜져 있다면, Apps Script의 배포 관리에서 “액세스 권한이 있는 사용자”가 “모든 사용자”인지와 새 서버 코드가 새 버전으로 배포됐는지 확인해 주세요.') + '<div style="margin-top:14px"><button class="btn pri" onclick="location.reload()">다시 시도</button></div></div>'; });
@@ -839,14 +907,37 @@ function showWho(){
   g.innerHTML = '<div style="font-size:44px">👋</div><h2>누가 쓰는 폰인가요?</h2><div class="muted">입력한 내역에 이름이 함께 기록돼요.</div><div style="margin-top:18px;display:flex;flex-direction:column;gap:8px;width:220px">' +
     members().map(function(m){ return '<button class="btn pri" data-m="' + esc(m) + '">' + avatar(m, 26) + esc(m) + '</button>'; }).join('') +
     '</div><div class="faint sm" style="margin-top:14px">이름은 설정에서 바꿀 수 있어요.</div>';
-  g.querySelectorAll('[data-m]').forEach(function(b){ b.onclick = function(){ S.me = b.dataset.m; LS.set('me', S.me); g.classList.add('hidden'); $('#app').classList.remove('hidden'); render(); }; });
+  g.querySelectorAll('[data-m]').forEach(function(b){ b.onclick = function(){ S.me = b.dataset.m; LS.set('me', S.me); g.classList.add('hidden'); $('#app').classList.remove('hidden'); render(); setTimeout(firstSetup, 300); }; });
 }
 
+// 처음 쓰는 가족: 한 달 생활비와 시작일을 물어 예산을 맞춰요
+function firstSetup(){
+  if (!LS.get('needSetup', false) || !S.data || !S.me || !$('#gate').classList.contains('hidden') || $('#sheetBg').classList.contains('on')) return;
+  var sh = $('#sheet'), cur = budgetTotal();
+  sh.innerHTML = '<h3 style="margin:0">반가워요! 두 가지만 정할게요</h3><div class="faint sm" style="margin-top:4px">나중에 설정에서 언제든 바꿀 수 있어요.</div>' +
+    '<div class="fld"><label>한 달 생활비는 대략 얼마인가요?</label><input class="inp amtbig num" id="fsBud" inputmode="numeric" placeholder="예) 2,000,000"><div class="faint xs" style="margin-top:4px">입력한 금액에 맞춰 카테고리별 예산을 나눠 드려요. 모르면 비워 두세요.</div></div>' +
+    '<div class="fld"><label>한 달은 며칠부터 계산할까요?</label><select class="inp" id="fsMS">' + Array.apply(null, Array(28)).map(function(_, i){ var d = i + 1; return '<option value="' + d + '">' + (d === 1 ? '매달 1일' : '매달 ' + d + '일 (월급날)') + '</option>'; }).join('') + '</select></div>' +
+    '<div class="row" style="margin-top:8px"><button class="btn ghost" id="fsSkip">건너뛰기</button><button class="btn pri grow" id="fsGo">시작하기</button></div>';
+  $('#sheetBg').classList.add('on');
+  $('#fsBud').onblur = function(){ var v = digits(this.value); this.value = v ? won(v) : ''; };
+  $('#fsSkip').onclick = function(){ LS.del('needSetup'); closeSheet(); };
+  $('#fsGo').onclick = function(){
+    var total = digits($('#fsBud').value), ms = +$('#fsMS').value, jobs = [];
+    if (total && cur) {
+      var f = total / cur;
+      S.data.cats = S.data.cats.map(function(c){ if (c.type === '지출' && c.budget) c.budget = Math.max(10000, Math.round(c.budget * f / 10000) * 10000); return c; });
+      jobs.push(call('saveCats', { cats: S.data.cats }));
+    }
+    if (ms > 1) { S.data.cfg.monthStart = ms; S.month = curM(); jobs.push(call('saveCfg', { monthStart: ms })); }
+    LS.del('needSetup'); LS.set('cache', S.data); closeSheet(); render();
+    Promise.all(jobs).then(function(){ toast('준비됐어요. 마이크를 눌러 첫 지출을 말해 보세요'); }).catch(function(er){ toast('일부를 저장하지 못했어요: ' + er.message); });
+  };
+}
 function start(fresh){
   $('#gate').classList.add('hidden'); $('#app').classList.remove('hidden');
   if (fresh && S.data) { if (!S.me && S.data.cfg.members.length) return showWho(); render(); flush(); return; }
   var q = location.search;
-  if (S.data) { render(); maybeAutoListen(/voice=1/.test(q)); } else $('#view').innerHTML = '<div class="loading">불러오는 중…</div>';
+  if (S.data) { render(); maybeAutoListen(/voice=1/.test(q)); setTimeout(firstSetup, 300); } else $('#view').innerHTML = '<div class="loading">불러오는 중…</div>';
   if (/manual=1/.test(q) && S.data) openEdit(null);
   var hadData = !!S.data;
   load(hadData).then(function(){ if (!hadData) maybeAutoListen(/voice=1/.test(q)); }).then(flush);
@@ -859,6 +950,14 @@ function maybeAutoListen(force){
 }
 
 /* ---------- 화면 ---------- */
+// 휴대폰 알림(앱이 꺼져 있어도): 안드로이드 앱이 2시간마다 서버에 새 소식을 물어봐요
+function canNotify(){ return !!(window.NativeApp && NativeApp.setNotify); }
+function syncNotify(){ try { if (canNotify()) NativeApp.setNotify(JSON.stringify({ on: !!LS.get('notifyOn', false), url: window.API_URL, pin: S.pin, me: S.me })); } catch (e) {} }
+function setNotifyOn(on){
+  LS.set('notifyOn', on); LS.set('notifyAsked', true);
+  if (on && NativeApp.askNotify && NativeApp.notifyAllowed && !NativeApp.notifyAllowed()) NativeApp.askNotify();
+  syncNotify();
+}
 function pushWidget(){
   try {
     if (!window.NativeApp || !NativeApp.setWidget) return;
@@ -871,6 +970,7 @@ function pushWidget(){
 function render(){
   if (!S.data) return;
   pushWidget();
+  if (!S.notifySynced) { S.notifySynced = true; syncNotify(); }
   if (V.rec && S.view !== 'home') { try{ V.rec.abort(); }catch(e){} }
   if (V.rec && S.view === 'home' && $('#micBig')) return;
   if (S.autoTimer && S.view === 'home' && $('#autoBox')) return;
@@ -916,7 +1016,7 @@ function summaryCard(m, mode){
   var cls = pct >= 1 ? 'bad' : pct >= 0.85 ? 'warn' : '';
   var fc = isCur && mode && !isKid() ? forecast() : null, fcH = '';
   if (fc && fc.total > exp) fcH = '<div class="fc"><span>🔮</span><div>이 속도면 이번 달 <b class="num">' + won(fc.total) + '원</b> 정도 쓸 것 같아요' + (bud && fc.total > bud ? ' · <b style="color:var(--bad)">예산보다 ' + won(fc.total - bud) + '원 많아요</b>' : '') + '<div class="faint xs">' + fc.basis + ' · 고정지출 포함</div></div></div>';
-  return '<div class="card">' + (mode ? sumTabs('month') : '') +
+  return '<div class="card' + (mode ? ' hero' : '') + '">' + (mode ? sumTabs('month') : '') +
     '<div class="row between"><span class="muted sm">' + (isCur ? '이번 달' : mLabel(m)) + ' 지출' + (periodRange(m) ? ' <span class="faint xs">' + periodRange(m) + '</span>' : '') + '</span>' + (bud ? '<span class="faint xs">예산 ' + won(bud) + '원</span>' : '') + '</div>' +
     '<div class="big">' + won(exp) + '<span style="font-size:17px;font-weight:600"> 원</span></div>' +
     (bud ? '<div class="bar"><i class="' + cls + '" style="width:' + Math.min(100, pct * 100).toFixed(1) + '%"></i></div>' +
@@ -932,7 +1032,7 @@ function yearCard(){
   var exp = sumBy(list, '지출'), inc = sumBy(list, '수입'), sav = sumBy(list, '저축');
   var months = now.getMonth() + 1;
   var mine = list.filter(function(t){ return t.type === '지출' && t.scope === '개인'; }).reduce(function(s, t){ return s + t.amount; }, 0);
-  return '<div class="card">' + sumTabs('year') +
+  return '<div class="card hero">' + sumTabs('year') +
     '<div class="row between"><span class="muted sm">' + y + '년 지출 (1~' + months + '월)</span><span class="faint xs">월평균 ' + won(exp / months) + '원</span></div>' +
     '<div class="big">' + won(exp) + '<span style="font-size:17px;font-weight:600"> 원</span></div>' +
     (mine ? '<div class="faint sm">가족 공용 ' + won(exp - mine) + '원 · 개인 용돈 ' + won(mine) + '원</div>' : '') +
@@ -965,6 +1065,7 @@ function bannersHTML(){
     h += '<div class="banner">' + avatar(whoS, 30) + '<div class="grow"><b>' + esc(whoS) + '님이 새로 ' + nf.length + '건 입력했어요</b>' + (sum ? '<div class="faint xs">지출 ' + won(sum) + '원</div>' : '') + '</div><button class="btn ghost" id="nfSee">보기</button><button class="x" id="nfX" aria-label="알림 닫기">×</button></div>';
   }
   h += wishBanners();
+  if (canNotify() && !LS.get('notifyAsked', false)) h += '<div class="banner"><span>🔔</span><div class="grow"><b>휴대폰 알림을 켤까요?</b><div class="faint xs">' + (isKid() ? '부모님이 요청에 답하면 알려 드려요' : '아이 용돈이 절반 남았을 때, 정기 지출 전날, 사 주세요 요청이 오면 알려 드려요') + '</div></div><button class="btn pri" id="ntOn">켜기</button><button class="x" id="ntNo" aria-label="나중에">×</button></div>';
   var up = upcomingRec();
   if (up.length) { var u0 = up[0]; h += '<div class="banner"><span>🔔</span><div class="grow"><b>' + esc(u0.r.desc) + ' ' + (u0.d === 1 ? '내일' : u0.d + '일 뒤') + ' 나가요</b><div class="faint xs">' + (+u0.date.slice(5, 7)) + '월 ' + (+u0.date.slice(8)) + '일 · ' + won(u0.r.amount) + '원' + (up.length > 1 ? ' · 외 ' + (up.length - 1) + '건' : '') + '</div></div><button class="x" data-recx="' + esc(u0.r.id + '_' + u0.date) + '" aria-label="알림 닫기">×</button></div>'; }
   h += allowBanner();
@@ -1212,6 +1313,8 @@ function bindHome(){
   var ns = $('#nfSee'); if (ns) ns.onclick = function(){ LS.set('seenAt', new Date().toISOString()); S.view = 'list'; S.month = curM(); S.fwho = '전체'; render(); window.scrollTo(0, 0); };
   var nx = $('#nfX'); if (nx) nx.onclick = function(){ LS.set('seenAt', new Date().toISOString()); render(); };
   var tx = $('#tipsX'); if (tx) tx.onclick = function(){ LS.set('tipsDone', true); render(); };
+  var no = $('#ntOn'); if (no) no.onclick = function(){ setNotifyOn(true); render(); toast('알림을 켰어요. 설정 → 앱에서 끌 수 있어요'); };
+  var nn = $('#ntNo'); if (nn) nn.onclick = function(){ LS.set('notifyAsked', true); render(); };
   document.querySelectorAll('[data-recx]').forEach(function(b){ b.onclick = function(){ var sn = LS.get('recSeen', {}); sn[b.dataset.recx] = 1; LS.set('recSeen', sn); render(); }; });
   document.querySelectorAll('[data-allowx]').forEach(function(b){ b.onclick = function(){ var sn = LS.get('allowSeen', {}); sn[b.dataset.allowx] = 1; LS.set('allowSeen', sn); render(); }; });
   bindWishBanners();
@@ -1312,8 +1415,19 @@ function startListen(fromGesture){
   try { rec.start(); } catch (e) { V = { rec: null }; if (!fromGesture) setMicUI('hint', '눌러서 말하기', '버튼을 누르면 바로 들어요'); return false; }
   return true;
 }
+// 평소보다 훨씬 큰 금액이거나 내용이 비어 있으면 자동 저장하지 않고 확인을 받아요
+function unusual(p){
+  if (!p.desc) return '내용이 비어 있어요';
+  if (p.type === '지출' && p.amount >= 1000000) return won(p.amount) + '원은 큰 금액이에요';
+  var since = ymd(new Date(Date.now() - 120 * 864e5));
+  var past = visTx().filter(function(t){ return t.category === p.category && t.type === p.type && t.date >= since && t.who !== '자동'; }).map(function(t){ return t.amount; }).sort(function(a, b){ return a - b; });
+  if (past.length >= 3 && p.amount >= 50000) { var med = past[Math.floor(past.length / 2)]; if (p.amount > med * 4) return p.category + ' 평소 금액(' + won(med) + '원)보다 훨씬 커요'; }
+  return '';
+}
 function startAuto(){
   cancelAuto();
+  var odd = S.preview.map(unusual).filter(Boolean)[0];
+  if (odd) { toast(odd + '. 잘못 들었을 수 있어서 자동 저장을 멈췄어요. 확인 후 저장을 눌러 주세요.', null, null, 5000); return; }
   if (S.preview.some(isDup)) { toast('이미 있는 내역과 겹칠 수 있어서 자동 저장을 멈췄어요. 확인 후 저장을 눌러 주세요.', null, null, 4000); return; }
   var box = $('#autoBox'); if (!box) return;
   var sec = 3;
@@ -1408,7 +1522,7 @@ function openEdit(t, prefill){
       '<div class="row" style="gap:8px"><div class="fld grow"><label>입력자</label><select class="inp" id="eWho">' + members().concat(e.who && members().indexOf(e.who) < 0 ? [e.who] : []).map(function(m){ return '<option' + (m === e.who ? ' selected' : '') + '>' + esc(m) + '</option>'; }).join('') + '</select></div>' +
       '<div class="fld grow"><label>메모</label><input class="inp" id="eMemo" value="' + esc(e.memo) + '"></div></div>' +
       (isNew && e.type === '지출' ? '<div class="fld"><label>할부</label><select class="inp" id="eInst">' + [1, 2, 3, 4, 5, 6, 10, 12, 18, 24].map(function(n){ return '<option value="' + n + '"' + (n === (e.inst || 1) ? ' selected' : '') + '>' + (n === 1 ? '일시불' : n + '개월') + '</option>'; }).join('') + '</select>' +
-        (e.inst > 1 && e.amount ? '<div class="faint xs" style="margin-top:4px">매달 약 ' + won(Math.floor(e.amount / e.inst)) + '원씩 ' + e.inst + '번, 결제한 날과 같은 날짜로 기록돼요</div>' : '') + '</div>' : '') +
+        (e.inst > 1 && e.amount ? '<div class="faint xs" style="margin-top:4px">매달 약 ' + won(Math.floor(e.amount / e.inst)) + '원씩 ' + e.inst + '번, 결제한 날과 같은 날짜로 기록돼요. 나중에 회차 하나를 지우면 그 뒤 회차도 함께 지워져요</div>' : '') + '</div>' : '') +
       (e.type === '지출' ? '<div class="fld"><label>누구 돈으로 썼나요?</label><div class="seg">' + [['공용', '가족 공용'], ['개인', '개인 용돈']].map(function(o){ return '<button data-sc="' + o[0] + '" class="' + (o[0] === e.scope ? 'on' : '') + '">' + o[1] + '</button>'; }).join('') + '</div></div>' : '') +
       '<div class="row" style="margin-top:8px">' + (isNew ? '' : '<button class="btn danger" id="eDel">삭제</button>') + '<button class="btn pri grow" id="eSave">저장</button></div>';
     sh.querySelectorAll('[data-ty]').forEach(function(b){ b.onclick = function(){ pull(); e.type = b.dataset.ty; var c = cats(e.type); e.category = (c[0] || {}).name || ''; catTouched = true; draw(); }; });
@@ -1518,55 +1632,63 @@ function statsHTML(){
     '<div class="card"><h3>카테고리별 지출</h3>' + (catHTML || '<div class="empty">지출 내역이 없어요.</div>') + '</div>' +
     '<div class="card"><h3>최근 6개월 지출</h3>' + trend + (avg ? '<div class="faint sm" style="margin-top:8px">앞선 5개월 평균 ' + won(avg) + '원 · 이번 달은 평균보다 ' + (vals[5] >= avg ? '<b>' + won(vals[5] - avg) + '원 많아요</b>' : '<b>' + won(avg - vals[5]) + '원 적어요</b>') + '</div>' : '') + '</div>' +
     '<div class="card"><h3>가족 공용 · 개인 용돈</h3>' + split('scope') +
-      (exp.some(function(t){ return t.scope === '개인'; }) ? '<div class="faint xs" style="margin:10px 0 2px">개인 용돈은 누가 썼나</div>' + split('who', function(t){ return t.scope === '개인'; }) : '') + '</div>' +
-    '<div class="card"><h3>누가 썼나</h3>' + split('who') + '</div>' +
+      (exp.some(function(t){ return t.scope === '개인'; }) ? '<div class="faint xs" style="margin:10px 0 2px">구성원별 개인 용돈</div>' + split('who', function(t){ return t.scope === '개인'; }) : '') + '</div>' +
+    '<div class="card"><h3>구성원별 지출</h3>' + split('who') + '</div>' +
     '<div class="card"><h3>결제수단별</h3>' + split('method') + '</div>';
 }
 
 /* ---------- 설정 ---------- */
+function setTab(){ var t = S.setTab || LS.get('setTab', 'me'); if (isKid() && t !== 'app') t = 'me'; return t; }
 function settingsHTML(){
   var c = S.data.cats, rec = S.data.rec || [];
   var recSum = rec.filter(function(r){ return r.active !== false && r.type === '지출'; }).reduce(function(s, r){ return s + Recur.monthly(r, r.amount || 0); }, 0);
-  return '<div class="card"><h3>이 폰의 사용자</h3><div class="chips">' + members().map(function(m){ return '<button class="chip' + (m === S.me ? ' on' : '') + '" data-me="' + esc(m) + '">' + avatar(m, 22) + esc(m) + '</button>'; }).join('') + '</div>' +
+  var tabs = isKid() ? [['me', '나'], ['app', '앱']] : [['me', '가족'], ['card', '카드'], ['budget', '예산'], ['rec', '정기지출'], ['app', '앱']];
+  return '<div class="settabs" role="tablist">' + tabs.map(function(t){ return '<button role="tab" data-st="' + t[0] + '" class="' + (setTab() === t[0] ? 'on' : '') + '">' + t[1] + '</button>'; }).join('') + '</div>' +
+    '<div class="card" data-sec="me"><h3>이 폰의 사용자</h3><div class="chips">' + members().map(function(m){ return '<button class="chip' + (m === S.me ? ' on' : '') + '" data-me="' + esc(m) + '">' + avatar(m, 22) + esc(m) + '</button>'; }).join('') + '</div>' +
       (S.me ? '<div class="avedit">' + avatar(S.me, 56) + '<div class="grow"><div class="sm"><b>내 프로필 사진</b></div><div class="faint xs">가족 화면의 내 이름 옆에 보여요</div><div class="row" style="gap:6px;margin-top:6px"><button class="btn ghost sm" style="padding:6px 12px" id="avPick">' + (avatars()[S.me] ? '사진 바꾸기' : '사진 넣기') + '</button>' + (avatars()[S.me] ? '<button class="btn ghost sm" style="padding:6px 12px" id="avDel">지우기</button>' : '') + '</div></div><input type="file" id="avIn" accept="image/*" hidden></div>' : '') +
       (S.me ? '<div class="fld" style="margin-top:12px"><label>내 이름 (가족에게 이렇게 보여요)</label><div class="row"><input class="inp grow" id="sMyName" maxlength="20" value="' + esc(S.me) + '" placeholder="예) 정열, 엄마, 민수"><button class="btn" id="sMyNameSave">바꾸기</button></div><div class="faint xs" style="margin-top:4px">지난 내역과 위시에 적힌 이름도 함께 바뀌어요.</div></div>' : '') + '</div>' +
-    (isKid() ? '<div class="card"><div class="sm muted">카드·용돈·카테고리 같은 가족 설정은 부모님 폰에서 바꿀 수 있어요.</div></div>' : '') +
+    (isKid() ? '<div class="card" data-sec="me"><div class="sm muted">카드·용돈·카테고리 같은 가족 설정은 부모님 폰에서 바꿀 수 있어요.</div></div>' : '') +
     '<div' + (isKid() ? ' hidden' : '') + '>' +
-    '<div class="card"><h3>💳 내 카드 · 결제수단</h3><div class="faint xs" style="margin-bottom:6px">가지고 있는 카드를 모두 등록해 두세요. 이름·색깔로 구분되고, 실적 목표를 넣으면 홈에서 이번 달 실적을 보여 줘요.</div>' +
+    '<div class="card" data-sec="card"><h3>💳 내 카드 · 결제수단</h3><div class="faint xs" style="margin-bottom:6px">가지고 있는 카드를 모두 등록해 두세요. 이름·색깔로 구분되고, 실적 목표를 넣으면 홈에서 이번 달 실적을 보여 줘요.</div>' +
       methodsSorted().map(function(m){ var pi = payInfo(m); return '<button class="cardrow" data-cedit="' + esc(m) + '"><div class="row between"><span class="row" style="gap:10px"><span class="paycard" style="background:' + esc(pi.color) + '"></span><span><b>' + esc(m) + '</b><div class="faint xs">' + esc([pi.kind === '신용' || pi.kind === '체크' ? pi.kind + '카드' : pi.kind, pi.owner ? pi.owner + ' 카드' : '가족 공용', pi.target ? '실적 월 ' + won(pi.target) + '원' : ''].filter(Boolean).join(' · ')) + '</div></span></span><span class="faint">›</span></div></button>'; }).join('') +
       '<button class="btn ghost block" id="cardAdd" style="margin-top:8px">+ 카드·결제수단 추가</button></div>' +
-    '<div class="card"><h3>한 달 기준 · 개인 용돈</h3>' +
+    '<div class="card" data-sec="me"><h3>한 달 기준 · 개인 용돈</h3>' +
       '<div class="fld"><label>한 달 시작일 (월급날에 맞추면 편해요)</label><select class="inp" id="sMS">' + Array.apply(null, Array(28)).map(function(_, i){ var d = i + 1; return '<option value="' + d + '"' + (d === MS() ? ' selected' : '') + '>' + (d === 1 ? '매달 1일 (기본)' : '매달 ' + d + '일') + '</option>'; }).join('') + '</select>' +
         (MS() > 1 ? '<div class="faint xs" style="margin-top:4px">이번 달: ' + periodRange(curM()) + ' · 요약·예산·통계가 이 기간으로 계산돼요</div>' : '') + '</div>' +
       (isKid() ? '' : '<div class="fld"><label>용돈 (개인 용돈으로 쓴 돈에서 빠져요 · 자녀는 절반 이하로 남으면 알려 드려요)</label>' + members().map(function(m){ var v = allowOf(m); return '<div class="row" style="gap:8px;margin:6px 0">' + avatar(m, 26) + '<span class="grow sm">' + esc(m) + '</span><select class="inp" data-allowp="' + esc(m) + '" style="width:76px;padding:8px 6px"><option value="월"' + (!v || v.p === '월' ? ' selected' : '') + '>매달</option><option value="주"' + (v && v.p === '주' ? ' selected' : '') + '>매주</option></select><input class="inp num" data-allow="' + esc(m) + '" inputmode="numeric" style="width:120px;text-align:right" value="' + (v ? won(v.a) : '') + '" placeholder="없음"></div>'; }).join('') + '<button class="btn ghost block" id="allowSave" style="margin-top:4px">용돈 저장</button></div>') +
       (S.me ? '<label class="toggle"><span>내 개인 용돈 내용 숨기기<br><span class="faint xs">가족에게는 “개인 지출”과 금액만 보여요</span></span><input type="checkbox" id="tHide"' + (hiders().indexOf(S.me) >= 0 ? ' checked' : '') + '></label>' : '') +
     '</div>' +
-    '<div class="card"><h3>가족 구성원</h3>' +
+    '<div class="card" data-sec="me"><h3>가족 구성원</h3>' +
+      members().map(function(m){ var k = kids().indexOf(m) >= 0; return '<div class="memrow">' + avatar(m, 36) + '<div class="grow"><b>' + esc(m) + '</b>' + (m === S.me ? ' <span class="faint xs">이 폰</span>' : '') + '<div class="faint xs">' + (k ? '자녀 · “사 주세요” 요청을 보내요' : '어른 · 모든 내역과 설정을 볼 수 있어요') + '</div></div><span class="rolebadge' + (k ? ' kid' : '') + '">' + (k ? '자녀' : '어른') + '</span></div>'; }).join('') +
+      '<button class="btn ghost block" id="memAdd" style="margin-top:10px">+ 가족 추가 (자녀·배우자)</button>' +
+      '<div class="tip">새 가족의 휴대폰에서는 <b>툭장부를 설치 → 같은 가족 비밀번호 입력 → 자기 이름 선택</b>하면 함께 써요. <button class="linkbtn" id="memInvite">초대 안내 문구 복사</button></div>' +
+      '<details style="margin-top:10px"><summary class="sm faint" style="cursor:pointer">이름·자녀 지정 직접 고치기</summary>' +
       '<div class="fld"><label>구성원 (쉼표로 구분)</label><input class="inp" id="sMembers" value="' + esc(members().join(', ')) + '"></div>' +
       '<div class="fld"><label>자녀로 지정 (위시에서 “사 주세요” 요청을 보내요)</label><div class="chips" id="sKids">' + members().map(function(m){ return '<button class="chip' + (kids().indexOf(m) >= 0 ? ' on' : '') + '" data-kid="' + esc(m) + '" aria-pressed="' + (kids().indexOf(m) >= 0) + '">' + esc(m) + '</button>'; }).join('') + '</div></div>' +
-      '<button class="btn pri block" id="sCfgSave">저장</button></div>' +
-    '<details class="card fold" id="catBox"' + (S.openCat ? ' open' : '') + '><summary><div class="grow"><b>카테고리 · 월 예산</b><div class="faint xs">' + c.length + '개 · 지출 예산 합계 ' + won(budgetTotal()) + '원</div></div><span class="faint sm">편집</span></summary><div class="faint xs" style="margin:10px 0 6px"><b>고정·필수</b>에 체크한 항목(월세·통신·보험처럼 꼭 나가는 돈)은 위시의 “남은 생활 예산”에서 빠져요. 키워드가 문장에 들어 있으면 그 카테고리로 자동 분류돼요. 한 번 고친 분류는 다음부터 기억해요.</div><div id="catRows">' +
+      '<button class="btn pri block" id="sCfgSave">저장</button></details></div>' +
+    '<details class="card fold" data-sec="budget" id="catBox" open><summary><div class="grow"><b>카테고리 · 월 예산</b><div class="faint xs">' + c.length + '개 · 지출 예산 합계 ' + won(budgetTotal()) + '원</div></div><span class="faint sm">편집</span></summary><div class="faint xs" style="margin:10px 0 6px"><b>고정·필수</b>에 체크한 항목(월세·통신·보험처럼 꼭 나가는 돈)은 위시의 “남은 생활 예산”에서 빠져요. 키워드가 문장에 들어 있으면 그 카테고리로 자동 분류돼요. 한 번 고친 분류는 다음부터 기억해요.</div><div id="catRows">' +
       c.map(function(x, i){ return catRowHTML(x, i); }).join('') + '</div>' +
       '<div class="row" style="margin-top:10px"><button class="btn ghost" id="catAdd">+ 추가</button><button class="btn pri grow" id="catSave">카테고리 저장</button></div>' +
       '<div class="faint xs" style="margin-top:8px">지출 예산 합계 <b class="num">' + won(budgetTotal()) + '원</b></div></details>' +
-    '<details class="card fold" id="recBox"' + (S.openRec ? ' open' : '') + '><summary><div class="grow"><b>정기 지출 자동 입력</b><div class="faint xs">' + rec.length + '건 · 한 달 평균 ' + won(recSum) + '원</div></div><span class="faint sm">편집</span></summary><div class="faint xs" style="margin:10px 0 6px">월세·통신비처럼 매달 나가는 돈은 물론, 자동차세·재산세·종합소득세·보험료·건강검진처럼 몇 달·몇 년마다 나가는 돈도 주기를 정해 두면 날짜에 맞춰 기록하고 미리 알려 줘요.</div>' +
+    '<details class="card fold" data-sec="rec" id="recBox" open><summary><div class="grow"><b>정기 지출 자동 입력</b><div class="faint xs">' + rec.length + '건 · 한 달 평균 ' + won(recSum) + '원</div></div><span class="faint sm">편집</span></summary><div class="faint xs" style="margin:10px 0 6px">월세·통신비처럼 매달 나가는 돈은 물론, 자동차세·재산세·종합소득세·보험료·건강검진처럼 몇 달·몇 년마다 나가는 돈도 주기를 정해 두면 날짜에 맞춰 기록하고 미리 알려 줘요.</div>' +
       rec.slice().sort(function(x, y){ return (recNext(x) || '9') < (recNext(y) || '9') ? -1 : 1; }).map(recItemHTML).join('') +
       '<button class="btn ghost block" id="recAdd" style="margin-top:8px">+ 정기 지출 추가</button></details>' +
     '</div>' +
-    '<div class="card"><h3>말로 입력</h3>' +
+    '<div class="card" data-sec="app"><h3>말로 입력</h3>' +
       (SR ? '<label class="toggle"><span>앱을 열면 바로 듣기<br><span class="faint xs">아이콘을 누르자마자 녹음이 시작돼요</span></span><input type="checkbox" id="tAutoListen"' + (LS.get('autoListen', true) ? ' checked' : '') + '></label>' : '<div class="faint sm">이 브라우저는 앱 안 녹음을 지원하지 않아요.</div>') +
       '<label class="toggle"><span>말하고 나면 3초 뒤 자동 저장<br><span class="faint xs">그 사이에 내용을 누르면 멈춰요</span></span><input type="checkbox" id="tAutoSave"' + (LS.get('autoSave', true) ? ' checked' : '') + '></label>' +
       (isIOS() ? '<div class="tip">아이폰에서는 <b>단축어</b> 아이콘을 홈 화면에 두면, 누르자마자 듣고 저장까지 해요. 만드는 방법은 설치 안내 페이지에 있어요.</div>' : '') +
     '</div>' +
-    '<div class="card"' + (isKid() ? ' hidden' : '') + '><h3>데이터</h3>' +
+    '<div class="card" data-sec="app"' + (isKid() ? ' data-kidhide="1"' : '') + '><h3>데이터</h3>' +
       '<div class="row" style="gap:8px"><button class="btn ghost grow" id="exMonth">이번 달만</button><button class="btn ghost grow" id="exAll">전체 기간</button></div>' +
       '<div class="faint xs" style="margin-top:8px">엑셀에서 열리는 CSV 파일로 만들어 카카오톡·메일 등으로 보낼 수 있어요.</div></div>' +
-    '<div class="card"><h3>보안 · 기타</h3>' +
+    '<div class="card" data-sec="app"><h3>보안 · 기타</h3>' +
+      (canNotify() ? '<label class="toggle"><span>휴대폰 알림 받기<br><span class="faint xs">' + (isKid() ? '사 주세요 요청 결과를 알려 줘요' : '용돈 50% 이하, 정기 지출 미리 알림, 사 주세요 요청') + ' · 2시간마다 확인</span></span><input type="checkbox" id="tNotify"' + (LS.get('notifyOn', false) ? ' checked' : '') + '></label>' : '') +
       (window.NativeApp && NativeApp.canLock ? '<label class="toggle"><span>앱 잠금<br><span class="faint xs">열 때 지문·얼굴·화면 잠금으로 확인해요</span></span><input type="checkbox" id="tLock"' + (LS.get('appLock', false) ? ' checked' : '') + '></label>' : '') +
       '<div class="fld"' + (isKid() ? ' hidden' : '') + '><label>가족 비밀번호 바꾸기</label><div class="row"><input class="inp grow" id="sPin" type="password" inputmode="numeric" maxlength="8" placeholder="새 비밀번호"><button class="btn" id="sPinSave">변경</button></div></div>' +
       '<div class="row" style="gap:8px"><button class="btn ghost grow" id="sReload">새로고침</button><button class="btn ghost grow" id="sLogout">로그아웃</button></div>' +
       '<div class="tip">모든 내역은 구글 시트 <b>“거래내역”</b> 탭에 쌓여요. 컴퓨터에서 시트를 열면 엑셀처럼 정리하거나 내려받을 수 있어요.</div></div>' +
-    '<div class="card"><h3>앱 정보</h3>' +
+    '<div class="card" data-sec="app"><h3>앱 정보</h3>' +
       '<div class="row between sm" style="padding:4px 0"><span class="muted">앱 버전</span><span class="num">' + (window.NativeApp ? '안드로이드 ' + appVersion() + ' · ' : '') + '화면 ' + WEB_VER + '</span></div>' +
       (window.NativeApp ? '<button class="btn ghost block" id="updCheck" style="margin-top:8px">업데이트 확인</button>' : '') +
       errLogHTML() +
@@ -1606,7 +1728,12 @@ function readRecRows(){
   });
 }
 function bindSettings(){
-  document.querySelectorAll('[data-me]').forEach(function(b){ b.onclick = function(){ S.me = b.dataset.me; LS.set('me', S.me); render(); toast(S.me + '(으)로 입력해요'); }; });
+  var st = setTab();
+  var all = LS.get('setAll', false); // 자동 테스트용: 모든 칸 펼치기
+  if (all) document.querySelectorAll('#view details').forEach(function(d){ d.open = true; });
+  document.querySelectorAll('[data-sec]').forEach(function(el){ el.hidden = (!all && el.dataset.sec !== st) || el.dataset.kidhide === '1'; });
+  document.querySelectorAll('[data-st]').forEach(function(b){ b.onclick = function(){ S.setTab = b.dataset.st; LS.set('setTab', b.dataset.st); render(); window.scrollTo(0, 0); }; });
+  document.querySelectorAll('[data-me]').forEach(function(b){ b.onclick = function(){ S.me = b.dataset.me; LS.set('me', S.me); syncNotify(); render(); toast(S.me + '(으)로 입력해요'); }; });
   $('#catBox').ontoggle = function(){ S.openCat = this.open; };
   $('#recBox').ontoggle = function(){ S.openRec = this.open; };
   function setAvatar(data, btn){
@@ -1657,6 +1784,33 @@ function bindSettings(){
     }).catch(function(e){ toast('바꾸지 못했어요: ' + e.message); }).then(function(){ btn.disabled = false; });
   };
   function busy(btn, p, ok){ btn.disabled = true; p.then(function(){ toast(ok); return load(true); }).catch(function(e){ toast('실패: ' + e.message); }).then(function(){ btn.disabled = false; }); }
+  $('#memAdd').onclick = function(){
+    var sh = $('#sheet'), role = '자녀';
+    function draw(){
+      sh.innerHTML = '<div class="row between"><h3 style="margin:0">가족 추가</h3><button class="x" id="mClose" aria-label="닫기" style="font-size:24px">×</button></div>' +
+        '<div class="fld"><label>이름 (앱에 이렇게 보여요)</label><input class="inp" id="mName" maxlength="20" placeholder="예) 민수, 첫째, 엄마"></div>' +
+        '<div class="fld"><label>누구인가요?</label><div class="seg">' + ['자녀', '어른'].map(function(r){ return '<button data-mr="' + r + '" class="' + (r === role ? 'on' : '') + '">' + (r === '자녀' ? '자녀 (용돈·사 주세요)' : '어른 (배우자 등)') + '</button>'; }).join('') + '</div></div>' +
+        (role === '자녀' ? '<div class="faint xs">자녀 화면에는 자기 내역과 용돈만 보이고, 가족 설정은 숨겨져요.</div>' : '') +
+        '<button class="btn pri block" id="mSave" style="margin-top:14px">추가하기</button>';
+      $('#mClose').onclick = closeSheet;
+      sh.querySelectorAll('[data-mr]').forEach(function(b){ b.onclick = function(){ var v = $('#mName').value; role = b.dataset.mr; draw(); $('#mName').value = v; }; });
+      $('#mSave').onclick = function(){
+        var n = $('#mName').value.trim();
+        if (!n) return toast('이름을 적어 주세요.');
+        if (/,/.test(n)) return toast('이름에 쉼표는 쓸 수 없어요.');
+        if (members().indexOf(n) >= 0) return toast('같은 이름이 이미 있어요.');
+        var mem = members().concat([n]), kd = kids().slice(); if (role === '자녀') kd.push(n);
+        S.data.cfg.members = mem; S.data.cfg.kids = kd; LS.set('cache', S.data); closeSheet(); render();
+        call('saveCfg', { members: mem, kids: kd }).then(function(){ toast(n + '님을 추가했어요. ' + n + '님 폰에서 같은 비밀번호로 들어오면 돼요'); }).catch(function(er){ toast('저장하지 못했어요: ' + er.message); });
+      };
+    }
+    draw(); $('#sheetBg').classList.add('on'); setTimeout(function(){ $('#mName').focus(); }, 80);
+  };
+  $('#memInvite').onclick = function(){
+    var txt = '우리 가족 가계부 "툭장부"에 초대해요!\n1) 이 링크로 앱 설치: https://github.com/zkskslsk-del/gagyebu/releases/latest/download/gagyebu.apk\n2) 앱을 열고 가족 비밀번호 입력 (따로 알려 줄게요)\n3) 내 이름을 고르면 끝!';
+    var done = function(){ toast('초대 문구를 복사했어요. 카카오톡에 붙여 넣어 보내세요. 비밀번호는 따로 알려 주세요'); };
+    try { navigator.clipboard.writeText(txt).then(done, function(){ prompt('복사해서 보내세요', txt); }); } catch (e) { prompt('복사해서 보내세요', txt); }
+  };
   $('#sCfgSave').onclick = function(){
     var mem = $('#sMembers').value.split(',').map(function(s){ return s.trim(); }).filter(Boolean);
     if (!mem.length) return toast('구성원을 한 명 이상 적어 주세요.');
@@ -1675,6 +1829,7 @@ function bindSettings(){
   var tal = $('#tAutoListen'); if (tal) tal.onchange = function(){ LS.set('autoListen', tal.checked); toast(tal.checked ? '앱을 열면 바로 들어요' : '마이크를 눌러야 들어요'); };
   $('#tAutoSave').onchange = function(){ LS.set('autoSave', this.checked); };
   $('#sReload').onclick = function(){ load().then(flush); };
+  var tn = $('#tNotify'); if (tn) tn.onchange = function(){ setNotifyOn(tn.checked); toast(tn.checked ? '앱이 꺼져 있어도 알려 드릴게요' : '휴대폰 알림을 껐어요'); };
   var tl = $('#tLock'); if (tl) tl.onchange = function(){
     if (tl.checked && !NativeApp.canLock()) { tl.checked = false; return toast('휴대폰에 화면 잠금(지문·PIN 등)을 먼저 설정해 주세요.'); }
     if (tl.checked && !bioOK()) { tl.checked = false; return toast('앱을 최신 버전으로 업데이트한 뒤에 켤 수 있어요.'); }
@@ -1792,12 +1947,48 @@ function wishHTML(){
   var needSum = needs.reduce(function(s, w){ return s + (w.price || 0); }, 0);
   var needH = '<div class="card need"><div class="row between"><div class="wsec"><h3 style="margin:0">🛒 꼭 사야 할 것</h3><small>생필품·식재료·준비물</small></div><span class="faint xs">' + needs.length + '개' + (needSum ? ' · 약 ' + won(needSum) + '원' : '') + '</span></div>' +
     (needs.length ? needs.map(function(w){ return wishCard(w, mm); }).join('') : '<div class="faint sm" style="padding:8px 0">떨어진 휴지·우유처럼 사야 할 것을 적어 두면 장 볼 때 한눈에 보여요.</div>') +
-    (kid ? '' : '<button class="btn ghost block" data-wadd="need" style="margin-top:8px">+ 사야 할 것 적기</button>') + '</div>';
+    (kid ? '' : '<div class="addrow"><button class="btn ghost grow" data-wadd="need">+ 사야 할 것 적기</button>' + (SR ? '<button class="micsm" data-wmic="need" aria-label="말로 사야 할 것 담기">' + MIC_SVG + '</button>' : '') + '</div>') + '</div>';
   var listH = '<div class="card"><div class="row between"><div class="wsec"><h3 style="margin:0">✨ 갖고 싶은 것</h3><small>취미·여가·옷</small></div><span class="faint xs">' + active.length + '개</span></div>' +
     (active.length ? active.map(function(w){ return wishCard(w, mm); }).join('') : '<div class="empty">' + (kid ? '아직 없어요. 갖고 싶은 게 있으면 아래에서 요청해 보세요.' : '갖고 싶은 물건을 담아 두세요. 링크와 가격, 살 수 있는 조건을 정할 수 있어요.') + '</div>') +
-    (kid ? '' : '<button class="btn ghost block" data-wadd="want" style="margin-top:8px">+ 갖고 싶은 것 담기</button>') + '</div>';
+    (kid ? '' : '<div class="addrow"><button class="btn ghost grow" data-wadd="want">+ 갖고 싶은 것 담기</button>' + (SR ? '<button class="micsm" data-wmic="want" aria-label="말로 갖고 싶은 것 담기">' + MIC_SVG + '</button>' : '') + '</div>') + '</div>';
   var doneH = mineDone.length ? '<details class="card"><summary style="cursor:pointer;font-weight:600">' + (kid ? '끝난 요청' : '산 물건 · 거절한 요청') + ' ' + mineDone.length + '개</summary>' + mineDone.sort(function(a, b){ return (b.handled || b.created) > (a.handled || a.created) ? 1 : -1; }).map(function(w){ return wishCard(w, mm); }).join('') + '</details>' : '';
-  return reqH + needH + (kid ? '' : head) + listH + doneH + (kid ? '<button class="btn pri block" id="wishAdd">🙋 사 주세요 요청하기</button>' : '');
+  return reqH + needH + (kid ? '' : head) + listH + doneH + (kid ? '<div class="addrow"><button class="btn pri grow" id="wishAdd">🙋 사 주세요 요청하기</button>' + (SR ? '<button class="micsm" data-wmic="kid" aria-label="말로 요청하기">' + MIC_SVG + '</button>' : '') + '</div>' : '');
+}
+// 한 번 듣고 글자로 돌려줘요 (위시처럼 홈 밖에서 쓰는 짧은 음성 입력)
+function listenOnce(onText, btn){
+  if (!SR) return toast('이 기기에서는 음성 입력을 쓸 수 없어요.');
+  if (V.rec) { try{ V.rec.stop(); }catch(e){} return; }
+  var rec; try { rec = new SR(); } catch (e) { return toast('음성 인식을 시작하지 못했어요.'); }
+  rec.lang = 'ko-KR'; rec.interimResults = true; rec.continuous = false;
+  var got = '';
+  V = { rec: rec };
+  if (btn) btn.classList.add('rec');
+  rec.onstart = function(){ toast('듣고 있어요… 예) 휴지 만오천원, 우유 삼천원', null, null, 6000); };
+  rec.onresult = function(ev){ var t = ''; for (var i = 0; i < ev.results.length; i++) t += ev.results[i][0].transcript; got = t.trim(); };
+  rec.onerror = function(){};
+  rec.onend = function(){ V = { rec: null }; if (btn) btn.classList.remove('rec'); if (got) onText(got); else toast('못 들었어요. 다시 눌러 말해 주세요.'); };
+  try { rec.start(); } catch (e) { V = { rec: null }; if (btn) btn.classList.remove('rec'); toast('음성 인식을 시작하지 못했어요.'); }
+}
+// "휴지 만오천원, 우유 삼천원" → 위시 여러 개
+function wishVoice(kind, btn){
+  listenOnce(function(text){
+    var items = Parser.parse(text, { today: new Date(), cats: [], methods: [], history: {} });
+    if (!items.length) items = [{ desc: text.replace(/[,.]$/, ''), amount: 0 }];
+    var need = kind === 'need', kid = kind === 'kid';
+    var made = items.filter(function(x){ return x.desc; }).map(function(x){
+      return { id: 'w' + uid(), name: x.desc.slice(0, 80), price: Math.round(x.amount || 0), link: '', kind: need ? (/(우유|계란|쌀|고기|과일|채소|라면|두부)/.test(x.desc) ? '식재료' : '생필품') : '기타', need: need, memo: '', reason: '', needBy: '',
+        cond: '없음', target: 0, status: kid ? '요청' : '원함', by: S.me, msg: '', reply: '', handledBy: '', created: new Date().toISOString(), handled: '' };
+    });
+    if (!made.length) return toast('물건 이름을 못 알아들었어요. 다시 말해 주세요.');
+    if (kid) { openWish(null, false, { name: made[0].name, price: made[0].price }); toast('“' + made[0].name + '”을(를) 적었어요. 왜 필요한지 쓰고 보내 주세요'); return; }
+    made.forEach(function(w){ saveWishLocal(w); });
+    haptic();
+    toast(made.map(function(w){ return w.name + (w.price ? ' ' + won(w.price) + '원' : ''); }).join(', ') + ' 담았어요', '실행 취소', function(){
+      var ids = made.map(function(w){ return w.id; });
+      S.data.wishes = wishes().filter(function(w){ return ids.indexOf(w.id) < 0; }); render();
+      ids.forEach(function(id){ call('deleteWish', { id: id }).catch(function(){}); });
+    }, 6000);
+  }, btn);
 }
 function findWish(id){ return wishes().filter(function(w){ return w.id === id; })[0]; }
 function bindWish(){
@@ -1807,6 +1998,7 @@ function bindWish(){
   document.querySelectorAll('[data-wok]').forEach(function(b){ b.onclick = function(){ var w = findWish(b.dataset.wok); if (w) answerWish(w, '승인'); }; });
   document.querySelectorAll('[data-wno]').forEach(function(b){ b.onclick = function(){ var w = findWish(b.dataset.wno); if (w) answerWish(w, '거절'); }; });
   document.querySelectorAll('[data-whold]').forEach(function(b){ b.onclick = function(){ var w = findWish(b.dataset.whold); if (w) answerWish(w, '보류'); }; });
+  document.querySelectorAll('[data-wmic]').forEach(function(b){ b.onclick = function(){ wishVoice(b.dataset.wmic, b); }; });
   document.querySelectorAll('[data-wadd]').forEach(function(b){ b.onclick = function(){ openWish(null, b.dataset.wadd === 'need'); }; });
   document.querySelectorAll('[data-wbuy]').forEach(function(b){ b.onclick = function(){ var w = findWish(b.dataset.wbuy); if (w) buyWish(w); }; });
 }
@@ -1836,9 +2028,10 @@ function answerWish(w, status){
     closeSheet(); haptic(); saveWishLocal(nw, status === '승인' ? '승인했어요. ' + w.by + '님에게 알려 줄게요' : status === '보류' ? '보류했어요. 나중에 다시 결정할 수 있어요' : '거절했어요');
   };
 }
-function openWish(w, needDefault){
+function openWish(w, needDefault, pre){
   var isNew = !w, kid = isKid();
   var e = w ? JSON.parse(JSON.stringify(w)) : { id: 'w' + uid(), name: '', price: 0, link: '', kind: needDefault ? '생필품' : '기타', need: !!needDefault, memo: '', reason: '', needBy: '', cond: kid || needDefault ? '없음' : '저축', target: 0, status: kid ? '요청' : '원함', by: S.me, msg: '', reply: '', handledBy: '', created: new Date().toISOString(), handled: '' };
+  if (pre) Object.keys(pre).forEach(function(k){ e[k] = pre[k]; });
   var sh = $('#sheet');
   function draw(){
     if (e.need == null) e.need = isNeed(e);
@@ -2085,6 +2278,7 @@ $('#lockPinGo').onclick = function(){
   else { $('#lockMsg').textContent = '가족 비밀번호가 맞지 않아요.'; $('#lockPin').value = ''; }
 };
 $('#lockPin').onkeydown = function(e){ if (e.key === 'Enter') $('#lockPinGo').click(); };
+$('#lockPin').oninput = function(){ if (this.value.length === String(S.pin).length) $('#lockPinGo').click(); };
 
 /* ---------- 뒤로가기 (안드로이드) ---------- */
 window.__onBack = function(){
