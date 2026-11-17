@@ -123,6 +123,9 @@ textarea.say:focus{border-color:var(--pri)}
 .lbtn.google{background:#fff;color:#1f1f1f;border:1px solid #DADCE0}
 .lbtn.email{background:var(--chip);color:var(--ink)}
 .invcode{font-size:34px;font-weight:800;letter-spacing:6px;text-align:center;margin:18px 0 6px;font-variant-numeric:tabular-nums}
+.ledgerbar{display:flex;align-items:center;gap:10px;margin:2px 0 4px}
+.ledgerbar button{border:1px solid var(--line);background:var(--card);border-radius:999px;padding:7px 14px;font-weight:700;color:var(--ink)}
+.fxtag{align-self:center;font-size:12px;font-weight:700;color:var(--pri);background:var(--pri-soft);border-radius:8px;padding:3px 8px}
 .memrow{display:flex;align-items:center;gap:12px;padding:10px 0;border-top:1px solid var(--line)}
 .memrow:first-of-type{border-top:0}
 .rolebadge{font-size:12px;font-weight:700;padding:4px 10px;border-radius:999px;background:var(--chip);color:var(--ink2)}
@@ -344,12 +347,22 @@ var Parser = (function () {
   var RE_DIGIT = /\d[\d,]*(?:\.\d+)?(?:\s?[십백천만억](?:\s?\d[\d,]*(?:\.\d+)?)?)*(?:\s?원)?/g;
   var RE_HAN = /(^|[^가-힣0-9.,])([일이삼사오육칠팔구십백천만억](?:\s?[일이삼사오육칠팔구십백천만억]|[0-9,])*\s?원)/g;
 
+  // 여행 중 외화: "커피 5달러", "택시 1200엔", "12.5 유로"
+  var FX_WORDS = { '달러': 'USD', '불': 'USD', 'USD': 'USD', '엔': 'JPY', 'JPY': 'JPY', '유로': 'EUR', 'EUR': 'EUR', '위안': 'CNY', 'CNY': 'CNY', '바트': 'THB', 'THB': 'THB',
+    '동': 'VND', 'VND': 'VND', '페소': 'PHP', 'PHP': 'PHP', '파운드': 'GBP', 'GBP': 'GBP', '대만달러': 'TWD', 'TWD': 'TWD' };
+  var RE_FX = /(\d[\d,]*(?:\.\d+)?|[일이삼사오육칠팔구십백천만]+)\s*(대만달러|달러|불|엔|유로|위안|바트|동|페소|파운드|USD|JPY|EUR|CNY|THB|VND|PHP|GBP|TWD)(?![가-힣A-Za-z])/g;
   function findAmounts(text) {
     var res = [], m;
     function overlaps(st, en) { return res.some(function (r) { return st < r.end && en > r.start; }); }
+    RE_FX.lastIndex = 0;
+    while ((m = RE_FX.exec(text))) {
+      var fv = /\d/.test(m[1]) ? parseFloat(m[1].replace(/,/g, '')) : koNum(m[1]);
+      if (fv > 0) res.push({ start: m.index, end: m.index + m[0].length, value: fv, cur: FX_WORDS[m[2]] });
+    }
     RE_HAN.lastIndex = 0;
     while ((m = RE_HAN.exec(text))) {
       var st = m.index + m[1].length, en = st + m[2].length;
+      if (overlaps(st, en)) continue;
       var v2 = koNum(m[2]);
       if (v2 > 0) res.push({ start: st, end: en, value: v2 });
     }
@@ -563,7 +576,8 @@ var Parser = (function () {
         desc: desc,
         method: mm ? mm.method : (hist && hist.method) || (g.type !== '지출' ? (methods.filter(function (x) { return /이체|계좌/.test(x); })[0] || '') : (opts.defaultMethod || methods[0] || '')),
         learned: !!g.learned,
-        scope: scope
+        scope: scope,
+        cur: a.cur || ''
       });
       prevEnd = useAfter ? a.end + cut : a.end;
     }
@@ -699,7 +713,7 @@ function toast(msg, actLabel, actFn, ms){
   t.classList.add('on'); clearTimeout(toast._t); toast._t = setTimeout(function(){ t.classList.remove('on'); }, ms || (actFn ? 5000 : 2400));
 }
 function haptic(){ try { if (window.NativeApp && NativeApp.vibrate) NativeApp.vibrate(); else if (navigator.vibrate) navigator.vibrate(12); } catch (e) {} }
-var WEB_VER = '2026.11.18n';
+var WEB_VER = '2026.11.18o';
 (function(){ try { var v = window.NativeApp ? Number(NativeApp.version()) : 0; var a = (navigator.userAgent.match(/Android (\d+)/) || [])[1]; if (v && v <= 6 && Number(a) >= 15) document.documentElement.classList.add('old-native'); } catch (e) {} })();
 var errShown = 0;
 function logErr(kind, msg, where){
@@ -1086,11 +1100,36 @@ function bannersHTML(){
   if (!LS.get('tipsDone', false)) h += '<div class="banner" style="align-items:flex-start"><span>💡</span><div class="grow"><b>이렇게 쓰면 편해요</b><div class="sm" style="margin-top:4px;line-height:1.6">· 마이크를 누르고 “개인 용돈 술자리 3만원, 가족 저녁 식사 8만원”처럼 말하면 개인·공용이 나뉘어 저장돼요<br>· 영수증은 <b>영수증 찍기</b>로 사진만 찍으면 끝<br>· 매달 나가는 돈은 설정 → <b>고정지출</b>에 넣어 두면 자동 기록<br>· 저장 직후 <b>실행 취소</b>로 되돌릴 수 있어요</div></div><button class="x" id="tipsX" aria-label="안내 닫기">×</button></div>';
   return h;
 }
+function ledgerBar(){
+  var L = S.data && S.data.ledgers; if (!L || !L.length) return '';
+  var cur = L.filter(function(l){ return l.id === S.data.ledger; })[0] || L[0];
+  return '<div class="ledgerbar"><button id="ledgerBtn">' + (cur.isDefault ? '🏠 ' : '✈️ ') + esc(cur.name) + ' ▾</button>' +
+    (!cur.isDefault && cur.currency !== 'KRW' ? '<span class="faint xs">' + esc(cur.currency) + '로 말해도 돼요' + (S.data.fx ? ' · 1' + esc(cur.currency) + ' ≈ ' + fxFmt(S.data.fx.rate) + '원' : '') + '</span>' : '') + '</div>';
+}
+function openLedgers(){
+  var L = S.data.ledgers || [], sh = $('#sheet');
+  sh.innerHTML = '<div class="row between"><h3 style="margin:0">가계부 고르기</h3><button class="x" id="lgClose" aria-label="닫기" style="font-size:24px">×</button></div>' +
+    L.map(function(l){ return '<button class="cardrow" data-lg="' + esc(l.id) + '"><div class="row between"><b>' + (l.isDefault ? '🏠 ' : '✈️ ') + esc(l.name) + '</b><span class="faint sm">' + (l.id === S.data.ledger ? '보는 중' : '') + (l.currency !== 'KRW' ? ' ' + esc(l.currency) : '') + '</span></div>' + (l.starts ? '<div class="faint xs">' + esc(l.starts) + ' ~ ' + esc(l.ends || '') + '</div>' : '') + '</button>'; }).join('') +
+    (isKid() ? '' : '<h3 style="margin:16px 0 6px">✈️ 여행 가계부 만들기</h3><div class="fld"><label>이름</label><input class="inp" id="lgName" maxlength="30" placeholder="예) 오사카 가족 여행"></div>' +
+      '<div class="row" style="gap:8px"><div class="fld grow"><label>쓰는 돈</label><select class="inp" id="lgCur">' + [['KRW', '원화'], ['JPY', '엔'], ['USD', '달러'], ['EUR', '유로'], ['CNY', '위안'], ['THB', '바트'], ['VND', '동'], ['TWD', '대만달러'], ['PHP', '페소'], ['GBP', '파운드']].map(function(c){ return '<option value="' + c[0] + '">' + c[1] + ' (' + c[0] + ')</option>'; }).join('') + '</select></div></div>' +
+      '<div class="row" style="gap:8px"><div class="fld grow"><label>시작</label><input class="inp" type="date" id="lgS"></div><div class="fld grow"><label>끝</label><input class="inp" type="date" id="lgE"></div></div>' +
+      '<button class="btn pri block" id="lgMake">만들고 바로 쓰기</button>' +
+      (S.data.ledger && L.some(function(l){ return l.id === S.data.ledger && !l.isDefault; }) ? '<button class="btn ghost block" id="lgArch" style="margin-top:8px">지금 여행 가계부 정리하기 (보관)</button>' : ''));
+  $('#sheetBg').classList.add('on');
+  $('#lgClose').onclick = closeSheet;
+  sh.querySelectorAll('[data-lg]').forEach(function(b){ b.onclick = function(){ closeSheet(); call('switchLedger', { id: b.dataset.lg }).then(function(){ toast('가계부를 바꿨어요'); return load(); }); }; });
+  var mk = $('#lgMake'); if (mk) mk.onclick = function(){
+    var n = $('#lgName').value.trim(); if (!n) return toast('이름을 적어 주세요.');
+    mk.disabled = true;
+    call('createLedger', { name: n, currency: $('#lgCur').value, starts: $('#lgS').value, ends: $('#lgE').value }).then(function(){ closeSheet(); toast('✈️ ' + n + ' 가계부를 만들었어요. 이제 여기에 기록돼요'); return load(); }).catch(function(e){ mk.disabled = false; toast(e.message); });
+  };
+  var ar = $('#lgArch'); if (ar) ar.onclick = function(){ call('archiveLedger', { id: S.data.ledger }).then(function(){ closeSheet(); toast('여행 가계부를 정리했어요'); return load(); }); };
+}
 function homeHTML(){
   var todayS = ymd(new Date());
   var recent = visTx().filter(function(t){ return t.date <= todayS; }).sort(sortTx).slice(0, 6);
   var fq = frequent();
-  return bannersHTML() + summaryCard(curM(), LS.get('sumMode', 'month')) + allowHTML() + cardPerfHTML() +
+  return ledgerBar() + bannersHTML() + summaryCard(curM(), LS.get('sumMode', 'month')) + allowHTML() + cardPerfHTML() +
     '<div class="card">' +
       '<div class="row between" style="margin-bottom:8px"><h3 style="margin:0">어디에 얼마 썼나요?</h3><span class="faint xs">' + (S.me ? avatar(S.me, 22) + ' ' + esc(S.me) : '') + '</span></div>' +
       (SR ? '<div class="voice"><button class="micbig" id="micBig" aria-label="말로 입력">' + MIC_SVG + '</button><div class="vt" id="vt"><b>눌러서 말하기</b><span>예) 개인 용돈 술자리 3만원, 가족 저녁 식사 8만원</span></div></div>' : '') +
@@ -1213,12 +1252,31 @@ function previewHTML(){
       '<select class="pill" data-f="category">' + catOptions(p.type, p.category) + '</select>' +
       '<input class="pill" type="date" data-f="date" value="' + p.date + '">' +
       '<select class="pill pm" data-f="method" style="border-left:4px solid ' + esc(p.method ? payInfo(p.method).color : 'transparent') + '">' + methodOptions(p.method) + '</select>' +
-      (p.type === '지출' ? '<select class="pill sc-' + (p.scope || '공용') + '" data-f="scope" aria-label="공용 또는 개인"><option value="공용"' + (p.scope !== '개인' ? ' selected' : '') + '>가족 공용</option><option value="개인"' + (p.scope === '개인' ? ' selected' : '') + '>개인 용돈</option></select>' : '') + (p.learned ? '<span class="faint xs" style="align-self:center">지난번 분류</span>' : '') + '</div>' + (isDup(p) ? '<span class="dup">같은 날 같은 금액 내역이 이미 있어요. 중복인지 확인해 주세요</span>' : '') + '</div>';
+      (p.type === '지출' ? '<select class="pill sc-' + (p.scope || '공용') + '" data-f="scope" aria-label="공용 또는 개인"><option value="공용"' + (p.scope !== '개인' ? ' selected' : '') + '>가족 공용</option><option value="개인"' + (p.scope === '개인' ? ' selected' : '') + '>개인 용돈</option></select>' : '') + (p.learned ? '<span class="faint xs" style="align-self:center">지난번 분류</span>' : '') + (p.cur ? '<span class="fxtag">' + (p.fx ? p.fx.cur + ' ' + p.fx.amount + ' → 원화' : p.cur + ' 환율 확인 중…') + '</span>' : '') + '</div>' + (isDup(p) ? '<span class="dup">같은 날 같은 금액 내역이 이미 있어요. 중복인지 확인해 주세요</span>' : '') + '</div>';
   }).join('');
 }
 
+// 외화 → 원화 환율 (6시간 동안 저장해 둬요)
+function fxFmt(r){ return r < 100 ? (Math.round(r * 100) / 100).toString() : won(r); }
+function fxCached(cur){ var c = LS.get('fx_' + cur, null); return c && c.at > Date.now() - 6 * 3600e3 ? c.rate : 0; }
+function fxFetch(cur){
+  return fetch('https://api.frankfurter.app/latest?from=' + cur + '&to=KRW').then(function(r){ return r.json(); })
+    .then(function(o){ var r = o && o.rates && o.rates.KRW; if (r) LS.set('fx_' + cur, { rate: r, at: Date.now() }); return r || 0; })
+    .catch(function(){ var c = LS.get('fx_' + cur, null); return c ? c.rate : 0; });
+}
+function applyFx(){
+  var need = [];
+  S.preview.forEach(function(p){
+    if (!p.cur || p.fx) return;
+    var r = fxCached(p.cur);
+    if (r) { p.fx = { cur: p.cur, rate: r, amount: p.amount }; p.amount = Math.round(p.amount * r); p.memo = (p.memo ? p.memo + ' · ' : '') + p.cur + ' ' + p.fx.amount + ' (1' + p.cur + '≈' + fxFmt(r) + '원)'; }
+    else if (need.indexOf(p.cur) < 0) need.push(p.cur);
+  });
+  if (need.length) Promise.all(need.map(fxFetch)).then(function(){ if (S.preview.some(function(p){ return p.cur && !p.fx; }) && $('#pv')) { applyFx(); $('#pv').innerHTML = previewHTML(); bindPreview(); } });
+}
 function reparse(){
   S.preview = Parser.parse(S.draft, { today: new Date(), cats: cats(), methods: methods(), history: history(), defaultMethod: LS.get('lastMethod', ''), defaultScope: isKid() ? '개인' : '공용' });
+  applyFx();
   $('#pv').innerHTML = previewHTML(); bindPreview();
   $('#saveAll').disabled = !S.preview.length;
   $('#saveAll').textContent = S.preview.length > 1 ? S.preview.length + '건 저장' : '저장';
@@ -1281,7 +1339,7 @@ function isDup(p){
 function saveItems(items){
   var now = new Date().toISOString();
   var clean = items.filter(function(p){ return p.amount; }).map(function(p){
-    return { id: p.id || uid(), date: p.date, type: p.type, category: p.category, amount: Math.round(p.amount), desc: p.desc, method: p.method, who: p.who || S.me, memo: p.memo || '', scope: p.scope === '개인' || (!p.scope && isKid()) ? '개인' : '공용', created: now };
+    return { id: p.id || uid(), date: p.date, type: p.type, category: p.category, amount: Math.round(p.amount), desc: p.desc, method: p.method, who: p.who || S.me, memo: p.memo || '', fx: p.fx || undefined, scope: p.scope === '개인' || (!p.scope && isKid()) ? '개인' : '공용', created: now };
   });
   if (!clean.length) return false;
   clean.forEach(function(t){ S.data.tx.push(t); });
@@ -1310,6 +1368,7 @@ function bindHome(){
   $('#rcPick').onclick = function(){ $('#rcPickIn').click(); };
   $('#rcCamIn').onchange = function(){ handleReceipt(this.files && this.files[0]); this.value = ''; };
   $('#rcPickIn').onchange = function(){ handleReceipt(this.files && this.files[0]); this.value = ''; };
+  var lb = $('#ledgerBtn'); if (lb) lb.onclick = openLedgers;
   document.querySelectorAll('[data-card]').forEach(function(b){ b.onclick = function(){ var c = cardOf(b.dataset.card); if (c) openCard(c); }; });
   document.querySelectorAll('[data-sm]').forEach(function(b){ b.onclick = function(){ LS.set('sumMode', b.dataset.sm); haptic(); render(); }; });
   $('#seeAll').onclick = function(){ S.view = 'list'; render(); window.scrollTo(0, 0); };

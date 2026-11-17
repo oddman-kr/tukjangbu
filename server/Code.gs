@@ -737,12 +737,22 @@ var Parser = (function () {
   var RE_DIGIT = /\d[\d,]*(?:\.\d+)?(?:\s?[십백천만억](?:\s?\d[\d,]*(?:\.\d+)?)?)*(?:\s?원)?/g;
   var RE_HAN = /(^|[^가-힣0-9.,])([일이삼사오육칠팔구십백천만억](?:\s?[일이삼사오육칠팔구십백천만억]|[0-9,])*\s?원)/g;
 
+  // 여행 중 외화: "커피 5달러", "택시 1200엔", "12.5 유로"
+  var FX_WORDS = { '달러': 'USD', '불': 'USD', 'USD': 'USD', '엔': 'JPY', 'JPY': 'JPY', '유로': 'EUR', 'EUR': 'EUR', '위안': 'CNY', 'CNY': 'CNY', '바트': 'THB', 'THB': 'THB',
+    '동': 'VND', 'VND': 'VND', '페소': 'PHP', 'PHP': 'PHP', '파운드': 'GBP', 'GBP': 'GBP', '대만달러': 'TWD', 'TWD': 'TWD' };
+  var RE_FX = /(\d[\d,]*(?:\.\d+)?|[일이삼사오육칠팔구십백천만]+)\s*(대만달러|달러|불|엔|유로|위안|바트|동|페소|파운드|USD|JPY|EUR|CNY|THB|VND|PHP|GBP|TWD)(?![가-힣A-Za-z])/g;
   function findAmounts(text) {
     var res = [], m;
     function overlaps(st, en) { return res.some(function (r) { return st < r.end && en > r.start; }); }
+    RE_FX.lastIndex = 0;
+    while ((m = RE_FX.exec(text))) {
+      var fv = /\d/.test(m[1]) ? parseFloat(m[1].replace(/,/g, '')) : koNum(m[1]);
+      if (fv > 0) res.push({ start: m.index, end: m.index + m[0].length, value: fv, cur: FX_WORDS[m[2]] });
+    }
     RE_HAN.lastIndex = 0;
     while ((m = RE_HAN.exec(text))) {
       var st = m.index + m[1].length, en = st + m[2].length;
+      if (overlaps(st, en)) continue;
       var v2 = koNum(m[2]);
       if (v2 > 0) res.push({ start: st, end: en, value: v2 });
     }
@@ -956,7 +966,8 @@ var Parser = (function () {
         desc: desc,
         method: mm ? mm.method : (hist && hist.method) || (g.type !== '지출' ? (methods.filter(function (x) { return /이체|계좌/.test(x); })[0] || '') : (opts.defaultMethod || methods[0] || '')),
         learned: !!g.learned,
-        scope: scope
+        scope: scope,
+        cur: a.cur || ''
       });
       prevEnd = useAfter ? a.end + cut : a.end;
     }
