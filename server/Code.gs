@@ -97,6 +97,7 @@ function api(pin, action, payload) {
       case 'saveRec': return withLock_(function () { return out_(saveRec_(payload.list || [])); });
       case 'saveWish': return withLock_(function () { return out_(saveWish_(payload.wish)); });
       case 'deleteWish': return withLock_(function () { return out_(deleteWish_(payload.id)); });
+      case 'feedback': return withLock_(function () { return out_(feedback_(payload)); });
       default: return out_({ error: '알 수 없는 요청: ' + action });
     }
   } catch (e) {
@@ -465,6 +466,16 @@ function alerts_(p) {
     if (amt) out.push({ id: 'bill_' + c.name + '_' + bd.ym, title: c.name + ' 카드값 ' + (d === 0 ? '오늘' : d === 1 ? '내일' : '모레') + ' 나가요', body: bd.pay.slice(5).replace('-', '월 ') + '일 · ' + amt.toLocaleString() + '원' + (act ? '' : ' (기록 기준 예상)') });
   });
   return { alerts: out };
+}
+
+/** 사용자 의견: '의견' 탭에 쌓아요 */
+function feedback_(p) {
+  var kind = ['불편', '기능', '칭찬', '기타'].indexOf(p.kind) >= 0 ? p.kind : '기타';
+  var body = String(p.text || '').trim().slice(0, 2000);
+  if (body.length < 2) throw new Error('내용을 조금 더 적어 주세요.');
+  var sh = sheet_('의견', ['보낸 시각', '누가', '종류', '내용', '연락처', '앱 버전', '기기', '처리']);
+  sh.appendRow([new Date(), String(p.who || '').slice(0, 20), kind, body, String(p.contact || '').slice(0, 120), String(p.ver || '').slice(0, 40), String(p.device || '').slice(0, 120), '새 의견']);
+  return { ok: true };
 }
 
 function renameMember_(p) {

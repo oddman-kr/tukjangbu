@@ -305,7 +305,7 @@ html,body{font-family:"Pretendard","Pretendard Variable","Apple SD Gothic Neo","
 <div id="app" class="hidden">
   <div class="wrap">
     <div class="top">
-      <h1 id="title"><svg class="logo" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200"><rect width="200" height="200" rx="46" fill="#FFF8EF"/><g transform="rotate(-6 100 106)" fill="none" stroke="#C2362F"><rect x="27" y="29" width="146" height="146" rx="26" stroke-width="10"/><g stroke-width="12.5" stroke-linecap="square" stroke-linejoin="miter" transform="translate(0 2)"><path d="M134 56H66V92H134"/><path d="M66 74H128"/><path d="M50 112H150"/><path d="M100 112V124"/><path d="M68 140H132V156"/></g></g></svg><span>툭장부</span></h1>
+      <h1 id="title"><svg class="logo" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200"><defs><linearGradient id="tkbg1" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#3B5B95"/><stop offset="1" stop-color="#22375C"/></linearGradient></defs><rect width="200" height="200" rx="46" fill="url(#tkbg1)"/><g transform="rotate(-6 100 106)" fill="none" stroke="#FFF8EF"><rect x="27" y="29" width="146" height="146" rx="26" stroke-width="10"/><g stroke-width="12.5" stroke-linecap="square" stroke-linejoin="miter" transform="translate(0 2)"><path d="M134 56H66V92H134"/><path d="M66 74H128"/><path d="M50 112H150"/><path d="M100 112V124"/><path d="M68 140H132V156"/></g></g></svg><span>툭장부</span></h1>
       <div class="sync" id="sync"><span class="dot"></span><span>동기화됨</span></div>
     </div>
     <div id="view"></div>
@@ -714,7 +714,7 @@ function toast(msg, actLabel, actFn, ms){
   t.classList.add('on'); clearTimeout(toast._t); toast._t = setTimeout(function(){ t.classList.remove('on'); }, ms || (actFn ? 5000 : 2400));
 }
 function haptic(){ try { if (window.NativeApp && NativeApp.vibrate) NativeApp.vibrate(); else if (navigator.vibrate) navigator.vibrate(12); } catch (e) {} }
-var WEB_VER = '2026.11.18r';
+var WEB_VER = '2026.11.18t';
 (function(){ try { var v = window.NativeApp ? Number(NativeApp.version()) : 0; var a = (navigator.userAgent.match(/Android (\d+)/) || [])[1]; if (v && v <= 6 && Number(a) >= 15) document.documentElement.classList.add('old-native'); } catch (e) {} })();
 var errShown = 0;
 function logErr(kind, msg, where){
@@ -901,7 +901,7 @@ function showGate(){
   g.innerHTML = '<div class="loading">확인 중…</div>';
   call('status').then(function(r){
     var first = !r.hasPin;
-    g.innerHTML = '<div class="gatelogo"><svg class="logo" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200"><rect width="200" height="200" rx="46" fill="#FFF8EF"/><g transform="rotate(-6 100 106)" fill="none" stroke="#C2362F"><rect x="27" y="29" width="146" height="146" rx="26" stroke-width="10"/><g stroke-width="12.5" stroke-linecap="square" stroke-linejoin="miter" transform="translate(0 2)"><path d="M134 56H66V92H134"/><path d="M66 74H128"/><path d="M50 112H150"/><path d="M100 112V124"/><path d="M68 140H132V156"/></g></g></svg></div><h2>툭장부</h2><div class="muted sm" style="margin-top:-4px">말로 툭, 가족 가계부</div>' +
+    g.innerHTML = '<div class="gatelogo"><svg class="logo" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200"><defs><linearGradient id="tkbg2" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#3B5B95"/><stop offset="1" stop-color="#22375C"/></linearGradient></defs><rect width="200" height="200" rx="46" fill="url(#tkbg2)"/><g transform="rotate(-6 100 106)" fill="none" stroke="#FFF8EF"><rect x="27" y="29" width="146" height="146" rx="26" stroke-width="10"/><g stroke-width="12.5" stroke-linecap="square" stroke-linejoin="miter" transform="translate(0 2)"><path d="M134 56H66V92H134"/><path d="M66 74H128"/><path d="M50 112H150"/><path d="M100 112V124"/><path d="M68 140H132V156"/></g></g></svg></div><h2>툭장부</h2><div class="muted sm" style="margin-top:-4px">말로 툭, 가족 가계부</div>' +
       '<div class="muted">' + (first ? '처음이시네요. 가족이 함께 쓸 <b>비밀번호</b>(숫자 4~8자리)를 정해 주세요.' : '가족 비밀번호를 입력해 주세요.') + '</div>' +
       '<input id="pinIn" class="inp pin" type="password" inputmode="numeric" maxlength="8" autocomplete="off">' +
       (first ? '<input id="pinIn2" class="inp pin" style="margin-top:0" type="password" inputmode="numeric" maxlength="8" placeholder="한 번 더">' : '') +
@@ -1877,6 +1877,11 @@ function settingsHTML(){
       (canNotify() ? '<label class="toggle"><span><b>휴대폰 알림 받기</b><br><span class="faint xs">앱이 꺼져 있어도 아래에서 켠 알림을 보내요 · 2시간마다 확인</span></span><input type="checkbox" id="tNotify"' + (LS.get('notifyOn', false) ? ' checked' : '') + '></label>' : '') +
       alertsFor().map(function(a){ return '<label class="toggle"><span>' + a[1] + '<br><span class="faint xs">' + a[2] + '</span></span><input type="checkbox" data-alert="' + a[0] + '"' + (aOn(a[0]) ? ' checked' : '') + '></label>'; }).join('') +
     '</div>' +
+    '<div class="card" data-sec="app" id="fbBox"><h3>💬 의견 보내기</h3><div class="faint xs" style="margin-top:-2px">불편한 점, 있었으면 하는 기능, 무엇이든 좋아요. 만든 사람이 직접 하나하나 읽어요.</div>' +
+      '<div class="seg" style="margin-top:10px">' + [['불편', '😣 불편해요'], ['기능', '💡 이런 기능'], ['칭찬', '👍 좋아요']].map(function(k, i){ return '<button data-fbk="' + k[0] + '" class="' + (i === 0 ? 'on' : '') + '">' + k[1] + '</button>'; }).join('') + '</div>' +
+      '<textarea class="inp" id="fbText" rows="4" maxlength="2000" style="margin-top:8px" placeholder="예) 카드값 나가는 날을 달력에도 보여 주면 좋겠어요"></textarea>' +
+      '<input class="inp" id="fbContact" maxlength="120" style="margin-top:8px" placeholder="답장을 받고 싶으면 이메일이나 연락처 (선택)">' +
+      '<button class="btn pri block" id="fbSend" style="margin-top:8px">보내기</button></div>' +
     '<div class="card" data-sec="app"><h3>말로 입력</h3>' +
       (SR ? '<label class="toggle"><span>앱을 열면 바로 듣기<br><span class="faint xs">아이콘을 누르자마자 녹음이 시작돼요</span></span><input type="checkbox" id="tAutoListen"' + (LS.get('autoListen', true) ? ' checked' : '') + '></label>' : '<div class="faint sm">이 브라우저는 앱 안 녹음을 지원하지 않아요.</div>') +
       '<label class="toggle"><span>말하고 나면 3초 뒤 자동 저장<br><span class="faint xs">그 사이에 내용을 누르면 멈춰요</span></span><input type="checkbox" id="tAutoSave"' + (LS.get('autoSave', true) ? ' checked' : '') + '></label>' +
@@ -2049,6 +2054,16 @@ function bindSettings(){
   var tal = $('#tAutoListen'); if (tal) tal.onchange = function(){ LS.set('autoListen', tal.checked); toast(tal.checked ? '앱을 열면 바로 들어요' : '마이크를 눌러야 들어요'); };
   $('#tAutoSave').onchange = function(){ LS.set('autoSave', this.checked); };
   $('#sReload').onclick = function(){ load().then(flush); };
+  var fbKind = '불편';
+  document.querySelectorAll('[data-fbk]').forEach(function(b){ b.onclick = function(){ fbKind = b.dataset.fbk; document.querySelectorAll('[data-fbk]').forEach(function(x){ x.classList.toggle('on', x === b); }); var t = $('#fbText'); if (t) t.placeholder = fbKind === '기능' ? '예) 카드값 나가는 날을 달력에도 보여 주면 좋겠어요' : fbKind === '칭찬' ? '예) 말로 입력이 정말 편해요!' : '예) 영수증 사진이 가끔 잘못 읽혀요'; }; });
+  var fs = $('#fbSend'); if (fs) fs.onclick = function(){
+    var t = $('#fbText').value.trim(); if (t.length < 2) return toast('내용을 조금 더 적어 주세요.');
+    fs.disabled = true; fs.textContent = '보내는 중…';
+    call('feedback', { kind: fbKind, text: t, contact: $('#fbContact').value.trim(), who: S.me, ver: WEB_VER + (window.NativeApp ? ' / 앱 ' + appVersion() : ''), device: (navigator.userAgent || '').slice(0, 120) })
+      .then(function(){ $('#fbText').value = ''; $('#fbContact').value = ''; toast('고마워요! 보내 주신 의견은 꼭 읽고 반영할게요 🙏'); })
+      .catch(function(e){ toast('보내지 못했어요: ' + e.message); })
+      .then(function(){ fs.disabled = false; fs.textContent = '보내기'; });
+  };
   document.querySelectorAll('[data-alert]').forEach(function(b){ b.onchange = function(){ setAlert(b.dataset.alert, b.checked); toast(b.checked ? '알림을 켰어요' : '이 알림은 더 보내지 않을게요'); }; });
   var tn = $('#tNotify'); if (tn) tn.onchange = function(){ setNotifyOn(tn.checked); toast(tn.checked ? '앱이 꺼져 있어도 알려 드릴게요' : '휴대폰 알림을 껐어요'); };
   var tl = $('#tLock'); if (tl) tl.onchange = function(){
