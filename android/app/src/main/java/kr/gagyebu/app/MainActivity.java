@@ -26,6 +26,10 @@ import android.speech.RecognitionListener;
 import android.speech.RecognizerIntent;
 import android.speech.SpeechRecognizer;
 import android.view.View;
+import android.view.WindowInsets;
+import android.view.WindowInsetsController;
+import android.widget.FrameLayout;
+import android.graphics.Insets;
 import android.view.Window;
 import android.webkit.JavascriptInterface;
 import android.webkit.PermissionRequest;
@@ -57,6 +61,9 @@ public class MainActivity extends Activity {
     Uri cameraUri;
 
     WebView web;
+    FrameLayout root;
+    int navCss = 0;
+    boolean darkIconsNow = true;
     SpeechRecognizer recognizer;
     boolean pendingStart = false;
     String pendingLang = "ko-KR";
@@ -66,11 +73,41 @@ public class MainActivity extends Activity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         Window w = getWindow();
-        w.setStatusBarColor(Color.parseColor("#0F766E"));
+        // 화면 가장자리까지 그리고(안드로이드 15+ 기본 동작), 상태바·내비바·키보드 영역은 직접 비워 둔다
+        w.setStatusBarColor(Color.TRANSPARENT);
+        w.setNavigationBarColor(Color.TRANSPARENT);
+        if (Build.VERSION.SDK_INT >= 30) {
+            w.setDecorFitsSystemWindows(false);
+        } else {
+            w.getDecorView().setSystemUiVisibility(View.SYSTEM_UI_FLAG_LAYOUT_STABLE | View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN | View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION);
+        }
+        if (Build.VERSION.SDK_INT >= 29) { w.setNavigationBarContrastEnforced(false); w.setStatusBarContrastEnforced(false); }
 
+        root = new FrameLayout(this);
+        root.setBackgroundColor(Color.parseColor("#F6F5F1"));
         web = new WebView(this);
         web.setBackgroundColor(Color.parseColor("#F6F5F1"));
-        setContentView(web);
+        root.addView(web, new FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT));
+        setContentView(root);
+        root.setOnApplyWindowInsetsListener((v, ins) -> {
+            int top, left, right, nav, ime;
+            if (Build.VERSION.SDK_INT >= 30) {
+                Insets sb = ins.getInsets(WindowInsets.Type.systemBars() | WindowInsets.Type.displayCutout());
+                Insets im = ins.getInsets(WindowInsets.Type.ime());
+                top = sb.top; left = sb.left; right = sb.right; nav = sb.bottom; ime = im.bottom;
+            } else {
+                top = ins.getSystemWindowInsetTop(); left = ins.getSystemWindowInsetLeft(); right = ins.getSystemWindowInsetRight();
+                int b = ins.getSystemWindowInsetBottom();
+                int big = Math.round(120 * getResources().getDisplayMetrics().density);
+                ime = b > big ? b : 0; nav = b > big ? 0 : b;
+            }
+            boolean keyboard = ime > nav;
+            v.setPadding(left, top, right, keyboard ? ime : 0);
+            navCss = keyboard ? 0 : Math.round(nav / getResources().getDisplayMetrics().density);
+            pushInsets();
+            return ins;
+        });
+        applyBarIcons(true);
 
         WebSettings s = web.getSettings();
         s.setJavaScriptEnabled(true);
@@ -99,6 +136,9 @@ public class MainActivity extends Activity {
             }
         });
         web.setWebViewClient(new WebViewClient() {
+            @Override
+            public void onPageFinished(WebView view, String url) { pushInsets(); }
+
             @Override
             public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest req) {
                 Uri u = req.getUrl();
@@ -180,6 +220,27 @@ public class MainActivity extends Activity {
         }
     }
 
+
+    void pushInsets() {
+        if (web == null) return;
+        web.evaluateJavascript("document.documentElement.style.setProperty('--sab','" + navCss + "px');document.documentElement.classList.add('native-app');", null);
+    }
+
+    void applyBarIcons(boolean darkIcons) {
+        darkIconsNow = darkIcons;
+        if (Build.VERSION.SDK_INT >= 30) {
+            WindowInsetsController c = getWindow().getInsetsController();
+            if (c != null) {
+                int mask = WindowInsetsController.APPEARANCE_LIGHT_STATUS_BARS | WindowInsetsController.APPEARANCE_LIGHT_NAVIGATION_BARS;
+                c.setSystemBarsAppearance(darkIcons ? mask : 0, mask);
+            }
+        } else {
+            View d = getWindow().getDecorView();
+            int f = d.getSystemUiVisibility();
+            f = darkIcons ? (f | View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR) : (f & ~View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR);
+            d.setSystemUiVisibility(f);
+        }
+    }
 
     /* ---------- 앱 기능: 진동, 상태바, 공유, 잠금 ---------- */
 
@@ -269,11 +330,10 @@ public class MainActivity extends Activity {
         @JavascriptInterface public void statusBar(final String hex, final boolean darkIcons) {
             runOnUiThread(() -> {
                 try {
-                    getWindow().setStatusBarColor(Color.parseColor(hex));
-                    View d = getWindow().getDecorView();
-                    int f = d.getSystemUiVisibility();
-                    f = darkIcons ? (f | View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR) : (f & ~View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR);
-                    d.setSystemUiVisibility(f);
+                    int col = Color.parseColor(hex);
+                    root.setBackgroundColor(col);
+                    web.setBackgroundColor(col);
+                    applyBarIcons(darkIcons);
                 } catch (Exception ignored) { }
             });
         }

@@ -5,7 +5,9 @@
  */
 
 var TZ = 'Asia/Seoul';
-var SH_TX = '거래내역', SH_CAT = '카테고리', SH_REC = '고정지출', SH_CFG = '설정';
+var SH_TX = '거래내역', SH_CAT = '카테고리', SH_REC = '고정지출', SH_CFG = '설정', SH_WISH = '위시리스트';
+var WISH_HEAD = ['ID', '이름', '가격', '링크', '분류', '메모', '조건', '목표금액', '상태', '요청자', '요청메시지', '답장', '처리자', '생성시각', '처리시각'];
+var WISH_STATUS = ['원함', '요청', '승인', '거절', '구매함'];
 var TX_HEAD = ['ID', '날짜', '구분', '카테고리', '금액', '내용', '결제수단', '입력자', '메모', '입력시각'];
 var CAT_HEAD = ['구분', '카테고리', '월예산', '키워드(쉼표로 구분)', '순서'];
 var REC_HEAD = ['ID', '구분', '카테고리', '내용', '금액', '매월(일)', '결제수단', '사용'];
@@ -89,6 +91,8 @@ function api(pin, action, payload) {
       case 'saveCats': return withLock_(function () { return out_(saveCats_(payload.cats || [])); });
       case 'saveCfg': return withLock_(function () { return out_(saveCfg_(payload)); });
       case 'saveRec': return withLock_(function () { return out_(saveRec_(payload.list || [])); });
+      case 'saveWish': return withLock_(function () { return out_(saveWish_(payload.wish)); });
+      case 'deleteWish': return withLock_(function () { return out_(deleteWish_(payload.id)); });
       default: return out_({ error: '알 수 없는 요청: ' + action });
     }
   } catch (e) {
@@ -230,7 +234,8 @@ function load_(p) {
   since.setMonth(since.getMonth() - months + 1, 1);
   var sinceStr = Utilities.formatDate(since, TZ, 'yyyy-MM-dd');
   return {
-    cfg: { members: (cfg['구성원'] || '').split(',').map(trim_).filter(String), methods: (cfg['결제수단'] || '').split(',').map(trim_).filter(String) },
+    cfg: { members: (cfg['구성원'] || '').split(',').map(trim_).filter(String), methods: (cfg['결제수단'] || '').split(',').map(trim_).filter(String), kids: (cfg['자녀'] || '').split(',').map(trim_).filter(String) },
+    wishes: readWish_(),
     cats: readCats_(),
     rec: readRec_(),
     tx: readTx_(sinceStr),
@@ -308,6 +313,7 @@ function saveCats_(cats) {
 function saveCfg_(p) {
   if (p.members) writeCfg_('구성원', p.members.map(trim_).filter(String).join(','));
   if (p.methods) writeCfg_('결제수단', p.methods.map(trim_).filter(String).join(','));
+  if (p.kids) writeCfg_('자녀', p.kids.map(trim_).filter(String).join(','));
   if (p.newPin) {
     if (!/^\d{4,8}$/.test(String(p.newPin))) throw new Error('숫자 4~8자리로 정해 주세요.');
     writeCfg_('PIN', String(p.newPin));
@@ -761,3 +767,53 @@ var Parser = (function () {
   return { parse: parse, guessCategory: guessCategory, koNum: koNum, findAmounts: findAmounts, findDates: findDates, ymd: ymd };
 })();
 
+
+
+/* ---------- 위시리스트 · 자녀 요청 ---------- */
+function wishSheet_() {
+  var sh = sheet_(SH_WISH, WISH_HEAD);
+  return sh;
+}
+
+function readWish_() {
+  var sh = wishSheet_();
+  var n = sh.getLastRow();
+  if (n < 2) return [];
+  return sh.getRange(2, 1, n - 1, WISH_HEAD.length).getValues().filter(function (r) { return r[0]; }).map(function (r) {
+    var iso = function (v) { return v instanceof Date ? v.toISOString() : String(v || ''); };
+    return { id: String(r[0]), name: String(r[1]), price: Number(r[2]) || 0, link: String(r[3] || ''), kind: String(r[4] || ''), memo: String(r[5] || ''),
+      cond: String(r[6] || '없음'), target: Number(r[7]) || 0, status: String(r[8] || '원함'), by: String(r[9] || ''), msg: String(r[10] || ''),
+      reply: String(r[11] || ''), handledBy: String(r[12] || ''), created: iso(r[13]), handled: iso(r[14]) };
+  });
+}
+
+function saveWish_(w) {
+  if (!w || !w.id || !String(w.name || '').trim()) throw new Error('물건 이름을 적어 주세요.');
+  var link = String(w.link || '').trim();
+  if (link && !/^https?:\/\//i.test(link)) link = 'https://' + link;
+  var row = [String(w.id).slice(0, 40), String(w.name).trim().slice(0, 80), Math.max(0, Math.round(Number(w.price) || 0)), link.slice(0, 500),
+    String(w.kind || '').slice(0, 20), String(w.memo || '').slice(0, 300), ['없음', '저축', '부수입', '남은예산'].indexOf(w.cond) >= 0 ? w.cond : '없음',
+    Math.max(0, Math.round(Number(w.target) || 0)), WISH_STATUS.indexOf(w.status) >= 0 ? w.status : '원함', String(w.by || '').slice(0, 20),
+    String(w.msg || '').slice(0, 300), String(w.reply || '').slice(0, 300), String(w.handledBy || '').slice(0, 20),
+    w.created ? new Date(w.created) : new Date(), w.handled ? new Date(w.handled) : ''];
+  var sh = wishSheet_();
+  var n = sh.getLastRow();
+  if (n >= 2) {
+    var ids = sh.getRange(2, 1, n - 1, 1).getValues();
+    for (var i = 0; i < ids.length; i++) {
+      if (String(ids[i][0]) === row[0]) { sh.getRange(i + 2, 1, 1, WISH_HEAD.length).setValues([row]); return { ok: true }; }
+    }
+  }
+  sh.getRange(sh.getLastRow() + 1, 1, 1, WISH_HEAD.length).setValues([row]);
+  sh.getRange('C:C').setNumberFormat('#,##0'); sh.getRange('H:H').setNumberFormat('#,##0'); sh.getRange('A:A').setNumberFormat('@');
+  return { ok: true };
+}
+
+function deleteWish_(id) {
+  var sh = wishSheet_();
+  var n = sh.getLastRow();
+  if (n < 2) return { ok: true };
+  var ids = sh.getRange(2, 1, n - 1, 1).getValues();
+  for (var i = 0; i < ids.length; i++) if (String(ids[i][0]) === String(id)) { sh.deleteRow(i + 2); break; }
+  return { ok: true };
+}
