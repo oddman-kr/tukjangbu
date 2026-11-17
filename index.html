@@ -623,7 +623,7 @@ function toast(msg, actLabel, actFn, ms){
   t.classList.add('on'); clearTimeout(toast._t); toast._t = setTimeout(function(){ t.classList.remove('on'); }, ms || (actFn ? 5000 : 2400));
 }
 function haptic(){ try { if (window.NativeApp && NativeApp.vibrate) NativeApp.vibrate(); else if (navigator.vibrate) navigator.vibrate(12); } catch (e) {} }
-var WEB_VER = '2026.11.18g';
+var WEB_VER = '2026.11.18h';
 (function(){ try { var v = window.NativeApp ? Number(NativeApp.version()) : 0; var a = (navigator.userAgent.match(/Android (\d+)/) || [])[1]; if (v && v <= 6 && Number(a) >= 15) document.documentElement.classList.add('old-native'); } catch (e) {} })();
 var errShown = 0;
 function logErr(kind, msg, where){
@@ -1528,7 +1528,7 @@ function settingsHTML(){
     '<div class="card"><h3>한 달 기준 · 개인 용돈</h3>' +
       '<div class="fld"><label>한 달 시작일 (월급날에 맞추면 편해요)</label><select class="inp" id="sMS">' + Array.apply(null, Array(28)).map(function(_, i){ var d = i + 1; return '<option value="' + d + '"' + (d === MS() ? ' selected' : '') + '>' + (d === 1 ? '매달 1일 (기본)' : '매달 ' + d + '일') + '</option>'; }).join('') + '</select>' +
         (MS() > 1 ? '<div class="faint xs" style="margin-top:4px">이번 달: ' + periodRange(curM()) + ' · 요약·예산·통계가 이 기간으로 계산돼요</div>' : '') + '</div>' +
-      (isKid() ? '' : '<div class="fld"><label>한 달 용돈 (개인 용돈으로 쓴 돈에서 빠져요)</label>' + members().map(function(m){ var v = allowance()[m]; return '<div class="row" style="gap:8px;margin:6px 0">' + avatar(m, 26) + '<span class="grow sm">' + esc(m) + '</span><input class="inp num" data-allow="' + esc(m) + '" inputmode="numeric" style="width:130px;text-align:right" value="' + (v ? won(v) : '') + '" placeholder="없음"></div>'; }).join('') + '<button class="btn ghost block" id="allowSave" style="margin-top:4px">용돈 저장</button></div>') +
+      (isKid() ? '' : '<div class="fld"><label>용돈 (개인 용돈으로 쓴 돈에서 빠져요 · 자녀는 절반 이하로 남으면 알려 드려요)</label>' + members().map(function(m){ var v = allowOf(m); return '<div class="row" style="gap:8px;margin:6px 0">' + avatar(m, 26) + '<span class="grow sm">' + esc(m) + '</span><select class="inp" data-allowp="' + esc(m) + '" style="width:76px;padding:8px 6px"><option value="월"' + (!v || v.p === '월' ? ' selected' : '') + '>매달</option><option value="주"' + (v && v.p === '주' ? ' selected' : '') + '>매주</option></select><input class="inp num" data-allow="' + esc(m) + '" inputmode="numeric" style="width:120px;text-align:right" value="' + (v ? won(v.a) : '') + '" placeholder="없음"></div>'; }).join('') + '<button class="btn ghost block" id="allowSave" style="margin-top:4px">용돈 저장</button></div>') +
       (S.me ? '<label class="toggle"><span>내 개인 용돈 내용 숨기기<br><span class="faint xs">가족에게는 “개인 지출”과 금액만 보여요</span></span><input type="checkbox" id="tHide"' + (hiders().indexOf(S.me) >= 0 ? ' checked' : '') + '></label>' : '') +
     '</div>' +
     '<div class="card"><h3>가족 구성원</h3>' +
@@ -1615,7 +1615,7 @@ function bindSettings(){
   };
   document.querySelectorAll('[data-allow]').forEach(function(i){ i.onblur = function(){ var v = digits(this.value); this.value = v ? won(v) : ''; }; });
   var asv = $('#allowSave'); if (asv) asv.onclick = function(){
-    var al = {}; document.querySelectorAll('[data-allow]').forEach(function(i){ var v = digits(i.value); if (v) al[i.dataset.allow] = v; });
+    var al = {}; document.querySelectorAll('[data-allow]').forEach(function(i){ var v = digits(i.value), ps = document.querySelector('[data-allowp="' + i.dataset.allow + '"]'); if (v) al[i.dataset.allow] = { a: v, p: ps && ps.value === '주' ? '주' : '월' }; });
     var prev = allowance(); S.data.cfg.allowance = al; LS.set('cache', S.data); render();
     call('saveCfg', { allowance: al }).then(function(){ toast('용돈을 저장했어요. 홈에서 남은 용돈을 볼 수 있어요'); }).catch(function(er){ S.data.cfg.allowance = prev; render(); toast('저장하지 못했어요: ' + er.message); });
   };
@@ -1962,29 +1962,36 @@ function saveRecList(list, okMsg){
 
 /* ---------- 용돈: 한 달 용돈과 남은 금액 ---------- */
 function allowance(){ return S.data && S.data.cfg.allowance ? S.data.cfg.allowance : {}; }
+// 용돈: 숫자(옛 자료, 한 달) 또는 { a: 금액, p: '월' | '주' }
+function allowOf(name){ var v = allowance()[name]; if (!v) return null; if (typeof v === 'number') return { a: v, p: '월' }; return v.a ? { a: +v.a, p: v.p === '주' ? '주' : '월' } : null; }
+function weekRange(){ var d = new Date(); d.setHours(0, 0, 0, 0); var mon = new Date(d.getTime() - ((d.getDay() + 6) % 7) * 864e5); return { from: ymd(mon), to: ymd(new Date(mon.getTime() + 6 * 864e5)) }; }
 function allowLeft(name){
-  var a = allowance()[name]; if (!a) return null;
-  var used = txOfMonth(curM()).filter(function(t){ return t.type === '지출' && t.scope === '개인' && t.who === name; }).reduce(function(s2, t){ return s2 + t.amount; }, 0);
-  return { total: a, used: used, left: a - used };
+  var al = allowOf(name); if (!al) return null;
+  var r = al.p === '주' ? weekRange() : period(curM());
+  var used = (S.data.tx || []).filter(function(t){ return t.date >= r.from && t.date <= r.to && t.type === '지출' && t.scope === '개인' && t.who === name; }).reduce(function(s2, t){ return s2 + t.amount; }, 0);
+  return { total: al.a, used: used, left: al.a - used, p: al.p, range: r };
 }
 function allowHTML(){
   var who = isKid() ? [S.me] : members();
   var rows = who.map(function(m){ var l = allowLeft(m); return l ? { m: m, l: l } : null; }).filter(Boolean);
   if (!rows.length) return '';
-  return '<div class="card"><div class="row between"><h3 style="margin:0">👛 이번 달 용돈</h3><span class="faint xs">' + (periodRange(curM()) || (+curM().slice(5)) + '월') + '</span></div>' +
+  return '<div class="card"><div class="row between"><h3 style="margin:0">👛 용돈</h3><span class="faint xs">주간은 월~일 기준</span></div>' +
     rows.map(function(x){
-      var pct = Math.min(1, x.l.used / x.l.total), out = x.l.left <= 0, low = !out && x.l.left < x.l.total * 0.2;
+      var isK = kids().indexOf(x.m) >= 0;
+      var pct = Math.min(1, x.l.used / x.l.total), out = x.l.left <= 0, low = !out && x.l.left <= x.l.total * (isK ? 0.5 : 0.2);
       return '<div class="flex-row"><div class="row between"><span>' + avatar(x.m, 22) + ' ' + esc(x.m) + (kids().indexOf(x.m) >= 0 ? ' <span class="faint xs">자녀</span>' : '') + '</span><span class="num sm">' + (out ? '<b style="color:var(--bad)">' + (x.l.left < 0 ? won(-x.l.left) + '원 넘게 씀' : '다 썼어요') + '</b>' : '<b>' + won(x.l.left) + '원</b> <span class="faint xs">남음</span>') + '</span></div>' +
-        '<div class="bar thin"><i class="' + (out ? 'bad' : low ? 'warn' : '') + '" style="width:' + (pct * 100).toFixed(1) + '%"></i></div><div class="faint xs">' + won(x.l.used) + ' / ' + won(x.l.total) + '원</div></div>';
+        '<div class="bar thin"><i class="' + (out ? 'bad' : low ? 'warn' : '') + '" style="width:' + (pct * 100).toFixed(1) + '%"></i></div><div class="faint xs">' + (x.l.p === '주' ? '이번 주' : '이번 달') + ' ' + won(x.l.used) + ' / ' + won(x.l.total) + '원</div></div>';
     }).join('') + '</div>';
 }
 function allowBanner(){
   if (isKid()) return '';
-  var seen = LS.get('allowSeen', {}), m = curM();
-  var outK = kids().filter(function(k){ var l = allowLeft(k); return l && l.left <= l.total * 0.1 && !seen[k + '_' + m + '_' + (l.left <= 0 ? 'out' : 'low')]; });
+  // 자녀 용돈이 절반(50%) 이하로 남으면 부모에게 알려요
+  var seen = LS.get('allowSeen', {});
+  var key = function(k, l){ return k + '_' + l.range.from + '_' + (l.left <= 0 ? 'out' : 'half'); };
+  var outK = kids().filter(function(k){ var l = allowLeft(k); return l && l.left <= l.total * 0.5 && !seen[key(k, l)]; });
   if (!outK.length) return '';
   var k = outK[0], l = allowLeft(k);
-  return '<div class="banner warn">' + avatar(k, 30) + '<div class="grow"><b>' + esc(k) + '님 용돈이 ' + (l.left <= 0 ? '다 떨어졌어요' : '거의 다 떨어졌어요') + '</b><div class="faint xs">이번 달 ' + won(l.used) + ' / ' + won(l.total) + '원 썼어요</div></div><button class="x" data-allowx="' + esc(k + '_' + m + '_' + (l.left <= 0 ? 'out' : 'low')) + '" aria-label="알림 닫기">×</button></div>';
+  return '<div class="banner warn">' + avatar(k, 30) + '<div class="grow"><b>' + esc(k) + '님 용돈이 ' + (l.left <= 0 ? '다 떨어졌어요' : '절반 이하로 남았어요') + '</b><div class="faint xs">' + (l.p === '주' ? '이번 주' : '이번 달') + ' ' + won(l.used) + ' / ' + won(l.total) + '원 썼어요 · 남은 돈 ' + won(Math.max(0, l.left)) + '원</div></div><button class="x" data-allowx="' + esc(key(k, l)) + '" aria-label="알림 닫기">×</button></div>';
 }
 
 function errLogHTML(){

@@ -344,7 +344,10 @@ function saveCfg_(p) {
     });
   }
   if (p.allowance) {
-    var al = {}; Object.keys(p.allowance).slice(0, 20).forEach(function (k) { var v = Math.max(0, Math.round(Number(p.allowance[k]) || 0)); if (v) al[String(k).slice(0, 20)] = v; });
+    var al = {}; Object.keys(p.allowance).slice(0, 20).forEach(function (k) {
+      var x = p.allowance[k], amt = Math.max(0, Math.round(Number(typeof x === 'object' && x ? x.a : x) || 0));
+      if (amt) al[String(k).slice(0, 20)] = { a: amt, p: x && x.p === '주' ? '주' : '월' };
+    });
     writeCfg_('용돈', JSON.stringify(al));
   }
   if (p.hide) writeCfg_('개인숨김', p.hide.map(trim_).filter(String).join(','));
