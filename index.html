@@ -690,6 +690,7 @@ function dLabel(s){ var p = s.split('-'); var d = new Date(+p[0], +p[1] - 1, +p[
   if (s === ymd(t)) return '오늘 · ' + base; if (s === ymd(y)) return '어제 · ' + base; return base; }
 function uid(){ return Date.now().toString(36) + Math.random().toString(36).slice(2, 8); }
 window.__toast = function(m){ toast(m); };
+window.__appCtx = function(){ return { cats: cats(), methods: methods(), history: history() }; };
 function toast(msg, actLabel, actFn, ms){
   var t = $('#toast'); t.innerHTML = '';
   var span = document.createElement('span'); span.textContent = msg; t.appendChild(span);
