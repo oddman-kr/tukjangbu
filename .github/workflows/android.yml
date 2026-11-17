@@ -22,10 +22,21 @@ jobs:
 
       - uses: gradle/actions/setup-gradle@v4
         with:
-          gradle-version: '8.7'
+          gradle-version: '8.9'
 
       - name: APK 빌드
-        run: gradle -p android assembleRelease --no-daemon --stacktrace
+        shell: bash
+        run: |
+          set -o pipefail
+          gradle -p android assembleRelease --no-daemon 2>&1 | tee build.log
+
+      - name: 실패 원인 남기기
+        if: failure()
+        shell: bash
+        run: |
+          msg=$(grep -E -A12 "What went wrong|error:|FAILURE|e: " build.log | head -60 | sed 's/%/%25/g' | sed ':a;N;$!ba;s/\n/%0A/g')
+          echo "::error title=build-log::${msg}"
+          tail -40 build.log | sed 's/%/%25/g' | sed ':a;N;$!ba;s/\n/%0A/g' | xargs -0 -I{} echo "::error title=build-tail::{}"
 
       - name: 파일 이름 정리
         run: cp android/app/build/outputs/apk/release/app-release.apk gagyebu.apk

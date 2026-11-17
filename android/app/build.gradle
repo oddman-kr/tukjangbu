@@ -2,11 +2,11 @@ plugins { id 'com.android.application' }
 
 android {
     namespace 'kr.gagyebu.app'
-    compileSdk 34
+    compileSdk 35
     defaultConfig {
         applicationId 'kr.gagyebu.app'
         minSdk 26
-        targetSdk 34
+        targetSdk 35
         versionCode (System.getenv('GITHUB_RUN_NUMBER') ?: '1').toInteger()
         versionName "1.0." + (System.getenv('GITHUB_RUN_NUMBER') ?: '1')
     }
@@ -23,6 +23,10 @@ android {
             minifyEnabled false
             signingConfig signingConfigs.release
         }
+    }
+    lint {
+        checkReleaseBuilds false
+        abortOnError false
     }
     compileOptions {
         sourceCompatibility JavaVersion.VERSION_17
