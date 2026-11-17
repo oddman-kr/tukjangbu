@@ -1,6 +1,6 @@
 {
-  "name": "우리집 가계부",
-  "short_name": "가계부",
+  "name": "툭장부 - 말로 쓰는 가족 가계부",
+  "short_name": "툭장부",
   "lang": "ko",
   "start_url": "./?src=home",
   "scope": "./",

@@ -10,7 +10,7 @@ var WISH_HEAD = ['ID', '이름', '가격', '링크', '분류', '메모', '조건
 var WISH_STATUS = ['원함', '요청', '승인', '거절', '보류', '구매함'];
 var TX_HEAD = ['ID', '날짜', '구분', '카테고리', '금액', '내용', '결제수단', '입력자', '메모', '입력시각', '공용/개인'];
 var CAT_HEAD = ['구분', '카테고리', '월예산', '키워드(쉼표로 구분)', '순서', '고정·필수'];
-var FIXED_RE = /(주거|관리비|월세|통신|보험|대출|이자|세금|공과금|교육|학원|육아|의료|병원|교통)/;
+var FIXED_RE = /(주거|관리비|월세|통신|보험|대출|이자|세금|공과금|교육|학원|육아|의료|병원)/;
 var REC_HEAD = ['ID', '구분', '카테고리', '내용', '금액', '매월(일)', '결제수단', '사용', '주기', '간격', '시작일', '미리알림(일)', '만든날'];
 var CFG_HEAD = ['항목', '값'];
 
@@ -817,8 +817,10 @@ var Parser = (function () {
   }
 
   var BUILTIN = [
-    [/(술값|술집|맥주|소주|와인|호프|포차|이자카야|막걸리)/, /술|외식|식비/],
+    [/(술값|술자리|술집|맥주|소주|와인|호프|포차|이자카야|막걸리)/, [/술|유흥/, /외식|식비/]],
     [/(아침|점심|저녁|식사|밥값|회식|배달)/, /외식|식비/],
+    [/(붕어빵|호떡|떡볶이|어묵|아이스크림|과자|빵집|베이커리|간식|디저트|탕후루)/, [/간식/, /카페/, /외식|식비/]],
+    [/(학원|교재|학습지|과외|수강료|학교)/, /교육|학원|육아/],
     [/(택시|버스|지하철|주유|기름값|톨게이트|주차)/, /교통|차량/],
     [/(병원|약국|진료|치과|약값)/, /의료|건강|병원/],
     [/(옷|신발|미용실|헤어|화장품)/, /의류|미용/]
@@ -843,8 +845,11 @@ var Parser = (function () {
     // 카테고리 키워드에 없어도 흔한 말은 알아들어요
     for (var bi = 0; bi < BUILTIN.length; bi++) {
       if (BUILTIN[bi][0].test(hay)) {
-        var bc = cats.filter(function (c) { return c.type === '지출' && BUILTIN[bi][1].test(c.name); })[0];
-        if (bc) return { type: bc.type, category: bc.name };
+        var tg = [].concat(BUILTIN[bi][1]);
+        for (var ti = 0; ti < tg.length; ti++) {
+          var bc = cats.filter(function (c) { return c.type === '지출' && tg[ti].test(c.name); })[0];
+          if (bc) return { type: bc.type, category: bc.name };
+        }
       }
     }
     var type = INCOME_HINT.test(seg) ? '수입' : SAVE_HINT.test(seg) ? '저축' : '지출';

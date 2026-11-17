@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">가계부</string>
+    <string name="app_name">툭장부</string>
     <string name="sc_voice">말로 입력</string>
     <string name="sc_manual">직접 입력</string>
     <string name="widget_name">이번 달 지출</string>
