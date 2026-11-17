@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<shortcuts xmlns:android="http://schemas.android.com/apk/res/android">
+    <shortcut android:shortcutId="voice" android:enabled="true" android:icon="@mipmap/ic_launcher"
+        android:shortcutShortLabel="@string/sc_voice" android:shortcutLongLabel="@string/sc_voice">
+        <intent android:action="android.intent.action.VIEW"
+            android:targetPackage="kr.gagyebu.app" android:targetClass="kr.gagyebu.app.MainActivity"
+            android:data="gagyebu://open?voice=1" />
+    </shortcut>
+    <shortcut android:shortcutId="manual" android:enabled="true" android:icon="@mipmap/ic_launcher"
+        android:shortcutShortLabel="@string/sc_manual" android:shortcutLongLabel="@string/sc_manual">
+        <intent android:action="android.intent.action.VIEW"
+            android:targetPackage="kr.gagyebu.app" android:targetClass="kr.gagyebu.app.MainActivity"
+            android:data="gagyebu://open?manual=1" />
+    </shortcut>
+</shortcuts>

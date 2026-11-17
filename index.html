@@ -385,7 +385,18 @@ var LS = {
 };
 var ICON = {'장보기':'🛒','외식·배달':'🍜','카페·간식':'☕','주거·관리비':'🏠','통신':'📱','교통·차량':'🚗','생활용품':'🧴','의류·미용':'👕','의료·건강':'💊','문화·여가':'🎬','구독':'🔁','경조사·선물':'🎁','육아·교육':'🧸','여행':'✈️','보험':'🛡️','기타지출':'•','급여':'💼','상여':'🎉','부수입':'💡','기타수입':'＋','비상금':'🧯','적금·예금':'🏦','연금':'🌱','투자':'📈','청약':'🔑'};
 var TYPES = ['지출','수입','저축'];
-var SR = window.SpeechRecognition || window.webkitSpeechRecognition || null;
+var IN_APP = !!(window.NativeSpeech && window.NativeSpeech.available && window.NativeSpeech.available());
+function NativeSR(){ this.lang = 'ko-KR'; }
+NativeSR.prototype.start = function(){ window.__nsrActive = this; window.NativeSpeech.start(this.lang || 'ko-KR'); };
+NativeSR.prototype.stop = function(){ window.NativeSpeech.stop(); };
+NativeSR.prototype.abort = function(){ window.NativeSpeech.abort(); };
+window.__nsr = {
+  start: function(){ var s = window.__nsrActive; if (s && s.onstart) s.onstart(); },
+  result: function(t){ var s = window.__nsrActive; if (s && s.onresult) s.onresult({ resultIndex: 0, results: [[{ transcript: t }]] }); },
+  error: function(c){ var s = window.__nsrActive; if (s && s.onerror) s.onerror({ error: c }); },
+  end: function(){ var s = window.__nsrActive; window.__nsrActive = null; if (s && s.onend) s.onend(); }
+};
+var SR = IN_APP ? NativeSR : (window.SpeechRecognition || window.webkitSpeechRecognition || null);
 var MIC_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="2.5" width="6" height="12" rx="3"/><path d="M5 11a7 7 0 0 0 14 0"/><path d="M12 18v3.5"/></svg>';
 var S = {
   pin: LS.get('pin', ''), me: LS.get('me', ''), data: LS.get('cache', null), pending: LS.get('pending', []),
@@ -718,7 +729,7 @@ function startListen(fromGesture){
       return;
     }
     if (st.err === 'not-allowed' || st.err === 'service-not-allowed') {
-      if (st.gesture) { setMicUI('', '마이크를 쓸 수 없어요', isIOS() ? '설정 → Safari(또는 Chrome) → 마이크 허용, 그리고 설정 → Siri에서 받아쓰기를 켜 주세요' : '주소창의 자물쇠 → 권한 → 마이크 허용을 눌러 주세요'); }
+      if (st.gesture) { setMicUI('', '마이크를 쓸 수 없어요', IN_APP ? '휴대폰 설정 → 애플리케이션 → 가계부 → 권한 → 마이크를 허용해 주세요' : isIOS() ? '설정 → Safari(또는 Chrome) → 마이크 허용, 그리고 설정 → Siri에서 받아쓰기를 켜 주세요' : '주소창의 자물쇠 → 권한 → 마이크 허용을 눌러 주세요'); }
       else setMicUI('hint', '눌러서 말하기', '버튼을 누르면 바로 들어요');
     } else if (st.err === 'no-speech' || !st.err) setMicUI('', '못 들었어요', '버튼을 누르고 다시 말해 주세요');
     else if (st.err === 'network') setMicUI('', '음성 인식이 인터넷에 연결되지 않았어요', '연결을 확인하거나 아래에 써 주세요');
