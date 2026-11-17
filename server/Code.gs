@@ -368,7 +368,31 @@ function cleanCards_(list) {
     return { name: String(c.name).trim().slice(0, 30), kind: ['신용', '체크', '현금', '계좌이체', '페이', '기타'].indexOf(c.kind) >= 0 ? c.kind : '신용',
       color: /^#[0-9A-Fa-f]{6}$/.test(String(c.color || '')) ? c.color : '', owner: String(c.owner || '').slice(0, 20),
       target: Math.max(0, Math.round(Number(c.target) || 0)), benefits: String(c.benefits || '').slice(0, 1000),
-      exclude: (c.exclude || []).slice(0, 30).map(function (x) { return String(x).slice(0, 30); }), memo: String(c.memo || '').slice(0, 300) };
+      exclude: (c.exclude || []).slice(0, 30).map(function (x) { return String(x).slice(0, 30); }), memo: String(c.memo || '').slice(0, 300),
+      payDay: Math.max(0, Math.min(31, Math.round(Number(c.payDay) || 0))) || undefined, useFrom: Math.max(0, Math.min(31, Math.round(Number(c.useFrom) || 0))) || undefined,
+      useBack: Number(c.useBack) === 2 ? 2 : Number(c.useBack) === 1 ? 1 : undefined, bills: cleanBills_(c.bills) };
+  });
+}
+function cleanBills_(b) {
+  if (!b || typeof b !== 'object') return undefined;
+  var o = {}, n = 0;
+  Object.keys(b).sort().reverse().forEach(function (k) { if (/^\d{4}-\d{2}$/.test(k) && n < 24 && Number(b[k]) > 0) { o[k] = Math.round(Number(b[k])); n++; } });
+  return n ? o : undefined;
+}
+function billDue_(c, today) {
+  var pd = Number(c.payDay); if (!pd || (c.kind || '신용') !== '신용') return null;
+  var f = Number(c.useFrom) || 0, b = Number(c.useBack) || 0;
+  if (!f) { f = pd - 13; b = 1; if (f < 1) { f += 30; b = 2; } }
+  function dayIn(y, m0, d) { return new Date(y, m0, Math.min(d, new Date(y, m0 + 1, 0).getDate())); }
+  function fmt(d) { return Utilities.formatDate(d, TZ, 'yyyy-MM-dd'); }
+  var t = today.split('-'), y = +t[0], m0 = +t[1] - 1;
+  for (var k = 0; k < 2; k++) {
+    var pay = dayIn(y, m0 + k, pd), ps = fmt(pay);
+    if (ps < today) continue;
+    var from = dayIn(pay.getFullYear(), pay.getMonth() - (b || 1), f), nx = dayIn(from.getFullYear(), from.getMonth() + 1, f);
+    return { ym: ps.slice(0, 7), pay: ps, from: fmt(from), to: fmt(new Date(nx.getTime() - 864e5)) };
+  }
+  return null;
   });
 }
 
@@ -431,6 +455,15 @@ function alerts_(p) {
     if (!nx) return;
     var d = Math.round((Recur.between({ cycle: '일', every: 1, start: today }, today, nx).length) - 1);
     if (d >= 1 && d <= r.remind) out.push({ id: 'rec_' + r.id + '_' + nx, title: r.desc + ' ' + (d === 1 ? '내일' : d + '일 뒤') + ' 나가요', body: nx.slice(5).replace('-', '월 ') + '일 · ' + Number(r.amount).toLocaleString() + '원' });
+  });
+  // 4) 카드 결제일 이틀 전
+  cards_(cfg).forEach(function (c) {
+    var bd = billDue_(c, today); if (!bd) return;
+    var d = Math.round((new Date(bd.pay + 'T00:00:00') - new Date(today + 'T00:00:00')) / 864e5);
+    if (d < 0 || d > 2) return;
+    var act = c.bills && c.bills[bd.ym] ? Number(c.bills[bd.ym]) : 0, amt = act;
+    if (!amt) { if (!tx) tx = readTx_(Utilities.formatDate(new Date(now.getTime() - 75 * 864e5), TZ, 'yyyy-MM-dd')); amt = tx.filter(function (t) { return t.type === '지출' && t.method === c.name && t.date >= bd.from && t.date <= bd.to; }).reduce(function (a, t) { return a + t.amount; }, 0); }
+    if (amt) out.push({ id: 'bill_' + c.name + '_' + bd.ym, title: c.name + ' 카드값 ' + (d === 0 ? '오늘' : d === 1 ? '내일' : '모레') + ' 나가요', body: bd.pay.slice(5).replace('-', '월 ') + '일 · ' + amt.toLocaleString() + '원' + (act ? '' : ' (기록 기준 예상)') });
   });
   return { alerts: out };
 }

@@ -281,7 +281,7 @@ var Receipt = (function () {
         kids: mem.filter(function (m) { return m.role === 'child'; }).map(function (m) { return m.display_name; }),
         pending: mem.filter(function (m) { return !m.user_id; }).map(function (m) { return m.display_name; }),
         methods: cards.map(function (c) { return c.name; }),
-        cards: cards.map(function (c) { return { name: c.name, kind: c.kind, color: c.color || '', owner: memName(c.member_id), target: Number(c.monthly_target) || 0, benefits: c.benefits, exclude: c.exclude_categories || [], memo: c.memo }; }),
+        cards: cards.map(function (c) { return { name: c.name, kind: c.kind, color: c.color || '', owner: memName(c.member_id), target: Number(c.monthly_target) || 0, benefits: c.benefits, exclude: c.exclude_categories || [], memo: c.memo, payDay: c.pay_day || undefined, useFrom: c.use_from || undefined, useBack: c.use_back || undefined, bills: c.bills || {} }; }),
         avatars: avatars, allowance: allowance, monthStart: hh ? hh.month_start : 1,
         hide: mem.filter(function (m) { return m.hide_personal; }).map(function (m) { return m.display_name; })
       },
@@ -367,7 +367,7 @@ var Receipt = (function () {
         return ins('cards', ms.map(function (n, i) {
           var c = cs.filter(function (x) { return x.name === n; })[0] || {};
           return { household_id: ctx.hh, name: n, kind: c.kind || (/체크/.test(n) ? '체크' : /현금/.test(n) ? '현금' : /이체|계좌/.test(n) ? '계좌이체' : /페이/.test(n) ? '페이' : '신용'),
-            color: c.color || null, member_id: c.owner ? memId(c.owner) : null, monthly_target: c.target || 0, benefits: c.benefits || '', exclude_categories: c.exclude || [], memo: c.memo || '', sort: i };
+            color: c.color || null, member_id: c.owner ? memId(c.owner) : null, monthly_target: c.target || 0, benefits: c.benefits || '', exclude_categories: c.exclude || [], memo: c.memo || '', sort: i, pay_day: c.payDay || null, use_from: c.payDay && c.useFrom || null, use_back: c.payDay && c.useBack || null, bills: c.bills || {} };
         }));
       }));
     }
@@ -1079,6 +1079,7 @@ var Parser = (function () {
       var hist = opts.history && opts.history[desc.replace(/\s+/g, '')];
       if (!scope) scope = (hist && hist.scope) || opts.defaultScope || '공용';
       items.push({
+        raw: seg,
         date: date || globalDate,
         type: g.type,
         category: g.category,
@@ -1223,7 +1224,7 @@ function toast(msg, actLabel, actFn, ms){
   t.classList.add('on'); clearTimeout(toast._t); toast._t = setTimeout(function(){ t.classList.remove('on'); }, ms || (actFn ? 5000 : 2400));
 }
 function haptic(){ try { if (window.NativeApp && NativeApp.vibrate) NativeApp.vibrate(); else if (navigator.vibrate) navigator.vibrate(12); } catch (e) {} }
-var WEB_VER = '2026.11.18o';
+var WEB_VER = '2026.11.18p';
 (function(){ try { var v = window.NativeApp ? Number(NativeApp.version()) : 0; var a = (navigator.userAgent.match(/Android (\d+)/) || [])[1]; if (v && v <= 6 && Number(a) >= 15) document.documentElement.classList.add('old-native'); } catch (e) {} })();
 var errShown = 0;
 function logErr(kind, msg, where){
@@ -1489,8 +1490,22 @@ function maybeAutoListen(force){
 
 /* ---------- 화면 ---------- */
 // 휴대폰 알림(앱이 꺼져 있어도): 안드로이드 앱이 2시간마다 서버에 새 소식을 물어봐요
+// 알림 종류별 켜고 끄기 (앱 안 배너 + 휴대폰 알림 둘 다)
+var ALERTS = [
+  ['spouse', '가족이 새로 입력한 내역', '다른 가족이 기록하면 홈에 알려 줘요', 'adult'],
+  ['req', '아이의 “사 주세요” 요청', '아이가 요청을 보내면 알려 줘요', 'adult'],
+  ['ans', '요청에 대한 부모님 답', '승인·보류·거절되면 알려 줘요', 'kid'],
+  ['met', '갖고 싶은 것 목표 달성', '저축·부수입 목표를 채우면 알려 줘요', 'all'],
+  ['rec', '정기 지출 미리 알림', '정한 날짜 며칠 전에 알려 줘요', 'adult'],
+  ['allow', '자녀 용돈 절반 이하', '아이 용돈이 절반 남거나 다 떨어지면 알려 줘요', 'adult'],
+  ['bill', '카드 결제일 알림', '결제일 이틀 전에 청구 예정 금액을 알려 줘요', 'adult'],
+  ['update', '새 버전 안내', '앱 업데이트가 나오면 알려 줘요', 'all']
+];
+function alertsFor(){ return ALERTS.filter(function(a){ return a[3] === 'all' || (a[3] === 'kid') === isKid(); }); }
+function aOn(k){ return !LS.get('alertOff', {})[k]; }
+function setAlert(k, on){ var o = LS.get('alertOff', {}); if (on) delete o[k]; else o[k] = 1; LS.set('alertOff', o); syncNotify(); }
 function canNotify(){ return !window.BACKEND && !!(window.NativeApp && NativeApp.setNotify); }
-function syncNotify(){ try { if (canNotify()) NativeApp.setNotify(JSON.stringify({ on: !!LS.get('notifyOn', false), url: window.API_URL, pin: S.pin, me: S.me })); } catch (e) {} }
+function syncNotify(){ try { if (canNotify()) NativeApp.setNotify(JSON.stringify({ on: !!LS.get('notifyOn', false), url: window.API_URL, pin: S.pin, me: S.me, off: Object.keys(LS.get('alertOff', {})).join(',') })); } catch (e) {} }
 function setNotifyOn(on){
   LS.set('notifyOn', on); LS.set('notifyAsked', true);
   if (on && NativeApp.askNotify && NativeApp.notifyAllowed && !NativeApp.notifyAllowed()) NativeApp.askNotify();
@@ -1517,7 +1532,7 @@ function render(){
   var v = $('#view');
   if (S.view === 'home') v.innerHTML = homeHTML(), bindHome();
   else if (S.view === 'list') v.innerHTML = listHTML(), bindList();
-  else if (S.view === 'stats') { v.innerHTML = statsHTML(); bindMonthNav(); document.querySelectorAll('[data-sv]').forEach(function(b){ b.onclick = function(){ LS.set('statsView', b.dataset.sv); render(); }; }); }
+  else if (S.view === 'stats') { v.innerHTML = statsHTML(); bindMonthNav(); bindCards(); document.querySelectorAll('[data-sv]').forEach(function(b){ b.onclick = function(){ LS.set('statsView', b.dataset.sv); render(); }; }); }
   else if (S.view === 'wish') v.innerHTML = wishHTML(), bindWish();
   else v.innerHTML = settingsHTML(), bindSettings();
 }
@@ -1596,16 +1611,17 @@ function newFromSpouse(){
 function bannersHTML(){
   var h = '';
   var upd = LS.get('update', null);
-  if (upd && window.NativeApp && upd.v > appVersion()) h += '<div class="banner"><span>⬆️</span><div class="grow"><b>새 버전이 나왔어요</b><div class="faint xs">설치하면 새 기능과 개선 사항이 적용돼요</div></div><button class="btn pri" id="updBtn">설치</button></div>';
+  if (aOn('update') && upd && window.NativeApp && upd.v > appVersion()) h += '<div class="banner"><span>⬆️</span><div class="grow"><b>새 버전이 나왔어요</b><div class="faint xs">설치하면 새 기능과 개선 사항이 적용돼요</div></div><button class="btn pri" id="updBtn">설치</button></div>';
   var nf = newFromSpouse();
-  if (nf.length) {
+  if (nf.length && aOn('spouse')) {
     var whoS = nf[0].who, sum = nf.reduce(function(s, t){ return s + (t.type === '지출' ? t.amount : 0); }, 0);
     h += '<div class="banner">' + avatar(whoS, 30) + '<div class="grow"><b>' + esc(whoS) + '님이 새로 ' + nf.length + '건 입력했어요</b>' + (sum ? '<div class="faint xs">지출 ' + won(sum) + '원</div>' : '') + '</div><button class="btn ghost" id="nfSee">보기</button><button class="x" id="nfX" aria-label="알림 닫기">×</button></div>';
   }
   h += wishBanners();
   if (canNotify() && !LS.get('notifyAsked', false)) h += '<div class="banner"><span>🔔</span><div class="grow"><b>휴대폰 알림을 켤까요?</b><div class="faint xs">' + (isKid() ? '부모님이 요청에 답하면 알려 드려요' : '아이 용돈이 절반 남았을 때, 정기 지출 전날, 사 주세요 요청이 오면 알려 드려요') + '</div></div><button class="btn pri" id="ntOn">켜기</button><button class="x" id="ntNo" aria-label="나중에">×</button></div>';
   var up = upcomingRec();
-  if (up.length) { var u0 = up[0]; h += '<div class="banner"><span>🔔</span><div class="grow"><b>' + esc(u0.r.desc) + ' ' + (u0.d === 1 ? '내일' : u0.d + '일 뒤') + ' 나가요</b><div class="faint xs">' + (+u0.date.slice(5, 7)) + '월 ' + (+u0.date.slice(8)) + '일 · ' + won(u0.r.amount) + '원' + (up.length > 1 ? ' · 외 ' + (up.length - 1) + '건' : '') + '</div></div><button class="x" data-recx="' + esc(u0.r.id + '_' + u0.date) + '" aria-label="알림 닫기">×</button></div>'; }
+  h += billBanner();
+  if (up.length && aOn('rec')) { var u0 = up[0]; h += '<div class="banner"><span>🔔</span><div class="grow"><b>' + esc(u0.r.desc) + ' ' + (u0.d === 1 ? '내일' : u0.d + '일 뒤') + ' 나가요</b><div class="faint xs">' + (+u0.date.slice(5, 7)) + '월 ' + (+u0.date.slice(8)) + '일 · ' + won(u0.r.amount) + '원' + (up.length > 1 ? ' · 외 ' + (up.length - 1) + '건' : '') + '</div></div><button class="x" data-recx="' + esc(u0.r.id + '_' + u0.date) + '" aria-label="알림 닫기">×</button></div>'; }
   h += allowBanner();
   if (!LS.get('tipsDone', false)) h += '<div class="banner" style="align-items:flex-start"><span>💡</span><div class="grow"><b>이렇게 쓰면 편해요</b><div class="sm" style="margin-top:4px;line-height:1.6">· 마이크를 누르고 “개인 용돈 술자리 3만원, 가족 저녁 식사 8만원”처럼 말하면 개인·공용이 나뉘어 저장돼요<br>· 영수증은 <b>영수증 찍기</b>로 사진만 찍으면 끝<br>· 매달 나가는 돈은 설정 → <b>고정지출</b>에 넣어 두면 자동 기록<br>· 저장 직후 <b>실행 취소</b>로 되돌릴 수 있어요</div></div><button class="x" id="tipsX" aria-label="안내 닫기">×</button></div>';
   return h;
@@ -1639,7 +1655,7 @@ function homeHTML(){
   var todayS = ymd(new Date());
   var recent = visTx().filter(function(t){ return t.date <= todayS; }).sort(sortTx).slice(0, 6);
   var fq = frequent();
-  return ledgerBar() + bannersHTML() + summaryCard(curM(), LS.get('sumMode', 'month')) + allowHTML() + cardPerfHTML() +
+  return ledgerBar() + bannersHTML() + summaryCard(curM(), LS.get('sumMode', 'month')) +
     '<div class="card">' +
       '<div class="row between" style="margin-bottom:8px"><h3 style="margin:0">어디에 얼마 썼나요?</h3><span class="faint xs">' + (S.me ? avatar(S.me, 22) + ' ' + esc(S.me) : '') + '</span></div>' +
       (SR ? '<div class="voice"><button class="micbig" id="micBig" aria-label="말로 입력">' + MIC_SVG + '</button><div class="vt" id="vt"><b>눌러서 말하기</b><span>예) 개인 용돈 술자리 3만원, 가족 저녁 식사 8만원</span></div></div>' : '') +
@@ -1667,6 +1683,99 @@ function cardPerfHTML(){
         '<div class="bar thin"><i class="' + (done ? 'ok' : '') + '" style="width:' + (pct * 100).toFixed(1) + '%"></i></div>' +
         '<div class="faint xs">' + (done ? '이번 달 실적을 채웠어요' : won(c.target - u.sum) + '원 더 쓰면 실적 달성') + '</div></button>';
     }).join('') + '</div>';
+}
+
+/* ---------- 카드 결제(청구) : 긁은 내역은 쓴 날 지출, 카드값 출금은 지출로 세지 않아요 ---------- */
+function isPayCard(c){ return c && (c.kind || '신용') === '신용' && +c.payDay > 0; }
+function billRule(c){
+  var pd = +c.payDay, f = +c.useFrom || 0, b = +c.useBack || 0;
+  if (!f) { f = pd - 13; b = 1; if (f < 1) { f += 30; b = 2; } }
+  return { pd: pd, f: f, b: b || 1 };
+}
+function dayIn(y, m0, d){ return new Date(y, m0, Math.min(d, new Date(y, m0 + 1, 0).getDate())); }
+// payYm(yyyy-MM)에 나가는 결제: 이용기간과 결제일
+function billPeriod(c, payYm){
+  var r = billRule(c), y = +payYm.slice(0, 4), m0 = +payYm.slice(5) - 1;
+  var from = dayIn(y, m0 - r.b, r.f), next = dayIn(from.getFullYear(), from.getMonth() + 1, r.f);
+  return { ym: payYm, pay: ymd(dayIn(y, m0, r.pd)), from: ymd(from), to: ymd(new Date(next.getTime() - 864e5)) };
+}
+function billOf(c, payYm){
+  var pr = billPeriod(c, payYm);
+  var list = visTx().filter(function(t){ return t.type === '지출' && t.method === c.name && t.date >= pr.from && t.date <= pr.to; });
+  pr.list = list; pr.est = list.reduce(function(a, t){ return a + t.amount; }, 0);
+  pr.actual = c.bills && c.bills[payYm] ? +c.bills[payYm] : 0;
+  pr.amount = pr.actual || pr.est;
+  return pr;
+}
+// 다음 결제(오늘 이후)와 지난 결제
+function billsNow(c){
+  var t = ymd(new Date()), m = ym(new Date()), cur = billOf(c, m);
+  return cur.pay >= t ? { next: cur, last: billOf(c, shiftMonth(m, -1)) } : { next: billOf(c, shiftMonth(m, 1)), last: cur };
+}
+function dLeft(d){ return Math.round((new Date(d + 'T00:00:00') - new Date(ymd(new Date()) + 'T00:00:00')) / 864e5); }
+function mdLabel(d){ return (+d.slice(5, 7)) + '/' + (+d.slice(8)); }
+function billHTML(){
+  if (isKid()) return '';
+  var cs = cards().filter(isPayCard);
+  if (!cs.length) return cards().some(function(c){ return (c.kind || '신용') === '신용'; }) ? '<div class="card"><div class="row between"><h3 style="margin:0">🗓️ 카드 결제 예정</h3></div><div class="faint sm" style="margin-top:6px">카드에 <b>결제일</b>을 넣으면 다음 달 출금 금액을 미리 계산해 드려요.</div><button class="btn ghost block" id="billSetup" style="margin-top:10px">카드 결제일 넣기</button></div>' : '';
+  var tot = 0;
+  var rows = cs.map(function(c){
+    var b = billsNow(c), n = b.next, l = b.last, dl = dLeft(n.pay); tot += n.amount;
+    return '<button class="cardrow" data-bill="' + esc(c.name) + '"><div class="row between"><span>' + payDot(c.name, 10) + '<b>' + esc(c.name) + '</b></span><span class="num"><b>' + won(n.amount) + '원</b></span></div>' +
+      '<div class="faint xs">' + mdLabel(n.pay) + ' 출금' + (dl === 0 ? ' · 오늘' : dl <= 7 ? ' · ' + dl + '일 남음' : '') + ' · 이용 ' + mdLabel(n.from) + '~' + mdLabel(n.to) + (n.actual ? ' · 청구액' : ' · 지금까지 쓴 돈') + '</div>' +
+      (l.amount ? '<div class="faint xs">지난 ' + mdLabel(l.pay) + ' ' + won(l.amount) + '원' + (l.actual ? (l.actual !== l.est ? ' (기록과 ' + won(Math.abs(l.actual - l.est)) + '원 차이)' : ' (기록과 같아요)') : ' · 실제 청구액을 넣어 보세요') + '</div>' : '') + '</button>';
+  }).join('');
+  return '<div class="card"><div class="row between"><h3 style="margin:0">🗓️ 카드 결제 예정</h3><span class="num sm"><b>' + won(tot) + '원</b></span></div>' +
+    '<div class="faint xs" style="margin:4px 0 2px">카드로 쓴 돈은 쓴 날 지출로 이미 잡혀 있어요. 카드값 출금은 지출에 다시 더하지 않아요.</div>' + rows + '</div>';
+}
+function billBanner(){
+  if (isKid() || !aOn('bill')) return '';
+  var seen = LS.get('billSeen', {}), out = null;
+  cards().filter(isPayCard).forEach(function(c){ var n = billsNow(c).next, d = dLeft(n.pay); if (d >= 0 && d <= 2 && n.amount && !seen[c.name + '_' + n.ym] && !out) out = { c: c, n: n, d: d }; });
+  if (!out) return '';
+  return '<div class="banner"><span>💳</span><div class="grow"><b>' + esc(out.c.name) + ' 카드값 ' + (out.d === 0 ? '오늘' : out.d === 1 ? '내일' : '모레') + ' 나가요</b><div class="faint xs">' + mdLabel(out.n.pay) + ' · ' + won(out.n.amount) + '원' + (out.n.actual ? '' : ' (기록 기준 예상)') + '</div></div><button class="btn ghost" data-bill="' + esc(out.c.name) + '">보기</button><button class="x" data-billx="' + esc(out.c.name + '_' + out.n.ym) + '" aria-label="알림 닫기">×</button></div>';
+}
+function openBill(c, which){
+  var b = billsNow(c), sh = $('#sheet'), cur = which === 'last' ? b.last : b.next;
+  function draw(){
+    sh.innerHTML = '<div class="row between"><h3 style="margin:0">💳 ' + esc(c.name) + ' 결제</h3><button class="x" id="bClose" aria-label="닫기" style="font-size:24px">×</button></div>' +
+      '<div class="seg" style="margin-top:12px"><button data-bw="last" class="' + (cur === b.last ? 'on' : '') + '">지난 결제 ' + mdLabel(b.last.pay) + '</button><button data-bw="next" class="' + (cur === b.next ? 'on' : '') + '">다음 결제 ' + mdLabel(b.next.pay) + '</button></div>' +
+      '<div class="sumrow" style="margin-top:12px"><div><div class="k">기록으로 계산</div><div class="v">' + won(cur.est) + '</div></div><div><div class="k">실제 청구액</div><div class="v">' + (cur.actual ? won(cur.actual) : '–') + '</div></div></div>' +
+      (cur.actual && cur.actual !== cur.est ? '<div class="tip">' + won(Math.abs(cur.actual - cur.est)) + '원 ' + (cur.actual > cur.est ? '더 청구됐어요. 빠뜨린 내역, 연회비, 해외 수수료, 지난 할부가 있는지 확인해 보세요.' : '덜 청구됐어요. 취소·환불됐거나 다음 결제로 넘어간 내역이 있을 수 있어요.') + '</div>' : '') +
+      '<div class="faint xs" style="margin-top:6px">이용 기간 ' + cur.from.replace(/-/g, '.') + ' ~ ' + cur.to.replace(/-/g, '.') + ' · ' + cur.pay.replace(/-/g, '.') + ' 출금</div>' +
+      '<div class="fld"><label>카드사 문자·앱에 나온 청구 금액 (원)</label><div class="row"><input class="inp num grow" id="bAmt" inputmode="numeric" value="' + (cur.actual ? won(cur.actual) : '') + '" placeholder="' + won(cur.est) + '"><button class="btn pri" id="bSave">저장</button></div>' +
+      '<div class="faint xs" style="margin-top:4px">청구액은 지출 합계에 더해지지 않아요. 계산과 맞는지 확인하는 용도예요.</div></div>' +
+      '<div class="fld"><label>이 결제에 들어가는 내역 (' + cur.list.length + '건)</label><div class="list">' + (cur.list.length ? cur.list.slice().sort(sortTx).map(itemHTML).join('') : '<div class="faint sm">아직 없어요</div>') + '</div></div>' +
+      '<button class="btn ghost block" id="bEdit">결제일 · 이용 기간 바꾸기</button>';
+    $('#bClose').onclick = closeSheet;
+    sh.querySelectorAll('[data-bw]').forEach(function(x){ x.onclick = function(){ cur = x.dataset.bw === 'last' ? b.last : b.next; draw(); }; });
+    $('#bAmt').onblur = function(){ var v = digits(this.value); this.value = v ? won(v) : ''; };
+    $('#bSave').onclick = function(){ setBillActual(c.name, cur.ym, digits($('#bAmt').value)); closeSheet(); };
+    $('#bEdit').onclick = function(){ editCard(payInfo(c.name), true); };
+  }
+  draw(); $('#sheetBg').classList.add('on');
+}
+function setBillActual(name, payYm, amt, msg){
+  var list = cards().map(function(x){ if (x.name !== name) return x; var y = JSON.parse(JSON.stringify(x)); y.bills = y.bills || {}; if (amt) y.bills[payYm] = amt; else delete y.bills[payYm]; var ks = Object.keys(y.bills).sort(); while (ks.length > 24) delete y.bills[ks.shift()]; return y; });
+  saveCards(list, methods(), msg || (amt ? '청구액을 기록했어요. 지출에는 더하지 않아요' : '청구액을 지웠어요'));
+}
+// “카드값 120만원 나갔어” → 지출이 아니라 그 카드의 청구액으로 기록
+var CARDPAY_RE = /카드\s*(값|대금|결제\s*(대금|금액))|카드값|결제\s*대금/;
+function cardPayItem(p){
+  if (p.type !== '지출' || !CARDPAY_RE.test((p.desc || '') + ' ' + (p.raw || ''))) return null;
+  var cs = cards().filter(isPayCard); if (!cs.length) return null;
+  var txt = (p.desc || '') + ' ' + (p.raw || '') + ' ' + (p.method || '');
+  var c = cs.filter(function(x){ return txt.indexOf(x.name) >= 0 || txt.indexOf(x.name.replace(/카드$/, '')) >= 0; })[0] || (cs.length === 1 ? cs[0] : null);
+  if (!c) return null;
+  var b = billsNow(c), t = ymd(new Date());
+  var pick = dLeft(b.next.pay) <= 5 ? b.next : b.last; if (pick.pay > t && dLeft(pick.pay) > 5) pick = b.last;
+  return { card: c, bill: pick, amount: Math.round(p.amount) };
+}
+function bindCards(){
+  document.querySelectorAll('[data-card]').forEach(function(b){ b.onclick = function(){ var c = cardOf(b.dataset.card); if (c) openCard(c); }; });
+  document.querySelectorAll('[data-bill]').forEach(function(b){ b.onclick = function(){ var c = cardOf(b.dataset.bill); if (c) openBill(c); }; });
+  document.querySelectorAll('[data-billx]').forEach(function(b){ b.onclick = function(){ var sn = LS.get('billSeen', {}); sn[b.dataset.billx] = 1; LS.set('billSeen', sn); render(); }; });
+  var bs = $('#billSetup'); if (bs) bs.onclick = function(){ var c = cards().filter(function(x){ return (x.kind || '신용') === '신용'; })[0]; if (c) editCard(payInfo(c.name), true); };
 }
 function openCard(c){
   var m = ym(new Date()), u = cardUse(c, m), sh = $('#sheet');
@@ -1698,6 +1807,11 @@ function editCard(c, existing){
       '<div class="fld"><label>혜택</label><textarea class="inp" id="kBen" rows="4" maxlength="1000" placeholder="예) 커피 20% 할인 (월 5천원까지)&#10;주유 리터당 60원 적립&#10;통신비 자동이체 5천원 할인">' + esc(e.benefits) + '</textarea></div>' +
       '<div class="fld"><label>실적에서 빠지는 항목 (카드사 안내 기준)</label><div class="chips">' + cats('지출').map(function(x){ var on = e.exclude.indexOf(x.name) >= 0; return '<button class="chip' + (on ? ' on' : '') + '" data-kx="' + esc(x.name) + '" aria-pressed="' + on + '">' + esc(x.name) + '</button>'; }).join('') + '</div></div>' +
       '' : '') +
+      (e.kind === '신용' ? (function(){ var r = e.payDay ? billRule(e) : { pd: 0, f: 1, b: 1 }; var days = []; for (var i = 1; i <= 31; i++) days.push(i);
+        return '<div class="fld"><label>결제일 (카드값 나가는 날)</label><select class="inp" id="kPay"><option value="0">모름 · 안 쓰기</option>' + days.map(function(d){ return '<option value="' + d + '"' + (d === r.pd ? ' selected' : '') + '>매달 ' + d + '일</option>'; }).join('') + '</select></div>' +
+          (r.pd ? '<div class="fld"><label>이용 기간 <span class="faint xs">카드사 안내와 다르면 고쳐 주세요</span></label><div class="row" style="gap:6px;align-items:center"><select class="inp" id="kBack" style="width:auto"><option value="1"' + (r.b === 1 ? ' selected' : '') + '>전월</option><option value="2"' + (r.b === 2 ? ' selected' : '') + '>전전월</option></select><select class="inp" id="kFrom" style="width:auto">' + days.slice(0, 31).map(function(d){ return '<option value="' + d + '"' + (d === r.f ? ' selected' : '') + '>' + d + '일</option>'; }).join('') + '</select><span class="sm">부터 한 달</span></div>' +
+            '<div class="faint xs" style="margin-top:4px">' + (function(){ var pr = billPeriod({ payDay: r.pd, useFrom: r.f, useBack: r.b }, ym(new Date())); return '예) ' + mdLabel(pr.pay) + ' 출금 = ' + mdLabel(pr.from) + '~' + mdLabel(pr.to) + ' 사용분'; })() + '</div></div>' : '');
+      })() : '') +
       '<div class="fld"><label>메모 (선택)</label><input class="inp" id="kMemo" maxlength="300" value="' + esc(e.memo) + '" placeholder="예) 결제일 14일, 연회비 1만원"></div>' +
       '<div class="row" style="margin-top:8px">' + (isNew ? '' : '<button class="btn danger" id="kDel">삭제</button>') + '<button class="btn pri grow" id="kSave">저장</button></div>';
     $('#kClose').onclick = closeSheet;
@@ -1706,6 +1820,8 @@ function editCard(c, existing){
     sh.querySelectorAll('[data-ko]').forEach(function(b){ b.onclick = function(){ pull(); e.owner = b.dataset.ko; draw(); }; });
     $('#kName').oninput = function(){ var pv = sh.querySelector('.paypreview b'); if (pv) pv.textContent = this.value || '카드 이름'; };
     sh.querySelectorAll('[data-kx]').forEach(function(b){ b.onclick = function(){ pull(); var k = b.dataset.kx, i = e.exclude.indexOf(k); if (i >= 0) e.exclude.splice(i, 1); else e.exclude.push(k); draw(); }; });
+    var kp = $('#kPay'); if (kp) kp.onchange = function(){ pull(); e.payDay = +kp.value; delete e.useFrom; delete e.useBack; draw(); };
+    ['#kBack', '#kFrom'].forEach(function(id){ var x = $(id); if (x) x.onchange = function(){ pull(); draw(); }; });
     var kt = $('#kTarget'); if (kt) kt.onblur = function(){ var v = digits(this.value); this.value = v ? won(v) : ''; };
     $('#kSave').onclick = function(){
       pull();
@@ -1713,6 +1829,7 @@ function editCard(c, existing){
       if (/,/.test(e.name)) return toast('이름에 쉼표는 쓸 수 없어요.');
       if (e.name !== orig && methods().indexOf(e.name) >= 0) return toast('같은 이름의 결제수단이 이미 있어요.');
       if (!(e.kind === '신용' || e.kind === '체크')) { e.target = 0; e.benefits = ''; e.exclude = []; }
+      if (e.kind !== '신용' || !e.payDay) { delete e.payDay; delete e.useFrom; delete e.useBack; }
       var list = cards().filter(function(x){ return x.name !== orig; }); list.push(e);
       var ms = methods().slice();
       if (orig && orig !== e.name) { ms = ms.map(function(x){ return x === orig ? e.name : x; }); S.data.tx.forEach(function(t){ if (t.method === orig) t.method = e.name; }); renameMethod = orig; }
@@ -1724,7 +1841,7 @@ function editCard(c, existing){
       closeSheet(); saveCards(cards().filter(function(x){ return x.name !== orig; }), methods().filter(function(x){ return x !== orig; }), '“' + orig + '”을(를) 지웠어요. 지난 내역의 이름은 그대로 남아요');
     };
   }
-  function pull(){ var n = $('#kName'); if (!n) return; e.name = n.value.trim(); if ($('#kTarget')) { e.target = digits($('#kTarget').value); e.benefits = $('#kBen').value.trim(); } e.memo = $('#kMemo').value.trim(); }
+  function pull(){ var n = $('#kName'); if (!n) return; e.name = n.value.trim(); if ($('#kTarget')) { e.target = digits($('#kTarget').value); e.benefits = $('#kBen').value.trim(); } if ($('#kPay')) e.payDay = +$('#kPay').value; if ($('#kFrom')) { e.useFrom = +$('#kFrom').value; e.useBack = +$('#kBack').value; } e.memo = $('#kMemo').value.trim(); }
   draw(); $('#sheetBg').classList.add('on');
   if (isNew) setTimeout(function(){ $('#kName').focus(); }, 80);
 }
@@ -1754,7 +1871,8 @@ function methodOptions(sel){ var ms = methodsSorted(); var h = '<option value=""
 function previewHTML(){
   if (!S.preview.length) return S.draft.trim() ? '<div class="faint sm" style="margin-top:10px">금액을 찾지 못했어요. “8천원”, “4500원”처럼 금액을 넣어 주세요.</div>' : '';
   return S.preview.map(function(p, i){
-    return '<div class="pv" data-i="' + i + '">' +
+    var cp = cardPayItem(p);
+    return '<div class="pv" data-i="' + i + '">' + (cp ? '<div class="fxtag" style="margin:0 0 6px">💳 ' + esc(cp.card.name) + ' ' + mdLabel(cp.bill.pay) + ' 청구액으로 기록돼요 · 지출에는 더하지 않아요</div>' : '') +
       '<div class="row"><span class="ico" style="width:30px;height:30px;font-size:16px;border-radius:9px">' + icon(p.category) + '</span>' +
       '<input class="desc" data-f="desc" value="' + esc(p.desc) + '" placeholder="내용">' +
       '<input class="amt num" data-f="amount" inputmode="numeric" value="' + won(p.amount) + '"><button class="x" data-del="' + i + '" aria-label="이 항목 빼기">×</button></div>' +
@@ -1848,6 +1966,12 @@ function isDup(p){
 }
 function saveItems(items){
   var now = new Date().toISOString();
+  items = items.filter(function(p){
+    var cp = p.amount && cardPayItem(p); if (!cp) return true;
+    setBillActual(cp.card.name, cp.bill.ym, cp.amount, '💳 ' + cp.card.name + ' ' + mdLabel(cp.bill.pay) + ' 청구액 ' + won(cp.amount) + '원으로 기록했어요. 이미 쓴 날 지출로 잡혀 있어서 다시 더하지 않아요');
+    return false;
+  });
+  if (!items.length) { S.draft = ''; S.preview = []; render(); return false; }
   var clean = items.filter(function(p){ return p.amount; }).map(function(p){
     return { id: p.id || uid(), date: p.date, type: p.type, category: p.category, amount: Math.round(p.amount), desc: p.desc, method: p.method, who: p.who || S.me, memo: p.memo || '', fx: p.fx || undefined, scope: p.scope === '개인' || (!p.scope && isKid()) ? '개인' : '공용', created: now };
   });
@@ -1879,7 +2003,7 @@ function bindHome(){
   $('#rcCamIn').onchange = function(){ handleReceipt(this.files && this.files[0]); this.value = ''; };
   $('#rcPickIn').onchange = function(){ handleReceipt(this.files && this.files[0]); this.value = ''; };
   var lb = $('#ledgerBtn'); if (lb) lb.onclick = openLedgers;
-  document.querySelectorAll('[data-card]').forEach(function(b){ b.onclick = function(){ var c = cardOf(b.dataset.card); if (c) openCard(c); }; });
+  bindCards();
   document.querySelectorAll('[data-sm]').forEach(function(b){ b.onclick = function(){ LS.set('sumMode', b.dataset.sm); haptic(); render(); }; });
   $('#seeAll').onclick = function(){ S.view = 'list'; render(); window.scrollTo(0, 0); };
   var fq = frequent();
@@ -2211,7 +2335,7 @@ function statsHTML(){
   var sv = LS.get('statsView', 'month');
   var tabs = '<div class="seg" style="margin-bottom:12px"><button data-sv="month" class="' + (sv === 'month' ? 'on' : '') + '">월간</button><button data-sv="week" class="' + (sv === 'week' ? 'on' : '') + '">주간</button></div>';
   if (sv === 'week') return tabs + weekly;
-  return tabs + monthNav(true) + summaryCard(S.month) +
+  return tabs + monthNav(true) + summaryCard(S.month) + allowHTML() + billHTML() + cardPerfHTML() +
     '<div class="card"><h3>카테고리별 지출</h3>' + (catHTML || '<div class="empty">지출 내역이 없어요.</div>') + '</div>' +
     '<div class="card"><h3>최근 6개월 지출</h3>' + trend + (avg ? '<div class="faint sm" style="margin-top:8px">앞선 5개월 평균 ' + won(avg) + '원 · 이번 달은 평균보다 ' + (vals[5] >= avg ? '<b>' + won(vals[5] - avg) + '원 많아요</b>' : '<b>' + won(avg - vals[5]) + '원 적어요</b>') + '</div>' : '') + '</div>' +
     '<div class="card"><h3>가족 공용 · 개인 용돈</h3>' + split('scope') +
@@ -2259,6 +2383,10 @@ function settingsHTML(){
       rec.slice().sort(function(x, y){ return (recNext(x) || '9') < (recNext(y) || '9') ? -1 : 1; }).map(recItemHTML).join('') +
       '<button class="btn ghost block" id="recAdd" style="margin-top:8px">+ 정기 지출 추가</button></details>' +
     '</div>' +
+    '<div class="card" data-sec="app"><h3>알림</h3>' +
+      (canNotify() ? '<label class="toggle"><span><b>휴대폰 알림 받기</b><br><span class="faint xs">앱이 꺼져 있어도 아래에서 켠 알림을 보내요 · 2시간마다 확인</span></span><input type="checkbox" id="tNotify"' + (LS.get('notifyOn', false) ? ' checked' : '') + '></label>' : '') +
+      alertsFor().map(function(a){ return '<label class="toggle"><span>' + a[1] + '<br><span class="faint xs">' + a[2] + '</span></span><input type="checkbox" data-alert="' + a[0] + '"' + (aOn(a[0]) ? ' checked' : '') + '></label>'; }).join('') +
+    '</div>' +
     '<div class="card" data-sec="app"><h3>말로 입력</h3>' +
       (SR ? '<label class="toggle"><span>앱을 열면 바로 듣기<br><span class="faint xs">아이콘을 누르자마자 녹음이 시작돼요</span></span><input type="checkbox" id="tAutoListen"' + (LS.get('autoListen', true) ? ' checked' : '') + '></label>' : '<div class="faint sm">이 브라우저는 앱 안 녹음을 지원하지 않아요.</div>') +
       '<label class="toggle"><span>말하고 나면 3초 뒤 자동 저장<br><span class="faint xs">그 사이에 내용을 누르면 멈춰요</span></span><input type="checkbox" id="tAutoSave"' + (LS.get('autoSave', true) ? ' checked' : '') + '></label>' +
@@ -2268,7 +2396,6 @@ function settingsHTML(){
       '<div class="row" style="gap:8px"><button class="btn ghost grow" id="exMonth">이번 달만</button><button class="btn ghost grow" id="exAll">전체 기간</button></div>' +
       '<div class="faint xs" style="margin-top:8px">엑셀에서 열리는 CSV 파일로 만들어 카카오톡·메일 등으로 보낼 수 있어요.</div></div>' +
     '<div class="card" data-sec="app"><h3>보안 · 기타</h3>' +
-      (canNotify() ? '<label class="toggle"><span>휴대폰 알림 받기<br><span class="faint xs">' + (isKid() ? '사 주세요 요청 결과를 알려 줘요' : '용돈 50% 이하, 정기 지출 미리 알림, 사 주세요 요청') + ' · 2시간마다 확인</span></span><input type="checkbox" id="tNotify"' + (LS.get('notifyOn', false) ? ' checked' : '') + '></label>' : '') +
       (window.NativeApp && NativeApp.canLock ? '<label class="toggle"><span>앱 잠금<br><span class="faint xs">열 때 지문·얼굴·화면 잠금으로 확인해요</span></span><input type="checkbox" id="tLock"' + (LS.get('appLock', false) ? ' checked' : '') + '></label>' : '') +
       '<div class="fld"' + (isKid() || window.BACKEND ? ' hidden' : '') + '><label>가족 비밀번호 바꾸기</label><div class="row"><input class="inp grow" id="sPin" type="password" inputmode="numeric" maxlength="8" placeholder="새 비밀번호"><button class="btn" id="sPinSave">변경</button></div></div>' +
       '<div class="row" style="gap:8px"><button class="btn ghost grow" id="sReload">새로고침</button><button class="btn ghost grow" id="sLogout">로그아웃</button></div>' +
@@ -2432,6 +2559,7 @@ function bindSettings(){
   var tal = $('#tAutoListen'); if (tal) tal.onchange = function(){ LS.set('autoListen', tal.checked); toast(tal.checked ? '앱을 열면 바로 들어요' : '마이크를 눌러야 들어요'); };
   $('#tAutoSave').onchange = function(){ LS.set('autoSave', this.checked); };
   $('#sReload').onclick = function(){ load().then(flush); };
+  document.querySelectorAll('[data-alert]').forEach(function(b){ b.onchange = function(){ setAlert(b.dataset.alert, b.checked); toast(b.checked ? '알림을 켰어요' : '이 알림은 더 보내지 않을게요'); }; });
   var tn = $('#tNotify'); if (tn) tn.onchange = function(){ setNotifyOn(tn.checked); toast(tn.checked ? '앱이 꺼져 있어도 알려 드릴게요' : '휴대폰 알림을 껐어요'); };
   var tl = $('#tLock'); if (tl) tl.onchange = function(){
     if (tl.checked && !NativeApp.canLock()) { tl.checked = false; return toast('휴대폰에 화면 잠금(지문·PIN 등)을 먼저 설정해 주세요.'); }
@@ -2479,13 +2607,13 @@ function wishBanners(){
   if (!S.data) return '';
   var h = '', mm = monthMoney(), seen = LS.get('wishSeen', {});
   var met = wishes().filter(function(w){ return wishMet(w, mm) && !seen['met_' + w.id + '_' + curM()]; });
-  if (met.length) h += '<div class="banner" style="background:var(--pri-soft)"><span>🎉</span><div class="grow"><b>“' + esc(met[0].name) + '” 사도 돼요!</b><div class="faint xs">' + esc(wishProgress(met[0], mm).label) + ' 목표를 채웠어요' + (met.length > 1 ? ' · 외 ' + (met.length - 1) + '개' : '') + '</div></div><button class="btn pri" data-wgo="met">보기</button><button class="x" data-wx="met" aria-label="알림 닫기">×</button></div>';
+  if (met.length && aOn('met')) h += '<div class="banner" style="background:var(--pri-soft)"><span>🎉</span><div class="grow"><b>“' + esc(met[0].name) + '” 사도 돼요!</b><div class="faint xs">' + esc(wishProgress(met[0], mm).label) + ' 목표를 채웠어요' + (met.length > 1 ? ' · 외 ' + (met.length - 1) + '개' : '') + '</div></div><button class="btn pri" data-wgo="met">보기</button><button class="x" data-wx="met" aria-label="알림 닫기">×</button></div>';
   if (!isKid()) {
     var req = wishes().filter(function(w){ return w.status === '요청'; }).sort(function(a, b){ return (a.needBy || '9') < (b.needBy || '9') ? -1 : 1; });
-    if (req.length) h += '<div class="banner warn">' + avatar(req[0].by, 30) + '<div class="grow"><b>' + esc(req[0].by) + '님이 “' + esc(req[0].name) + '” 사 달래요</b><div class="faint xs">' + [req[0].price ? won(req[0].price) + '원' : '', req[0].needBy ? needByLabel(req[0].needBy) : '', req.length > 1 ? '요청 ' + req.length + '건' : ''].filter(Boolean).join(' · ') + '</div>' + (req[0].reason ? '<div class="sm" style="margin-top:2px">“' + esc(req[0].reason) + '”</div>' : '') + '</div><button class="btn pri" data-wgo="req">보기</button></div>';
+    if (req.length && aOn('req')) h += '<div class="banner warn">' + avatar(req[0].by, 30) + '<div class="grow"><b>' + esc(req[0].by) + '님이 “' + esc(req[0].name) + '” 사 달래요</b><div class="faint xs">' + [req[0].price ? won(req[0].price) + '원' : '', req[0].needBy ? needByLabel(req[0].needBy) : '', req.length > 1 ? '요청 ' + req.length + '건' : ''].filter(Boolean).join(' · ') + '</div>' + (req[0].reason ? '<div class="sm" style="margin-top:2px">“' + esc(req[0].reason) + '”</div>' : '') + '</div><button class="btn pri" data-wgo="req">보기</button></div>';
   } else {
     var ans = wishes().filter(function(w){ return w.by === S.me && (w.status === '승인' || w.status === '거절' || w.status === '보류') && !seen['ans_' + w.id + '_' + w.handled]; });
-    if (ans.length) { var a = ans[0]; h += '<div class="banner' + (a.status === '거절' ? ' warn' : '') + '">' + avatar(a.handledBy || '부모님', 30) + '<div class="grow"><b>' + esc(a.handledBy || '부모님') + '님이 “' + esc(a.name) + '” 요청을 ' + (a.status === '승인' ? '승인했어요 🙆' : a.status === '보류' ? '잠깐 보류했어요 🤔' : '거절했어요 🙅') + '</b>' + (a.reply ? '<div class="sm">“' + esc(a.reply) + '”</div>' : '') + '</div><button class="x" data-wx="ans" aria-label="알림 닫기">×</button></div>'; }
+    if (ans.length && aOn('ans')) { var a = ans[0]; h += '<div class="banner' + (a.status === '거절' ? ' warn' : '') + '">' + avatar(a.handledBy || '부모님', 30) + '<div class="grow"><b>' + esc(a.handledBy || '부모님') + '님이 “' + esc(a.name) + '” 요청을 ' + (a.status === '승인' ? '승인했어요 🙆' : a.status === '보류' ? '잠깐 보류했어요 🤔' : '거절했어요 🙅') + '</b>' + (a.reply ? '<div class="sm">“' + esc(a.reply) + '”</div>' : '') + '</div><button class="x" data-wx="ans" aria-label="알림 닫기">×</button></div>'; }
   }
   return h;
 }
@@ -2791,7 +2919,7 @@ function allowHTML(){
     }).join('') + '</div>';
 }
 function allowBanner(){
-  if (isKid()) return '';
+  if (isKid() || !aOn('allow')) return '';
   // 자녀 용돈이 절반(50%) 이하로 남으면 부모에게 알려요
   var seen = LS.get('allowSeen', {});
   var key = function(k, l){ return k + '_' + l.range.from + '_' + (l.left <= 0 ? 'out' : 'half'); };

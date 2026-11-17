@@ -44,7 +44,7 @@ public class AlertWorker extends Worker {
             JSONObject o = new JSONObject(json);
             SharedPreferences sp = ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE);
             sp.edit().putBoolean("on", o.optBoolean("on")).putString("url", o.optString("url"))
-                .putString("pin", o.optString("pin")).putString("me", o.optString("me")).apply();
+                .putString("pin", o.optString("pin")).putString("me", o.optString("me")).putString("off", "," + o.optString("off") + ",").apply();
             WorkManager wm = WorkManager.getInstance(ctx);
             if (o.optBoolean("on")) {
                 Constraints cs = new Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build();
@@ -77,6 +77,8 @@ public class AlertWorker extends Worker {
                     String id = a.optString("id");
                     if (id.isEmpty() || seen.contains(id)) continue;
                     seen.add(id);
+                    String kind = id.indexOf('_') > 0 ? id.substring(0, id.indexOf('_')) : id;
+                    if (sp.getString("off", ",").contains("," + kind + ",")) continue; // 사용자가 끈 알림
                     if (!first) show(ctx, id.hashCode(), a.optString("title"), a.optString("body"));
                 }
             }
