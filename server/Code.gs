@@ -11,7 +11,7 @@ var WISH_STATUS = ['원함', '요청', '승인', '거절', '보류', '구매함'
 var TX_HEAD = ['ID', '날짜', '구분', '카테고리', '금액', '내용', '결제수단', '입력자', '메모', '입력시각', '공용/개인'];
 var CAT_HEAD = ['구분', '카테고리', '월예산', '키워드(쉼표로 구분)', '순서', '고정·필수'];
 var FIXED_RE = /(주거|관리비|월세|통신|보험|대출|이자|세금|공과금|교육|학원|육아|의료|병원|교통)/;
-var REC_HEAD = ['ID', '구분', '카테고리', '내용', '금액', '매월(일)', '결제수단', '사용'];
+var REC_HEAD = ['ID', '구분', '카테고리', '내용', '금액', '매월(일)', '결제수단', '사용', '주기', '간격', '시작일', '미리알림(일)', '만든날'];
 var CFG_HEAD = ['항목', '값'];
 
 var SEED_CATS = [
@@ -209,11 +209,16 @@ function readRec_() {
   var sh = sheet_(SH_REC, REC_HEAD);
   var n = sh.getLastRow();
   if (n < 2) return [];
-  return sh.getRange(2, 1, n - 1, 8).getValues()
+  var w = Math.min(sh.getLastColumn(), 13);
+  var dstr = function (v) { return v instanceof Date ? fmtDate_(v) : String(v || ''); };
+  return sh.getRange(2, 1, n - 1, w).getValues()
     .filter(function (r) { return r[0]; })
     .map(function (r) {
-      return { id: String(r[0]), type: String(r[1]), category: String(r[2]), desc: String(r[3]), amount: Number(r[4]) || 0,
-        day: Number(r[5]) || 1, method: String(r[6] || ''), active: r[7] === true || String(r[7]).toUpperCase() === 'TRUE' };
+      var o = { id: String(r[0]), type: String(r[1]), category: String(r[2]), desc: String(r[3]), amount: Number(r[4]) || 0,
+        day: Number(r[5]) || 1, method: String(r[6] || ''), active: r[7] === true || String(r[7]).toUpperCase() === 'TRUE',
+        cycle: String(r[8] || '월'), every: Number(r[9]) || 1, start: dstr(r[10]), remind: Number(r[11]) || 0, created: dstr(r[12]) };
+      var nn = Recur.norm(o); o.cycle = nn.cycle; o.every = nn.every; o.start = nn.start;
+      return o;
     });
 }
 
@@ -246,7 +251,7 @@ function load_(p) {
   var sinceStr = Utilities.formatDate(since, TZ, 'yyyy-MM-dd');
   return {
     cfg: { members: (cfg['구성원'] || '').split(',').map(trim_).filter(String), methods: (cfg['결제수단'] || '').split(',').map(trim_).filter(String), kids: (cfg['자녀'] || '').split(',').map(trim_).filter(String), avatars: avatars_(cfg),
-      cards: cards_(cfg),
+      cards: cards_(cfg), allowance: (function () { try { return JSON.parse(cfg['용돈'] || '{}'); } catch (e) { return {}; } })(),
       monthStart: Math.min(28, Math.max(1, Number(cfg['한달시작일']) || 1)), hide: (cfg['개인숨김'] || '').split(',').map(trim_).filter(String) },
     wishes: readWish_(),
     cats: readCats_(),
@@ -329,6 +334,19 @@ function saveCfg_(p) {
   if (p.kids) writeCfg_('자녀', p.kids.map(trim_).filter(String).join(','));
   if (p.monthStart != null) { var ms = Math.round(Number(p.monthStart)); if (!(ms >= 1 && ms <= 28)) throw new Error('시작일은 1~28일 중에서 골라 주세요.'); writeCfg_('한달시작일', String(ms)); }
   if (p.cards) writeCfg_('카드', JSON.stringify(cleanCards_(p.cards)));
+  if (p.renameMethod && p.renameMethod.from && p.renameMethod.to) {
+    var rf = String(p.renameMethod.from), rt = String(p.renameMethod.to).slice(0, 30);
+    [[sheet_(SH_TX, TX_HEAD), 7], [sheet_(SH_REC, REC_HEAD), 7]].forEach(function (x) {
+      var sh = x[0], nn = sh.getLastRow(); if (nn < 2) return;
+      var rg = sh.getRange(2, x[1], nn - 1, 1), v = rg.getValues(), ch = false;
+      v.forEach(function (r) { if (String(r[0]) === rf) { r[0] = rt; ch = true; } });
+      if (ch) rg.setValues(v);
+    });
+  }
+  if (p.allowance) {
+    var al = {}; Object.keys(p.allowance).slice(0, 20).forEach(function (k) { var v = Math.max(0, Math.round(Number(p.allowance[k]) || 0)); if (v) al[String(k).slice(0, 20)] = v; });
+    writeCfg_('용돈', JSON.stringify(al));
+  }
   if (p.hide) writeCfg_('개인숨김', p.hide.map(trim_).filter(String).join(','));
   if (p.newPin) {
     if (!/^\d{4,8}$/.test(String(p.newPin))) throw new Error('숫자 4~8자리로 정해 주세요.');
@@ -342,8 +360,9 @@ function cards_(cfg) {
   try { var a = JSON.parse(cfg['카드'] || '[]'); return Array.isArray(a) ? a : []; } catch (e) { return []; }
 }
 function cleanCards_(list) {
-  return (list || []).slice(0, 20).filter(function (c) { return c && String(c.name || '').trim(); }).map(function (c) {
-    return { name: String(c.name).trim().slice(0, 30), kind: ['신용', '체크', '기타'].indexOf(c.kind) >= 0 ? c.kind : '신용',
+  return (list || []).slice(0, 60).filter(function (c) { return c && String(c.name || '').trim(); }).map(function (c) {
+    return { name: String(c.name).trim().slice(0, 30), kind: ['신용', '체크', '현금', '계좌이체', '페이', '기타'].indexOf(c.kind) >= 0 ? c.kind : '신용',
+      color: /^#[0-9A-Fa-f]{6}$/.test(String(c.color || '')) ? c.color : '', owner: String(c.owner || '').slice(0, 20),
       target: Math.max(0, Math.round(Number(c.target) || 0)), benefits: String(c.benefits || '').slice(0, 1000),
       exclude: (c.exclude || []).slice(0, 30).map(function (x) { return String(x).slice(0, 30); }), memo: String(c.memo || '').slice(0, 300) };
   });
@@ -379,6 +398,8 @@ function renameMember_(p) {
   writeCfg_('구성원', mem.map(function (m) { return m === from ? to : m; }).join(','));
   var kd = (cfg['자녀'] || '').split(',').map(trim_).filter(String);
   writeCfg_('자녀', kd.map(function (m) { return m === from ? to : m; }).join(','));
+  try { var al0 = JSON.parse(cfg['용돈'] || '{}'); if (al0[from] != null) { al0[to] = al0[from]; delete al0[from]; writeCfg_('용돈', JSON.stringify(al0)); } } catch (e) {}
+  var cs0 = cards_(cfg); if (cs0.some(function (c) { return c.owner === from; })) writeCfg_('카드', JSON.stringify(cs0.map(function (c) { if (c.owner === from) c.owner = to; return c; })));
   var hd = (cfg['개인숨김'] || '').split(',').map(trim_).filter(String);
   if (hd.indexOf(from) >= 0) writeCfg_('개인숨김', hd.map(function (m) { return m === from ? to : m; }).join(','));
   if (cfg['사진:' + from]) { writeCfg_('사진:' + to, cfg['사진:' + from]); writeCfg_('사진:' + from, ''); }
@@ -400,13 +421,16 @@ function renameMember_(p) {
 function saveRec_(list) {
   CacheService.getScriptCache().remove('recDone_' + Utilities.formatDate(new Date(), TZ, 'yyyyMMdd'));
   var sh = sheet_(SH_REC, REC_HEAD);
-  var rows = list.filter(function (r) { return r && r.id && r.amount; }).map(function (r) {
+  var today = Utilities.formatDate(new Date(), TZ, 'yyyy-MM-dd');
+  var rows = list.filter(function (r) { return r && r.id && r.amount; }).slice(0, 200).map(function (r) {
+    var nn = Recur.norm(r);
     return [String(r.id), ['지출', '수입', '저축'].indexOf(r.type) >= 0 ? r.type : '지출', String(r.category || ''), String(r.desc || '').slice(0, 100),
-      Math.round(Number(r.amount)) || 0, Math.min(31, Math.max(1, Number(r.day) || 1)), String(r.method || ''), r.active !== false];
+      Math.round(Number(r.amount)) || 0, Number(nn.start.slice(8)), String(r.method || ''), r.active !== false,
+      nn.cycle, nn.every, nn.start, Math.max(0, Math.min(60, Math.round(Number(r.remind) || 0))), /^\d{4}-\d{2}-\d{2}$/.test(String(r.created || '')) ? String(r.created) : today];
   });
   var n = sh.getLastRow();
-  if (n >= 2) sh.getRange(2, 1, n - 1, 8).clearContent();
-  if (rows.length) sh.getRange(2, 1, rows.length, 8).setValues(rows);
+  if (n >= 2) sh.getRange(2, 1, n - 1, 13).clearContent();
+  if (rows.length) { sh.getRange(2, 11, rows.length, 1).setNumberFormat('@'); sh.getRange(2, 13, rows.length, 1).setNumberFormat('@'); sh.getRange(2, 1, rows.length, 13).setValues(rows); }
   return { ok: true };
 }
 
@@ -420,23 +444,25 @@ function runRecurring_() {
   if (!rec.length) return;
   withLock_(function () {
     var now = new Date();
-    var ym = Utilities.formatDate(now, TZ, 'yyyyMM');
-    var y = Number(ym.slice(0, 4)), m = Number(ym.slice(4));
-    var today = Number(Utilities.formatDate(now, TZ, 'd'));
-    var lastDay = new Date(y, m, 0).getDate();
+    var today = Utilities.formatDate(now, TZ, 'yyyy-MM-dd');
+    var from = Utilities.formatDate(new Date(now.getTime() - 35 * 864e5), TZ, 'yyyy-MM-dd'); // 최근 5주 안에 빠진 것만 채움
     var sh = sheet_(SH_TX, TX_HEAD);
     var n = sh.getLastRow();
     var memos = n >= 2 ? sh.getRange(2, 9, n - 1, 1).getValues().map(function (r) { return String(r[0]); }).join('\n') : '';
     var ids = existingIds_();
     var rows = [];
     rec.forEach(function (r) {
-      var d = Math.min(r.day, lastDay);
-      if (today < d) return;
-      var mark = '[고정#' + r.id + '#' + ym + ']';
-      var id = 'rec-' + r.id + '-' + ym;
-      if (memos.indexOf(mark) >= 0 || ids[id]) return;
-      var date = y + '-' + ('0' + m).slice(-2) + '-' + ('0' + d).slice(-2);
-      rows.push(txToRow_({ id: id, date: date, type: r.type, category: r.category, amount: r.amount, desc: r.desc, method: r.method, who: '자동', memo: mark }));
+      var f = from;
+      if (r.created && r.created > f) f = r.created; // 만든 날 이전 것은 채우지 않아요
+      Recur.between(r, f, today).forEach(function (date) {
+        var key = date.replace(/-/g, '');
+        var mark = '[고정#' + r.id + '#' + key + ']', legacy = '[고정#' + r.id + '#' + key.slice(0, 6) + ']';
+        var id = 'rec-' + r.id + '-' + key;
+        if (memos.indexOf(mark) >= 0 || ids[id]) return;
+        if (r.cycle === '월' && r.every === 1 && (memos.indexOf(legacy) >= 0 || ids['rec-' + r.id + '-' + key.slice(0, 6)])) return;
+        ids[id] = true;
+        rows.push(txToRow_({ id: id, date: date, type: r.type, category: r.category, amount: r.amount, desc: r.desc, method: r.method, who: '자동', memo: mark }));
+      });
     });
     if (rows.length) sh.getRange(sh.getLastRow() + 1, 1, rows.length, TX_HEAD.length).setValues(rows);
   });
@@ -733,6 +759,19 @@ var Parser = (function () {
   ];
 
   function matchMethod(seg, methods) {
+    // 1) 등록한 카드·결제수단 이름을 그대로 말한 경우 (예: "삼성카드로", "생활비카드")
+    var flat = seg.replace(/\s+/g, '');
+    var byLen = methods.slice().sort(function (a, b) { return b.length - a.length; });
+    for (var j = 0; j < byLen.length; j++) {
+      var x = byLen[j], cands = [x, x.replace(/\s+/g, '')], tok = x.split(/\s+/)[0];
+      if (tok.length >= 3 && tok !== x) cands.push(tok);
+      for (var c = 0; c < cands.length; c++) {
+        if (cands[c].length >= 2 && (seg.indexOf(cands[c]) >= 0 || flat.indexOf(cands[c].replace(/\s+/g, '')) >= 0) && !/^(신용카드|체크카드|카드)$/.test(cands[c])) {
+          var at = seg.indexOf(cands[c]);
+          return { method: x, word: at >= 0 ? seg.substr(at, cands[c].length) + (/^(로|으로)/.test(seg.slice(at + cands[c].length)) ? seg.slice(at + cands[c].length).match(/^(으로|로)/)[0] : '') : cands[c] };
+        }
+      }
+    }
     for (var i = 0; i < METHOD_WORDS.length; i++) {
       var mm = seg.match(METHOD_WORDS[i].re);
       if (!mm) continue;
@@ -755,6 +794,14 @@ var Parser = (function () {
   var INCOME_HINT = /(들어왔|들어옴|받았|받음|입금|월급|급여|보너스|상여|환급)/;
   var SAVE_HINT = /(적금|저축|예금|청약|연금저축|IRP|ISA|비상금)/i;
 
+  // 개인 용돈으로 쓴 돈인지, 가족 공용 돈인지
+  var SCOPE_P = /(개인\s*용돈|내\s*용돈|용돈\s*(으로|에서|으론)|개인적으로|개인\s*지출|개인\s*돈|개인|사비로|사비|내\s*돈으로|내\s*돈)/;
+  var SCOPE_P_G = new RegExp(SCOPE_P.source, 'g');
+  var SCOPE_S = /(가족\s*공용|공용|가족|생활비|우리\s*집|집\s*돈)/;
+  var SCOPE_STRIP = /(가족\s*공용으로|가족\s*공용|공용으로|공용|생활비로)/g;
+  function stripScope(s) { return s.replace(SCOPE_P_G, ' ').replace(SCOPE_STRIP, ' '); }
+  function detectScope(s) { return SCOPE_P.test(s) ? '개인' : SCOPE_S.test(s) ? '공용' : ''; }
+
   function cleanDesc(s) {
     s = s.replace(FILLER, ' ');
     s = s.replace(/[,.!?·~]+/g, ' ');
@@ -766,6 +813,13 @@ var Parser = (function () {
     return toks.join(' ').trim();
   }
 
+  var BUILTIN = [
+    [/(술값|술집|맥주|소주|와인|호프|포차|이자카야|막걸리)/, /술|외식|식비/],
+    [/(아침|점심|저녁|식사|밥값|회식|배달)/, /외식|식비/],
+    [/(택시|버스|지하철|주유|기름값|톨게이트|주차)/, /교통|차량/],
+    [/(병원|약국|진료|치과|약값)/, /의료|건강|병원/],
+    [/(옷|신발|미용실|헤어|화장품)/, /의류|미용/]
+  ];
   function guessCategory(desc, seg, cats, history) {
     var key = desc.replace(/\s+/g, '');
     if (key && history && history[key]) {
@@ -783,6 +837,13 @@ var Parser = (function () {
       if (!best && hay.indexOf(nm) >= 0) { best = c; bestLen = nm.length; }
     });
     if (best) return { type: best.type, category: best.name };
+    // 카테고리 키워드에 없어도 흔한 말은 알아들어요
+    for (var bi = 0; bi < BUILTIN.length; bi++) {
+      if (BUILTIN[bi][0].test(hay)) {
+        var bc = cats.filter(function (c) { return c.type === '지출' && BUILTIN[bi][1].test(c.name); })[0];
+        if (bc) return { type: bc.type, category: bc.name };
+      }
+    }
     var type = INCOME_HINT.test(seg) ? '수입' : SAVE_HINT.test(seg) ? '저축' : '지출';
     var fallback = cats.filter(function (c) { return c.type === type; });
     var etc = fallback.filter(function (c) { return /기타/.test(c.name); })[0] || fallback[fallback.length - 1];
@@ -809,19 +870,30 @@ var Parser = (function () {
       var nextStart = i + 1 < amts.length ? amts[i + 1].start : text.length;
       var before = text.slice(prevEnd, a.start);
       var after = text.slice(a.end, nextStart);
-      var useAfter = !cleanDesc(stripDates(before)).replace(/\s/g, '') ;
-      var seg = useAfter ? after : before;
+      var useAfter = !cleanDesc(stripScope(stripDates(before))).replace(/\s/g, '') ;
+      var cut = after.length;
+      if (useAfter && i + 1 < amts.length) {
+        // "개인 용돈 38,000원, 술값, 가족 저녁 35,000원" → 술값까지만 앞 항목, 나머지는 다음 항목 설명
+        var reSep = /[,，]|그리고/g, sm;
+        while ((sm = reSep.exec(after))) {
+          if (after.slice(0, sm.index).replace(/[\s,，]/g, '') && after.slice(sm.index + sm[0].length).replace(/[\s,，]/g, '')) { cut = sm.index; break; }
+        }
+      }
+      var seg = useAfter ? after.slice(0, cut) : before;
       if (!useAfter && i === amts.length - 1) seg = before + ' ' + after; // 마지막 항목 뒤의 "카드로" 같은 말 포함
       var segStart = useAfter ? a.end : prevEnd;
-      var segEnd = useAfter ? nextStart : (i === amts.length - 1 ? text.length : a.start);
+      var segEnd = useAfter ? a.end + cut : (i === amts.length - 1 ? text.length : a.start);
       var date = null;
       dates.forEach(function (d) { if (!date && d.start >= segStart && d.end <= segEnd) date = d.date; });
       var mm = matchMethod(seg, methods) || globalMethod;
-      var descSrc = stripDates(seg);
+      var scope = detectScope(useAfter ? before + ' ' + seg : seg);
+      var descSrc = stripScope(stripDates(seg));
       if (mm) descSrc = descSrc.replace(mm.word, ' ');
+      methods.forEach(function (x) { if (x.length >= 3 && !/^(신용카드|체크카드)$/.test(x)) descSrc = descSrc.split(x + '으로').join(' ').split(x + '로').join(' ').split(x).join(' '); });
       var desc = cleanDesc(descSrc);
       var g = guessCategory(desc, seg, cats, opts.history);
       var hist = opts.history && opts.history[desc.replace(/\s+/g, '')];
+      if (!scope) scope = (hist && hist.scope) || opts.defaultScope || '공용';
       items.push({
         date: date || globalDate,
         type: g.type,
@@ -829,9 +901,10 @@ var Parser = (function () {
         amount: a.value,
         desc: desc,
         method: mm ? mm.method : (hist && hist.method) || (g.type !== '지출' ? (methods.filter(function (x) { return /이체|계좌/.test(x); })[0] || '') : (opts.defaultMethod || methods[0] || '')),
-        learned: !!g.learned
+        learned: !!g.learned,
+        scope: scope
       });
-      prevEnd = useAfter ? nextStart : a.end;
+      prevEnd = useAfter ? a.end + cut : a.end;
     }
     return items;
   }
@@ -840,7 +913,73 @@ var Parser = (function () {
     return s.replace(RE_DATE, ' ');
   }
 
-  return { parse: parse, guessCategory: guessCategory, koNum: koNum, findAmounts: findAmounts, findDates: findDates, ymd: ymd };
+  return { parse: parse, detectScope: detectScope, guessCategory: guessCategory, koNum: koNum, findAmounts: findAmounts, findDates: findDates, ymd: ymd };
+})();
+
+/* 정기 지출 주기 계산 (앱과 서버가 같이 씀)
+ * r: { cycle: '주'|'월'|'년'|'일', every: N, start: 'yyyy-MM-dd', day: (옛 자료: 매월 며칠) }
+ */
+var Recur = (function () {
+  function pad(n) { return (n < 10 ? '0' : '') + n; }
+  function ymd(d) { return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()); }
+  function parse(s) { var p = String(s).split('-'); return new Date(+p[0], +p[1] - 1, +p[2]); }
+  function norm(r) {
+    var cycle = ['주', '월', '년', '일'].indexOf(r.cycle) >= 0 ? r.cycle : '월';
+    var every = Math.max(1, Math.min(365, Math.round(Number(r.every) || 1)));
+    var start = /^\d{4}-\d{2}-\d{2}$/.test(String(r.start || '')) ? String(r.start) : '2026-01-' + pad(Math.min(31, Math.max(1, Number(r.day) || 1)));
+    return { cycle: cycle, every: every, start: start };
+  }
+  function addMonths(a, k) {
+    var y = a.getFullYear(), m = a.getMonth() + k, d = a.getDate();
+    var last = new Date(y, m + 1, 0).getDate();
+    return new Date(y, m, Math.min(d, last));
+  }
+  /** from~to(포함) 사이의 날짜 목록 */
+  function between(r, from, to) {
+    var n = norm(r), a = parse(n.start), f = parse(from), t = parse(to), out = [];
+    if (t < a) return out;
+    if (n.cycle === '주' || n.cycle === '일') {
+      var step = (n.cycle === '주' ? 7 : 1) * n.every;
+      var k = Math.max(0, Math.floor((f - a) / 864e5 / step) - 1);
+      for (var i = 0; i < 1000; i++, k++) {
+        var d = new Date(a.getFullYear(), a.getMonth(), a.getDate() + k * step);
+        if (d > t) break;
+        if (d >= f) out.push(ymd(d));
+      }
+    } else {
+      var mstep = (n.cycle === '년' ? 12 : 1) * n.every;
+      var diff = (f.getFullYear() - a.getFullYear()) * 12 + f.getMonth() - a.getMonth();
+      var k2 = Math.max(0, Math.floor(diff / mstep) - 1);
+      for (var j = 0; j < 1000; j++, k2++) {
+        var d2 = addMonths(a, k2 * mstep);
+        if (d2 > t) break;
+        if (d2 >= f) out.push(ymd(d2));
+      }
+    }
+    return out;
+  }
+  /** 오늘(포함) 이후 첫 날짜 */
+  function next(r, today) {
+    var t = parse(today), lim = new Date(t.getFullYear() + 12, t.getMonth(), t.getDate());
+    var l = between(r, today, ymd(lim));
+    return l[0] || '';
+  }
+  var WD = ['일', '월', '화', '수', '목', '금', '토'];
+  /** 사람이 읽는 주기 설명 */
+  function label(r) {
+    var n = norm(r), a = parse(n.start);
+    if (n.cycle === '일') return n.every + '일마다';
+    if (n.cycle === '주') return (n.every === 1 ? '매주 ' : n.every + '주마다 ') + WD[a.getDay()] + '요일';
+    if (n.cycle === '월') return (n.every === 1 ? '매달 ' : n.every + '달마다 ') + a.getDate() + '일';
+    return (n.every === 1 ? '매년 ' : n.every + '년마다 ') + (a.getMonth() + 1) + '월 ' + a.getDate() + '일';
+  }
+  /** 한 달 평균 금액으로 환산 (요약용) */
+  function monthly(r, amount) {
+    var n = norm(r);
+    var perYear = n.cycle === '일' ? 365 / n.every : n.cycle === '주' ? 52.14 / n.every : n.cycle === '월' ? 12 / n.every : 1 / n.every;
+    return Math.round(amount * perYear / 12);
+  }
+  return { between: between, next: next, label: label, monthly: monthly, norm: norm, ymd: ymd };
 })();
 
 
