@@ -416,7 +416,7 @@ public class MainActivity extends Activity {
             js("__nsr.end()");
             return;
         }
-        if (recognizer != null) { recognizer.destroy(); recognizer = null; }
+        if (recognizer != null) { try { recognizer.cancel(); } catch (Exception ignored) { } recognizer.destroy(); recognizer = null; }
         recognizer = SpeechRecognizer.createSpeechRecognizer(this);
         recognizer.setRecognitionListener(new Listener());
         Intent i = new Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH);
@@ -436,6 +436,9 @@ public class MainActivity extends Activity {
         try { if (cancel) recognizer.cancel(); else recognizer.stopListening(); } catch (Exception ignored) { }
     }
 
+    boolean retried = false;
+    String lastLang = "ko-KR";
+
     class Listener implements RecognitionListener {
         boolean ended = false;
         String last = "";
@@ -446,13 +449,19 @@ public class MainActivity extends Activity {
             js("__nsr.end()");
         }
 
-        @Override public void onReadyForSpeech(Bundle params) { js("__nsr.start()"); }
+        @Override public void onReadyForSpeech(Bundle params) { retried = false; js("__nsr.start()"); }
         @Override public void onBeginningOfSpeech() { }
         @Override public void onRmsChanged(float rmsdB) { }
         @Override public void onBufferReceived(byte[] buffer) { }
         @Override public void onEndOfSpeech() { }
 
         @Override public void onError(int error) {
+            // 바로 전 인식이 아직 정리 중이면(바쁨) 한 번만 조용히 다시 시도
+            if ((error == SpeechRecognizer.ERROR_RECOGNIZER_BUSY || error == 11) && !retried && last.isEmpty()) {
+                retried = true; ended = true;
+                web.postDelayed(() -> startRecognizer(lastLang), 450);
+                return;
+            }
             String code;
             switch (error) {
                 case SpeechRecognizer.ERROR_INSUFFICIENT_PERMISSIONS: code = "not-allowed"; break;
@@ -492,7 +501,7 @@ public class MainActivity extends Activity {
     class NativeSpeech {
         @JavascriptInterface public boolean available() { return true; }
         @JavascriptInterface public void start(final String lang) {
-            runOnUiThread(() -> startRecognizer(lang == null || lang.isEmpty() ? "ko-KR" : lang));
+            runOnUiThread(() -> { retried = false; lastLang = lang == null || lang.isEmpty() ? "ko-KR" : lang; startRecognizer(lastLang); });
         }
         @JavascriptInterface public void stop() { runOnUiThread(() -> stopRecognizer(false)); }
         @JavascriptInterface public void abort() {

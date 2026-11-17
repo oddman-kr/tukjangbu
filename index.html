@@ -476,8 +476,16 @@ function haptic(){ try { if (window.NativeApp && NativeApp.vibrate) NativeApp.vi
 var WEB_VER = '2026.11.18';
 (function(){ try { var v = window.NativeApp ? Number(NativeApp.version()) : 0; var a = (navigator.userAgent.match(/Android (\d+)/) || [])[1]; if (v && v <= 6 && Number(a) >= 15) document.documentElement.classList.add('old-native'); } catch (e) {} })();
 var errShown = 0;
-window.addEventListener('error', function(ev){ if (Date.now() - errShown > 15000) { errShown = Date.now(); try { toast('문제가 생겼어요. 계속되면 앱을 다시 열어 주세요.'); } catch (e) {} } });
-window.addEventListener('unhandledrejection', function(){ if (Date.now() - errShown > 15000) { errShown = Date.now(); try { toast('처리 중 문제가 생겼어요. 다시 시도해 주세요.'); } catch (e) {} } });
+function logErr(kind, msg, where){
+  try { var l = JSON.parse(localStorage.getItem('hhb_errLog') || '[]'); l.unshift({ t: new Date().toISOString(), k: kind, m: String(msg).slice(0, 200), w: String(where || '').slice(0, 120) }); localStorage.setItem('hhb_errLog', JSON.stringify(l.slice(0, 15))); } catch (e) {}
+}
+window.addEventListener('error', function(ev){
+  var msg = ev && ev.message || 'error', file = ev && ev.filename || '';
+  logErr('script', msg, file.split('/').pop() + ':' + (ev && ev.lineno || ''));
+  if (!file || /^Script error/i.test(msg) || file.indexOf(location.origin) !== 0) return; // 브라우저·외부 스크립트 문제는 기록만
+  if (Date.now() - errShown > 60000) { errShown = Date.now(); try { toast('화면에 문제가 생겼어요. 계속되면 앱을 다시 열어 주세요.'); } catch (e) {} }
+});
+window.addEventListener('unhandledrejection', function(ev){ logErr('promise', ev && ev.reason && (ev.reason.message || ev.reason) || 'rejection', ''); });
 function syncStatusBar(){
   if (!window.NativeApp || !NativeApp.statusBar) return;
   var dark = window.matchMedia && matchMedia('(prefers-color-scheme: dark)').matches;
@@ -933,10 +941,14 @@ function startListen(fromGesture){
     if (st.err === 'not-allowed' || st.err === 'service-not-allowed') {
       if (st.gesture) { setMicUI('', '마이크를 쓸 수 없어요', IN_APP ? '휴대폰 설정 → 애플리케이션 → 가계부 → 권한 → 마이크를 허용해 주세요' : isIOS() ? '설정 → Safari(또는 Chrome) → 마이크 허용, 그리고 설정 → Siri에서 받아쓰기를 켜 주세요' : '주소창의 자물쇠 → 권한 → 마이크 허용을 눌러 주세요'); }
       else setMicUI('hint', '눌러서 말하기', '버튼을 누르면 바로 들어요');
-    } else if (st.err === 'no-speech' || !st.err) setMicUI('', '못 들었어요', '버튼을 누르고 다시 말해 주세요');
-    else if (st.err === 'network') setMicUI('', '음성 인식이 인터넷에 연결되지 않았어요', '연결을 확인하거나 아래에 써 주세요');
-    else if (st.err !== 'aborted') setMicUI('', '다시 눌러 말해 주세요', '음성 인식 오류: ' + st.err);
-    else setMicUI('', '눌러서 말하기', '예) 점심 김밥천국 8천원, 커피 4500원');
+    } else {
+      logErr('voice', st.err || 'none', st.gesture ? 'tap' : 'auto');
+      if (!st.gesture) setMicUI('hint', '눌러서 말하기', '버튼을 누르면 바로 들어요'); // 자동으로 시작한 녹음은 실패해도 조용히 대기
+      else if (st.err === 'no-speech' || !st.err) setMicUI('', '못 들었어요', '버튼을 누르고 다시 말해 주세요');
+      else if (st.err === 'network') setMicUI('', '음성 인식이 인터넷에 연결되지 않았어요', '연결을 확인하거나 아래에 써 주세요');
+      else if (st.err === 'aborted') setMicUI('', '눌러서 말하기', '예) 점심 김밥천국 8천원, 커피 4500원');
+      else setMicUI('', '잠시 후 다시 눌러 주세요', '음성 인식이 아직 준비되지 않았어요. 계속되면 아래에 써 주세요');
+    }
   };
   try { rec.start(); } catch (e) { V = { rec: null }; if (!fromGesture) setMicUI('hint', '눌러서 말하기', '버튼을 누르면 바로 들어요'); return false; }
   return true;
@@ -1140,6 +1152,7 @@ function settingsHTML(){
     '<div class="card"><h3>앱 정보</h3>' +
       '<div class="row between sm" style="padding:4px 0"><span class="muted">앱 버전</span><span class="num">' + (window.NativeApp ? '안드로이드 ' + appVersion() + ' · ' : '') + '화면 ' + WEB_VER + '</span></div>' +
       (window.NativeApp ? '<button class="btn ghost block" id="updCheck" style="margin-top:8px">업데이트 확인</button>' : '') +
+      errLogHTML() +
       '<details style="margin-top:10px"><summary class="sm" style="cursor:pointer">개인정보는 어떻게 다뤄지나요?</summary><div class="sm muted" style="margin-top:8px;line-height:1.7">' +
         '· 내역은 본인 구글 계정의 시트에만 저장돼요. 앱 만든 사람이나 다른 서버로 보내지 않아요.<br>' +
         '· 서버는 가족 비밀번호가 맞을 때만 내역을 보여 줘요.<br>' +
@@ -1217,6 +1230,7 @@ function bindSettings(){
     call('load', { months: 60 }, 40000).then(function(d){ exportCSV(d.tx, '가계부_전체_' + ymd(new Date()) + '.csv'); }).catch(function(e){ toast('불러오기 실패: ' + e.message); }).then(function(){ btn.disabled = false; });
   };
   var uc = $('#updCheck'); if (uc) uc.onclick = function(){ checkUpdate(true); };
+  var ec = $('#errClear'); if (ec) ec.onclick = function(){ try { localStorage.removeItem('hhb_errLog'); } catch (e) {} render(); };
   $('#sLogout').onclick = function(){ LS.del('pin'); LS.del('cache'); LS.del('me'); S.pin = ''; S.data = null; S.me = ''; showGate(); };
 }
 
@@ -1386,6 +1400,14 @@ function openWish(w){
   draw();
   $('#sheetBg').classList.add('on');
   if (isNew) setTimeout(function(){ $('#wName').focus(); }, 80);
+}
+
+function errLogHTML(){
+  var l = []; try { l = JSON.parse(localStorage.getItem('hhb_errLog') || '[]'); } catch (e) {}
+  if (!l.length) return '';
+  return '<details style="margin-top:10px"><summary class="sm" style="cursor:pointer">최근 오류 기록 ' + l.length + '건</summary><div class="xs muted" style="margin-top:8px;line-height:1.6;word-break:break-all">' +
+    l.map(function(x){ return esc(x.t.slice(5, 16).replace('T', ' ')) + ' · ' + esc(x.k) + ' · ' + esc(x.m) + (x.w ? ' · ' + esc(x.w) : ''); }).join('<br>') +
+    '</div><button class="btn ghost sm" id="errClear" style="margin-top:8px;padding:6px 10px">기록 지우기</button></details>';
 }
 
 /* ---------- 내보내기 ---------- */
