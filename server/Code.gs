@@ -393,7 +393,6 @@ function billDue_(c, today) {
     return { ym: ps.slice(0, 7), pay: ps, from: fmt(from), to: fmt(new Date(nx.getTime() - 864e5)) };
   }
   return null;
-  });
 }
 
 function avatars_(cfg) {
