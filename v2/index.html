@@ -141,6 +141,7 @@ var Receipt = (function () {
   // 소셜 로그인·메일 링크로 돌아오면 주소 뒤(#)에 토큰이 붙어 와요
   (function readHash() {
     var h = location.hash || '';
+    var em = /error_description=([^&]+)/.exec(h); if (em) { var msg = decodeURIComponent(em[1].replace(/\+/g, ' ')); history.replaceState(null, '', location.pathname + location.search); setTimeout(function () { say(msg); }, 800); return; }
     if (h.indexOf('access_token=') < 0) return;
     var q = {}; h.slice(1).split('&').forEach(function (kv) { var p = kv.split('='); q[decodeURIComponent(p[0])] = decodeURIComponent(p[1] || ''); });
     setSess(fromToken(q));
@@ -445,7 +446,7 @@ var Receipt = (function () {
       g.querySelectorAll('[data-p]').forEach(function (b) {
         var p = b.dataset.p;
         b.onclick = function () {
-          if (p === 'naver') return say('네이버 로그인은 곧 열려요. 카카오·이메일로 먼저 시작해 주세요.');
+          if (p === 'naver') { location.href = URL + '/functions/v1/naver-auth?redirect=' + enc(back()); return; }
           if (!ext[p]) return say((p === 'kakao' ? '카카오' : 'Google') + ' 로그인은 설정 마무리 중이에요. 이메일로 먼저 시작해 주세요.');
           oauth(p);
         };
