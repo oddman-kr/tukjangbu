@@ -115,6 +115,14 @@ textarea.say:focus{border-color:var(--pri)}
 .micsm svg{width:22px;height:22px}
 .micsm.rec{background:var(--bad);animation:pulse 1.2s infinite}
 @keyframes pulse{0%{box-shadow:0 0 0 0 rgba(194,65,12,.45)}100%{box-shadow:0 0 0 14px rgba(194,65,12,0)}}
+.loginbtns{display:flex;flex-direction:column;gap:10px;width:280px;margin-top:22px}
+.lbtn{position:relative;border:0;border-radius:14px;padding:14px 16px;font-weight:700;font-size:15px;cursor:pointer}
+.lbtn b{position:absolute;left:18px;top:50%;transform:translateY(-50%);font-weight:900}
+.lbtn.kakao{background:#FEE500;color:#191919}
+.lbtn.naver{background:#03C75A;color:#fff}
+.lbtn.google{background:#fff;color:#1f1f1f;border:1px solid #DADCE0}
+.lbtn.email{background:var(--chip);color:var(--ink)}
+.invcode{font-size:34px;font-weight:800;letter-spacing:6px;text-align:center;margin:18px 0 6px;font-variant-numeric:tabular-nums}
 .memrow{display:flex;align-items:center;gap:12px;padding:10px 0;border-top:1px solid var(--line)}
 .memrow:first-of-type{border-top:0}
 .rolebadge{font-size:12px;font-weight:700;padding:4px 10px;border-radius:999px;background:var(--chip);color:var(--ink2)}
@@ -681,6 +689,7 @@ function dLabel(s){ var p = s.split('-'); var d = new Date(+p[0], +p[1] - 1, +p[
   var w = '일월화수목금토'[d.getDay()]; var base = (+p[1]) + '월 ' + (+p[2]) + '일 (' + w + ')';
   if (s === ymd(t)) return '오늘 · ' + base; if (s === ymd(y)) return '어제 · ' + base; return base; }
 function uid(){ return Date.now().toString(36) + Math.random().toString(36).slice(2, 8); }
+window.__toast = function(m){ toast(m); };
 function toast(msg, actLabel, actFn, ms){
   var t = $('#toast'); t.innerHTML = '';
   var span = document.createElement('span'); span.textContent = msg; t.appendChild(span);
@@ -713,6 +722,7 @@ function digits(v){ v = String(v || '').trim(); if (!v) return 0; if (/[십백�
 
 /* ---------- 서버 호출 ---------- */
 function call(action, payload, timeoutMs){
+  if (window.BACKEND) return window.BACKEND.call(action, payload); // 새 버전(로그인)
   if (!window.API_URL || /여기에/.test(window.API_URL)) return Promise.reject(Object.assign(new Error('앱 설정(config.js)에 서버 주소가 없어요.'), { code: 'CONFIG' }));
   var ctl = window.AbortController ? new AbortController() : null;
   var tm = setTimeout(function(){ if (ctl) ctl.abort(); }, timeoutMs || 25000);
@@ -751,6 +761,7 @@ function load(silent){
       if (op.op === 'update') d.tx = d.tx.map(function(t){ return t.id === op.tx.id ? op.tx : t; });
     });
     S.data = d; LS.set('cache', d);
+    if (window.BACKEND && d.me) { S.me = d.me; LS.set('me', d.me); }
     try { var mm0 = monthMoney(), ann = LS.get('wishAnnounced', {}), k0 = curM(); var nm = wishes().filter(function(w){ return wishMet(w, mm0) && !ann[w.id + '_' + k0]; }); if (nm.length) { nm.forEach(function(w){ ann[w.id + '_' + k0] = 1; }); LS.set('wishAnnounced', ann); setTimeout(function(){ haptic(); toast('🎉 “' + nm[0].name + '” 사도 돼요! 위시 탭에서 확인해 보세요', null, null, 4500); }, 600); } } catch (e) {}
     refreshSyncLabel();
     if (!S.me && d.cfg.members.length) return showWho();
@@ -758,6 +769,7 @@ function load(silent){
     render();
   }).catch(function(e){
     if (e && e.code === 'PIN') { S.pin = ''; LS.del('pin'); return showGate(); }
+    if (window.BACKEND && e && (e.code === 'NOHH' || e.code === 'AUTH' || e.status === 401)) { S.pin = ''; LS.del('pin'); LS.del('cache'); S.data = null; return showGate(); }
     S.online = false; refreshSyncLabel();
     if (!S.data) { $('#view').innerHTML = '<div class="empty">연결할 수 없어요. 인터넷 연결을 확인해 주세요.</div>'; }
   });
@@ -868,6 +880,7 @@ function budgetTotal(){ return cats('지출').reduce(function(s, c){ return s + 
 
 /* ---------- 잠금·사용자 ---------- */
 function showGate(){
+  if (window.BACKEND) return window.BACKEND.gate(function(){ S.pin = 'sb'; LS.set('pin', 'sb'); S.data = null; start(); });
   $('#app').classList.add('hidden'); var g = $('#gate'); g.classList.remove('hidden');
   g.innerHTML = '<div class="loading">확인 중…</div>';
   call('status').then(function(r){
@@ -951,7 +964,7 @@ function maybeAutoListen(force){
 
 /* ---------- 화면 ---------- */
 // 휴대폰 알림(앱이 꺼져 있어도): 안드로이드 앱이 2시간마다 서버에 새 소식을 물어봐요
-function canNotify(){ return !!(window.NativeApp && NativeApp.setNotify); }
+function canNotify(){ return !window.BACKEND && !!(window.NativeApp && NativeApp.setNotify); }
 function syncNotify(){ try { if (canNotify()) NativeApp.setNotify(JSON.stringify({ on: !!LS.get('notifyOn', false), url: window.API_URL, pin: S.pin, me: S.me })); } catch (e) {} }
 function setNotifyOn(on){
   LS.set('notifyOn', on); LS.set('notifyAsked', true);
@@ -1643,6 +1656,7 @@ function settingsHTML(){
   var c = S.data.cats, rec = S.data.rec || [];
   var recSum = rec.filter(function(r){ return r.active !== false && r.type === '지출'; }).reduce(function(s, r){ return s + Recur.monthly(r, r.amount || 0); }, 0);
   var tabs = isKid() ? [['me', '나'], ['app', '앱']] : [['me', '가족'], ['card', '카드'], ['budget', '예산'], ['rec', '정기지출'], ['app', '앱']];
+  var V2 = !!window.BACKEND;
   return '<div class="settabs" role="tablist">' + tabs.map(function(t){ return '<button role="tab" data-st="' + t[0] + '" class="' + (setTab() === t[0] ? 'on' : '') + '">' + t[1] + '</button>'; }).join('') + '</div>' +
     '<div class="card" data-sec="me"><h3>이 폰의 사용자</h3><div class="chips">' + members().map(function(m){ return '<button class="chip' + (m === S.me ? ' on' : '') + '" data-me="' + esc(m) + '">' + avatar(m, 22) + esc(m) + '</button>'; }).join('') + '</div>' +
       (S.me ? '<div class="avedit">' + avatar(S.me, 56) + '<div class="grow"><div class="sm"><b>내 프로필 사진</b></div><div class="faint xs">가족 화면의 내 이름 옆에 보여요</div><div class="row" style="gap:6px;margin-top:6px"><button class="btn ghost sm" style="padding:6px 12px" id="avPick">' + (avatars()[S.me] ? '사진 바꾸기' : '사진 넣기') + '</button>' + (avatars()[S.me] ? '<button class="btn ghost sm" style="padding:6px 12px" id="avDel">지우기</button>' : '') + '</div></div><input type="file" id="avIn" accept="image/*" hidden></div>' : '') +
@@ -1661,7 +1675,8 @@ function settingsHTML(){
     '<div class="card" data-sec="me"><h3>가족 구성원</h3>' +
       members().map(function(m){ var k = kids().indexOf(m) >= 0; return '<div class="memrow">' + avatar(m, 36) + '<div class="grow"><b>' + esc(m) + '</b>' + (m === S.me ? ' <span class="faint xs">이 폰</span>' : '') + '<div class="faint xs">' + (k ? '자녀 · “사 주세요” 요청을 보내요' : '어른 · 모든 내역과 설정을 볼 수 있어요') + '</div></div><span class="rolebadge' + (k ? ' kid' : '') + '">' + (k ? '자녀' : '어른') + '</span></div>'; }).join('') +
       '<button class="btn ghost block" id="memAdd" style="margin-top:10px">+ 가족 추가 (자녀·배우자)</button>' +
-      '<div class="tip">새 가족의 휴대폰에서는 <b>툭장부를 설치 → 같은 가족 비밀번호 입력 → 자기 이름 선택</b>하면 함께 써요. <button class="linkbtn" id="memInvite">초대 안내 문구 복사</button></div>' +
+      (window.BACKEND ? '<div class="tip">가족을 추가하면 <b>초대 코드</b>가 나와요. 코드를 받은 가족이 앱에서 코드를 넣으면 함께 써요. <button class="linkbtn" id="memInvite">초대하기</button></div>' :
+        '<div class="tip">새 가족의 휴대폰에서는 <b>툭장부를 설치 → 같은 가족 비밀번호 입력 → 자기 이름 선택</b>하면 함께 써요. <button class="linkbtn" id="memInvite">초대 안내 문구 복사</button></div>') +
       '<details style="margin-top:10px"><summary class="sm faint" style="cursor:pointer">이름·자녀 지정 직접 고치기</summary>' +
       '<div class="fld"><label>구성원 (쉼표로 구분)</label><input class="inp" id="sMembers" value="' + esc(members().join(', ')) + '"></div>' +
       '<div class="fld"><label>자녀로 지정 (위시에서 “사 주세요” 요청을 보내요)</label><div class="chips" id="sKids">' + members().map(function(m){ return '<button class="chip' + (kids().indexOf(m) >= 0 ? ' on' : '') + '" data-kid="' + esc(m) + '" aria-pressed="' + (kids().indexOf(m) >= 0) + '">' + esc(m) + '</button>'; }).join('') + '</div></div>' +
@@ -1685,7 +1700,7 @@ function settingsHTML(){
     '<div class="card" data-sec="app"><h3>보안 · 기타</h3>' +
       (canNotify() ? '<label class="toggle"><span>휴대폰 알림 받기<br><span class="faint xs">' + (isKid() ? '사 주세요 요청 결과를 알려 줘요' : '용돈 50% 이하, 정기 지출 미리 알림, 사 주세요 요청') + ' · 2시간마다 확인</span></span><input type="checkbox" id="tNotify"' + (LS.get('notifyOn', false) ? ' checked' : '') + '></label>' : '') +
       (window.NativeApp && NativeApp.canLock ? '<label class="toggle"><span>앱 잠금<br><span class="faint xs">열 때 지문·얼굴·화면 잠금으로 확인해요</span></span><input type="checkbox" id="tLock"' + (LS.get('appLock', false) ? ' checked' : '') + '></label>' : '') +
-      '<div class="fld"' + (isKid() ? ' hidden' : '') + '><label>가족 비밀번호 바꾸기</label><div class="row"><input class="inp grow" id="sPin" type="password" inputmode="numeric" maxlength="8" placeholder="새 비밀번호"><button class="btn" id="sPinSave">변경</button></div></div>' +
+      '<div class="fld"' + (isKid() || window.BACKEND ? ' hidden' : '') + '><label>가족 비밀번호 바꾸기</label><div class="row"><input class="inp grow" id="sPin" type="password" inputmode="numeric" maxlength="8" placeholder="새 비밀번호"><button class="btn" id="sPinSave">변경</button></div></div>' +
       '<div class="row" style="gap:8px"><button class="btn ghost grow" id="sReload">새로고침</button><button class="btn ghost grow" id="sLogout">로그아웃</button></div>' +
       '<div class="tip">모든 내역은 구글 시트 <b>“거래내역”</b> 탭에 쌓여요. 컴퓨터에서 시트를 열면 엑셀처럼 정리하거나 내려받을 수 있어요.</div></div>' +
     '<div class="card" data-sec="app"><h3>앱 정보</h3>' +
@@ -1791,6 +1806,7 @@ function bindSettings(){
         '<div class="fld"><label>이름 (앱에 이렇게 보여요)</label><input class="inp" id="mName" maxlength="20" placeholder="예) 민수, 첫째, 엄마"></div>' +
         '<div class="fld"><label>누구인가요?</label><div class="seg">' + ['자녀', '어른'].map(function(r){ return '<button data-mr="' + r + '" class="' + (r === role ? 'on' : '') + '">' + (r === '자녀' ? '자녀 (용돈·사 주세요)' : '어른 (배우자 등)') + '</button>'; }).join('') + '</div></div>' +
         (role === '자녀' ? '<div class="faint xs">자녀 화면에는 자기 내역과 용돈만 보이고, 가족 설정은 숨겨져요.</div>' : '') +
+        (window.BACKEND && role === '자녀' ? '<label class="toggle" style="margin-top:10px"><span>보호자로서 자녀의 가입과 정보 처리에 동의해요<br><span class="faint xs">만 14세 미만은 법정대리인 동의가 필요해요 (개인정보 보호법 제22조의2)</span></span><input type="checkbox" id="mConsent"></label>' : '') +
         '<button class="btn pri block" id="mSave" style="margin-top:14px">추가하기</button>';
       $('#mClose').onclick = closeSheet;
       sh.querySelectorAll('[data-mr]').forEach(function(b){ b.onclick = function(){ var v = $('#mName').value; role = b.dataset.mr; draw(); $('#mName').value = v; }; });
@@ -1799,6 +1815,12 @@ function bindSettings(){
         if (!n) return toast('이름을 적어 주세요.');
         if (/,/.test(n)) return toast('이름에 쉼표는 쓸 수 없어요.');
         if (members().indexOf(n) >= 0) return toast('같은 이름이 이미 있어요.');
+        if (window.BACKEND) {
+          var ok = $('#mConsent');
+          if (role === '자녀' && !(ok && ok.checked)) return toast('만 14세 미만 자녀는 보호자 동의에 체크해 주세요.');
+          $('#mSave').disabled = true;
+          return call('invite', { name: n, role: role === '자녀' ? 'child' : 'adult', consent: role === '자녀' }).then(function(r){ showInvite(n, r.code); load(true); }).catch(function(er){ $('#mSave').disabled = false; toast(er.message); });
+        }
         var mem = members().concat([n]), kd = kids().slice(); if (role === '자녀') kd.push(n);
         S.data.cfg.members = mem; S.data.cfg.kids = kd; LS.set('cache', S.data); closeSheet(); render();
         call('saveCfg', { members: mem, kids: kd }).then(function(){ toast(n + '님을 추가했어요. ' + n + '님 폰에서 같은 비밀번호로 들어오면 돼요'); }).catch(function(er){ toast('저장하지 못했어요: ' + er.message); });
@@ -1806,7 +1828,18 @@ function bindSettings(){
     }
     draw(); $('#sheetBg').classList.add('on'); setTimeout(function(){ $('#mName').focus(); }, 80);
   };
+  window.showInvite = function(n, code){
+    var link = location.origin + location.pathname;
+    var txt = '"툭장부" 우리 가족 가계부에 초대해요!\n1) 앱 열기: ' + link + '\n2) "초대 코드를 받았어요"를 누르고 코드 입력: ' + code + '\n(코드는 7일 동안 쓸 수 있어요)';
+    var sh = $('#sheet');
+    sh.innerHTML = '<h3 style="margin:0">' + esc(n) + '님 초대 코드</h3><div class="invcode">' + esc(code) + '</div><div class="faint sm" style="text-align:center">7일 동안 한 번 쓸 수 있어요</div>' +
+      '<button class="btn pri block" id="ivCopy" style="margin-top:14px">초대 메시지 복사</button><button class="btn ghost block" id="ivClose" style="margin-top:8px">닫기</button>';
+    $('#sheetBg').classList.add('on');
+    $('#ivClose').onclick = closeSheet;
+    $('#ivCopy').onclick = function(){ try { navigator.clipboard.writeText(txt).then(function(){ toast('복사했어요. 카카오톡에 붙여 넣어 보내세요'); }, function(){ prompt('복사해서 보내세요', txt); }); } catch (e) { prompt('복사해서 보내세요', txt); } };
+  };
   $('#memInvite').onclick = function(){
+    if (window.BACKEND) return $('#memAdd').click();
     var txt = '우리 가족 가계부 "툭장부"에 초대해요!\n1) 이 링크로 앱 설치: https://github.com/zkskslsk-del/gagyebu/releases/latest/download/gagyebu.apk\n2) 앱을 열고 가족 비밀번호 입력 (따로 알려 줄게요)\n3) 내 이름을 고르면 끝!';
     var done = function(){ toast('초대 문구를 복사했어요. 카카오톡에 붙여 넣어 보내세요. 비밀번호는 따로 알려 주세요'); };
     try { navigator.clipboard.writeText(txt).then(done, function(){ prompt('복사해서 보내세요', txt); }); } catch (e) { prompt('복사해서 보내세요', txt); }
@@ -1842,7 +1875,7 @@ function bindSettings(){
   };
   var uc = $('#updCheck'); if (uc) uc.onclick = function(){ checkUpdate(true); };
   var ec = $('#errClear'); if (ec) ec.onclick = function(){ try { localStorage.removeItem('hhb_errLog'); } catch (e) {} render(); };
-  $('#sLogout').onclick = function(){ LS.del('pin'); LS.del('cache'); LS.del('me'); S.pin = ''; S.data = null; S.me = ''; showGate(); };
+  $('#sLogout').onclick = function(){ if (window.BACKEND) window.BACKEND.logout(); LS.del('pin'); LS.del('cache'); LS.del('me'); S.pin = ''; S.data = null; S.me = ''; showGate(); };
 }
 
 /* ---------- 위시리스트 · 자녀 요청 ---------- */
@@ -2309,6 +2342,7 @@ if ('serviceWorker' in navigator && location.protocol === 'https:') { window.add
 setInterval(function(){ if (document.visibilityState === 'visible' && S.pin && !$('#sheetBg').classList.contains('on') && !(S.view === 'home' && (S.draft || V.rec || S.autoTimer)) && S.view !== 'settings') { flush().then(function(){ return load(true); }); } }, 60000);
 
 syncStatusBar();
+if (window.BACKEND) S.pin = window.BACKEND.loggedIn() ? 'sb' : '';
 if (S.pin) { lock(); start(); } else showGate();
 setTimeout(function(){ checkUpdate(false); }, 4000);
 })();
