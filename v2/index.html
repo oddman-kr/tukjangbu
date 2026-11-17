@@ -175,7 +175,9 @@ var Receipt = (function () {
       .catch(function () { refreshing = null; return s.access_token; });
     return refreshing;
   }
-  function uidOf() { var s = getSess(); return s && s.user ? s.user.id : null; }
+  // 주소(#)로 돌아온 로그인에는 사용자 정보가 없어서, 토큰 안의 사용자 번호(sub)를 읽어요
+  function jwtSub(t) { try { var p = t.split('.')[1].replace(/-/g, '+').replace(/_/g, '/'); while (p.length % 4) p += '='; return JSON.parse(decodeURIComponent(escape(atob(p)))).sub || null; } catch (e) { return null; } }
+  function uidOf() { var s = getSess(); if (!s) return null; if (s.user && s.user.id) return s.user.id; return s.access_token ? jwtSub(s.access_token) : null; }
 
   /* ---------- REST 도우미 ---------- */
   function q(table, query) { return req('/rest/v1/' + table + (query ? '?' + query : '')); }
