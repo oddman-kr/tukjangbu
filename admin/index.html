@@ -1,0 +1,82 @@
+<!doctype html><html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>툭장부 관리자</title><meta name="robots" content="noindex,nofollow"><meta name="theme-color" content="#2F4B7C"><link rel="icon" href="../icon-192.png">
+<style>
+:root{--bg:#F4F5F7;--card:#fff;--ink:#1C1B19;--ink2:#5F5C55;--ink3:#9A968C;--line:#E5E7EB;--pri:#2F4B7C;--soft:#E7EDF6;--ok:#0F7A3D;--warn:#B45309;--bad:#C2410C}
+@media (prefers-color-scheme:dark){:root{--bg:#121315;--card:#1C1D20;--ink:#F2F0EA;--ink2:#B9B5AB;--ink3:#7E7A71;--line:#2C2E33;--pri:#9DB8EA;--soft:#1C2A44;color-scheme:dark}}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font-family:"Pretendard","Apple SD Gothic Neo","Noto Sans KR",sans-serif;font-size:14.5px}
+.wrap{max-width:1100px;margin:0 auto;padding:20px max(16px,env(safe-area-inset-left)) 60px}
+header{display:flex;align-items:center;gap:10px;margin-bottom:16px}header img{width:34px;height:34px;border-radius:9px}header h1{font-size:19px;margin:0}header .sp{flex:1}
+.btn{border:1px solid var(--line);background:var(--card);border-radius:10px;padding:7px 12px;cursor:pointer;color:inherit;font:inherit}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:10px}
+.k{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:12px 14px}.k .l{font-size:12.5px;color:var(--ink3)}.k .v{font-size:24px;font-weight:800;margin-top:2px;font-variant-numeric:tabular-nums}.k .s{font-size:12px;color:var(--ink2)}
+.card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:16px;margin-top:14px;min-width:0}.card h2{font-size:15px;margin:0 0 10px}
+.two{display:grid;grid-template-columns:1.4fr 1fr;gap:14px}@media(max-width:820px){.two{grid-template-columns:1fr}}
+.bars{display:flex;align-items:flex-end;gap:3px;height:140px;border-bottom:1px solid var(--line)}.bars div{flex:1;background:var(--pri);border-radius:3px 3px 0 0;min-height:1px;position:relative}.bars div:hover::after{content:attr(data-t);position:absolute;bottom:100%;left:50%;transform:translateX(-50%);background:var(--ink);color:var(--bg);font-size:11px;padding:2px 6px;border-radius:5px;white-space:nowrap}
+.axis{display:flex;justify-content:space-between;font-size:11px;color:var(--ink3);margin-top:4px}
+.row{display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--line)}.row:last-child{border:0}
+.fb{border-bottom:1px solid var(--line);padding:10px 0}.fb:last-child{border:0}.fb .m{font-size:12px;color:var(--ink3);display:flex;gap:8px;flex-wrap:wrap;align-items:center}.fb .b{margin:4px 0;white-space:pre-wrap;word-break:break-word}
+.tag{font-size:11.5px;font-weight:700;border-radius:99px;padding:1px 8px;background:var(--soft);color:var(--pri)}
+select{font:inherit;border:1px solid var(--line);border-radius:8px;padding:3px 6px;background:var(--card);color:inherit}
+.center{text-align:center;padding:60px 10px;color:var(--ink2)}.note{font-size:12px;color:var(--ink3);margin-top:6px}
+.seg{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px}.seg button{border:1px solid var(--line);background:var(--card);border-radius:99px;padding:4px 10px;cursor:pointer;color:inherit;font:inherit;font-size:13px}.seg button.on{background:var(--pri);color:#fff;border-color:var(--pri)}
+</style></head><body><div class="wrap">
+<header><img src="../icon-192.png" alt=""><h1>툭장부 관리자</h1><span class="sp"></span><span id="when" class="note"></span><button class="btn" id="re">새로고침</button></header>
+<div id="main"><div class="center">불러오는 중…</div></div>
+</div>
+<script>
+var URL_ = 'https://tognnsgghtmnwfwksegp.supabase.co', KEY = 'sb_publishable_VaTsnqKViXWOaoh3SmTd3g_VceRqIa9', SKEY = 'tuk_sb_session';
+function sess(){ try { return JSON.parse(localStorage.getItem(SKEY) || 'null'); } catch (e) { return null; } }
+function token(){
+  var s = sess(); if (!s) return Promise.resolve(null);
+  if (s.expires_at - 60 > Date.now() / 1000) return Promise.resolve(s.access_token);
+  return fetch(URL_ + '/auth/v1/token?grant_type=refresh_token', { method: 'POST', headers: { apikey: KEY, 'Content-Type': 'application/json' }, body: JSON.stringify({ refresh_token: s.refresh_token }) })
+    .then(function(r){ return r.json(); }).then(function(o){ if (!o.access_token) return null; var n = { access_token: o.access_token, refresh_token: o.refresh_token, expires_at: Math.floor(Date.now() / 1000) + (o.expires_in || 3600), user: o.user }; localStorage.setItem(SKEY, JSON.stringify(n)); return n.access_token; });
+}
+function rpc(fn, args){ return token().then(function(t){ if (!t) throw Object.assign(new Error('login'), { login: true }); return fetch(URL_ + '/rest/v1/rpc/' + fn, { method: 'POST', headers: { apikey: KEY, Authorization: 'Bearer ' + t, 'Content-Type': 'application/json' }, body: JSON.stringify(args || {}) }); })
+  .then(function(r){ return r.text().then(function(x){ var o = x ? JSON.parse(x) : null; if (!r.ok) throw new Error((o && o.message) || r.status); return o; }); }); }
+var won = function(n){ return Math.round(n).toLocaleString('ko-KR'); };
+var esc = function(s){ return String(s == null ? '' : s).replace(/[&<>"]/g, function(c){ return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); };
+var fbFilter = '새 의견';
+function k(l, v, s){ return '<div class="k"><div class="l">' + l + '</div><div class="v">' + v + '</div>' + (s ? '<div class="s">' + s + '</div>' : '') + '</div>'; }
+function load(){
+  var m = document.getElementById('main');
+  Promise.all([rpc('admin_stats'), rpc('admin_feedback', { p_status: fbFilter === '전체' ? null : fbFilter })]).then(function(a){
+    var s = a[0], fb = a[1] || [];
+    var paid = s.paid_month + s.paid_year, mrr = s.paid_month * 2900 + s.paid_year * 29000 / 12, net = mrr / 1.1 * 0.85;
+    var sig = s.signups_by_day || [], mx = Math.max.apply(null, sig.map(function(x){ return x.n; }).concat([1]));
+    var prov = s.providers || {}, src = s.tx_by_source || {};
+    var SRC = { manual: '직접·말', voice: '말로', receipt: '영수증', recurring: '정기 지출', import: '옮겨 오기', wish: '위시', allowance: '용돈' };
+    var PROV = { kakao: '카카오', google: '구글', email: '이메일(네이버 포함)', anonymous: '자녀(초대 코드)' };
+    m.innerHTML =
+      '<div class="grid">' +
+        k('전체 가입자', won(s.users), '오늘 +' + s.users_today + ' · 7일 +' + s.users_7d) +
+        k('가계부(가족)', won(s.households), '참여 ' + s.members_joined + '명 · 초대 대기 ' + s.members_pending + ' · 자녀 ' + s.kids) +
+        k('활동 가족', s.active_7d, '오늘 ' + s.active_1d + ' · 30일 ' + s.active_30d) +
+        k('유료 구독', paid, '월간 ' + s.paid_month + ' · 연간 ' + s.paid_year) +
+        k('무료 체험 중', s.trial, '7일 안에 끝남 ' + s.trial_ending_7d) +
+        k('예상 월 매출', won(mrr) + '원', '수수료·부가세 뺀 순매출 약 ' + won(net) + '원') +
+        k('기록 수', won(s.tx_total), '최근 7일 ' + won(s.tx_7d)) +
+        k('영수증 인식 (이번 달)', won(s.ocr_month), '') +
+        k('알림 켠 기기', s.devices, '오늘 확인 ' + s.devices_seen_1d) +
+        k('새 의견', s.feedback_new, '탈퇴(30일) ' + s.deleted_30d) +
+      '</div>' +
+      '<div class="two"><div class="card"><h2>최근 30일 가입자</h2><div class="bars">' + sig.map(function(x){ return '<div style="height:' + (x.n / mx * 100).toFixed(1) + '%" data-t="' + x.d + ' · ' + x.n + '명"></div>'; }).join('') + '</div><div class="axis"><span>' + (sig[0] || {}).d + '</span><span>' + (sig[sig.length - 1] || {}).d + '</span></div></div>' +
+        '<div class="card"><h2>가입 방법</h2>' + Object.keys(prov).sort(function(a, b){ return prov[b] - prov[a]; }).map(function(p){ return '<div class="row"><span>' + (PROV[p] || p) + '</span><b>' + prov[p] + '</b></div>'; }).join('') +
+        '<h2 style="margin-top:14px">최근 30일 기록 방법</h2>' + (Object.keys(src).length ? Object.keys(src).sort(function(a, b){ return src[b] - src[a]; }).map(function(p){ return '<div class="row"><span>' + (SRC[p] || p) + '</span><b>' + won(src[p]) + '</b></div>'; }).join('') : '<div class="note">아직 없어요</div>') + '</div></div>' +
+      '<div class="card"><h2>사용자 의견</h2><div class="seg">' + ['새 의견', '확인함', '반영 예정', '반영 완료', '보류', '전체'].map(function(x){ return '<button data-f="' + x + '" class="' + (x === fbFilter ? 'on' : '') + '">' + x + '</button>'; }).join('') + '</div>' +
+        (fb.length ? fb.map(function(f){ return '<div class="fb"><div class="m"><span class="tag">' + esc(f.kind) + '</span><span>' + new Date(f.created_at).toLocaleString('ko-KR') + '</span>' + (f.app_ver ? '<span>' + esc(f.app_ver) + '</span>' : '') + (f.contact ? '<span>📮 ' + esc(f.contact) + '</span>' : '') +
+          '<select data-id="' + f.id + '">' + ['새 의견', '확인함', '반영 예정', '반영 완료', '보류'].map(function(x){ return '<option' + (x === f.status ? ' selected' : '') + '>' + x + '</option>'; }).join('') + '</select></div><div class="b">' + esc(f.body) + '</div></div>'; }).join('') : '<div class="note">해당하는 의견이 없어요.</div>') +
+        '<div class="note">로그인 버전에서 보낸 의견이에요. 예전 버전(가족 비밀번호)의 의견은 구글 시트 “의견” 탭에 쌓여요.</div></div>' +
+      '<div class="card"><h2>최근 탈퇴 이유</h2>' + ((s.deletion_reasons || []).length ? s.deletion_reasons.map(function(d){ return '<div class="row"><span>' + esc(d.reason || '(이유 없음)') + '</span><span class="note">' + new Date(d.at).toLocaleDateString('ko-KR') + (d.removed ? ' · 가계부 삭제' : '') + '</span></div>'; }).join('') : '<div class="note">아직 없어요.</div>') + '</div>' +
+      '<div class="note" style="margin-top:12px">개인정보 보호를 위해 이 화면에는 개별 가계부 내용이 보이지 않고 숫자 통계와 의견만 보여요.</div>';
+    document.getElementById('when').textContent = new Date().toLocaleTimeString('ko-KR') + ' 기준';
+    m.querySelectorAll('[data-f]').forEach(function(b){ b.onclick = function(){ fbFilter = b.dataset.f; load(); }; });
+    m.querySelectorAll('select[data-id]').forEach(function(sel){ sel.onchange = function(){ sel.disabled = true; rpc('admin_set_feedback', { p_id: sel.dataset.id, p_status: sel.value }).then(function(){ sel.disabled = false; }).catch(function(e){ alert(e.message); sel.disabled = false; }); }; });
+  }).catch(function(e){
+    m.innerHTML = e.login ? '<div class="center">관리자 계정으로 로그인해 주세요.<br><br><a class="btn" href="../v2/">툭장부 로그인하러 가기</a><div class="note" style="margin-top:12px">같은 브라우저에서 로그인한 뒤 이 주소로 다시 오면 돼요.</div></div>'
+      : '<div class="center">' + (/관리자/.test(e.message) ? '이 계정은 관리자가 아니에요.' : '불러오지 못했어요: ' + esc(e.message)) + '</div>';
+  });
+}
+document.getElementById('re').onclick = load;
+load(); setInterval(load, 60000);
+</script></body></html>
