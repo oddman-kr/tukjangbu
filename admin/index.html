@@ -144,12 +144,11 @@ function dash(){
       k('전체 계정', won(s.users), '오늘 +' + s.users_today + ' · 7일 +' + s.users_7d) + k('가계부(가족)', won(s.households), '참여 ' + s.members_joined + ' · 초대 대기 ' + s.members_pending + ' · 자녀 ' + s.kids) +
       k('활동 가족 (7일)', s.active_7d, '오늘 ' + s.active_1d + ' · 30일 ' + s.active_30d) + k('유료 구독', paid, '월간 ' + s.paid_month + ' · 연간 ' + s.paid_year) +
       k('무료 체험 중', s.trial, '7일 안에 끝남 ' + s.trial_ending_7d) + k('예상 월 매출', won(mrr) + '원', '수수료·부가세 뺀 순매출 약 ' + won(mrr / 1.1 * 0.85) + '원') +
-      k('기록 수', won(s.tx_total), '최근 7일 ' + won(s.tx_7d)) + k('영수증 인식 (이번 달)', won(s.ocr_month), '') + k('알림 켠 기기', s.devices, '오늘 확인 ' + s.devices_seen_1d) + k('새 의견', s.feedback_new, '탈퇴(30일) ' + s.deleted_30d) + '</div>' +
+      k('기록 수', won(s.tx_total), '최근 7일 ' + won(s.tx_7d)) + k('영수증 인식 (이번 달)', won(s.ocr_month), '') + k('알림 켠 기기', s.devices, '오늘 확인 ' + s.devices_seen_1d) + k('새 의견', s.feedback_new, '탈퇴(30일) ' + s.deleted_30d) + '</div>' + '<div id="more"><div class="card note">핵심 지표 불러오는 중…</div></div>' +
       '<div class="two"><div class="card"><h2>최근 30일 가입</h2><div class="bars">' + sig.map(function(x){ return '<div title="' + x.d + ' · ' + x.n + '명" style="height:' + (x.n / mx * 100).toFixed(1) + '%"></div>'; }).join('') + '</div><div class="axis"><span>' + ((sig[0] || {}).d || '') + '</span><span>' + ((sig[sig.length - 1] || {}).d || '') + '</span></div></div>' +
       '<div class="card"><h2>가입 방법</h2>' + Object.keys(prov).map(function(p){ return '<div class="kv"><span>' + (PROV[p] || p) + '</span><b>' + prov[p] + '</b></div>'; }).join('') + '<h2 style="margin-top:14px">최근 30일 기록 방법</h2>' + (Object.keys(src).length ? Object.keys(src).map(function(p){ return '<div class="kv"><span>' + (SRC[p] || p) + '</span><b>' + won(src[p]) + '</b></div>'; }).join('') : '<div class="note">아직 없어요</div>') + '</div></div>' +
-      '<div id="more"><div class="card note">성장 지표 불러오는 중…</div></div>' +
-      '<div class="card"><h2>최근 탈퇴 이유</h2>' + ((s.deletion_reasons || []).length ? s.deletion_reasons.map(function(d){ return '<div class="kv"><span>' + esc(d.reason || '(이유 없음)') + '</span><span class="note">' + d8(d.at) + '</span></div>'; }).join('') : '<div class="note">아직 없어요.</div>') + '</div>';
-    return rpc('admin_metrics').then(function(m){ var el = $('#more'); if (el) el.innerHTML = metricsHTML(m, s); });
+            '<div class="card"><h2>최근 탈퇴 이유</h2>' + ((s.deletion_reasons || []).length ? s.deletion_reasons.map(function(d){ return '<div class="kv"><span>' + esc(d.reason || '(이유 없음)') + '</span><span class="note">' + d8(d.at) + '</span></div>'; }).join('') : '<div class="note">아직 없어요.</div>') + '</div>';
+    return Promise.all([rpc('admin_metrics'), rpc('admin_active')]).then(function(r){ var el = $('#more'); if (el) el.innerHTML = kpiHTML(r[1], r[0], s) + metricsHTML(r[0], s); });
   }).catch(fail);
 }
 function bars(list){
@@ -159,6 +158,24 @@ function bars(list){
 function pct(a, b){ return b ? Math.round(a / b * 100) + '%' : '-'; }
 function heat(a, b, ripe){ if (!ripe) return '<span class="note">아직</span>'; var p = b ? a / b : 0; return '<span class="heat" style="background:rgba(47,75,124,' + (0.08 + p * 0.8).toFixed(2) + ');color:' + (p > 0.45 ? '#fff' : 'inherit') + '">' + pct(a, b) + '</span>'; }
 function mb(n){ return n > 1e9 ? (n / 1e9).toFixed(2) + 'GB' : (n / 1e6).toFixed(1) + 'MB'; }
+function kpiHTML(a, m, s){
+  var c = m.conversion || {}, rt = a.retention || {};
+  var gross = s.paid_month * 2900 + s.paid_year * 29000 / 12, net = gross / 1.1 * 0.85, payers = s.paid_month + s.paid_year;
+  var churn = (c.paid_now + c.churned_30d) ? c.churned_30d / (c.paid_now + c.churned_30d) : 0;
+  var arppu = payers ? net / payers : 0, ltv = churn ? arppu / churn : 0;
+  var r = function(x){ return x && x.base ? Math.round(x.kept / x.base * 100) + '%' : '-'; }, rs = function(x){ return x && x.base ? x.kept + ' / ' + x.base + '명' : '대상 없음'; };
+  var ms = a.mau_series || [];
+  return '<div class="card"><h2>핵심 지표 (사람 기준, 앱을 연 날을 셈)</h2><div class="grid">' +
+    k('DAU (오늘)', won(a.dau), '30일 평균 ' + a.dau_avg30) + k('WAU (7일)', won(a.wau), '') + k('MAU (30일)', won(a.mau), '안드로이드 앱 ' + won(a.android_30)) +
+    k('고착도 DAU÷MAU', pct(a.dau_avg30, a.mau), '20% 넘으면 좋은 편') +
+    k('D1 잔존율', r(rt.d1), rs(rt.d1)) + k('D7 잔존율', r(rt.d7), rs(rt.d7)) + k('D30 잔존율', r(rt.d30), rs(rt.d30)) +
+    k('결제 전환 (MAU 중)', pct(payers, a.mau), '결제 가족 ' + payers) +
+    k('ARPU (월)', won(a.mau ? net / a.mau : 0) + '원', '순매출 ÷ MAU') + k('ARPPU (월)', won(arppu) + '원', '순매출 ÷ 결제 가족') +
+    k('월 해지율', churn ? Math.round(churn * 100) + '%' : '-', '최근 30일') + k('LTV (예상)', ltv ? won(ltv) + '원' : '-', 'ARPPU ÷ 월 해지율') + '</div>' +
+    '<div class="two" style="margin-top:12px"><div style="min-width:0"><div class="note" style="margin-bottom:6px">일별 접속자 (30일)</div>' + bars(a.series || []) + '</div><div style="min-width:0"><div class="note" style="margin-bottom:6px">월별 접속자 (MAU 추이)</div>' +
+      (ms.length ? ms.map(function(x){ return '<div class="kv"><span>' + x.m + '</span><b>' + won(x.n) + '</b></div>'; }).join('') : '<div class="note">아직 없어요</div>') + '</div></div>' +
+    '<div class="note" style="margin-top:8px">접속 기록은 ' + (a.since ? d8(a.since) : '오늘') + '부터 있어요 (그 전은 기록을 남긴 날로 채웠어요). 설치·삭제 수, 별점, 앱 비정상 종료는 구글 플레이 콘솔 → 통계·Android vitals 에서 봐요.</div></div>';
+}
 function metricsHTML(m, s){
   var c = m.conversion || {}, st = m.storage || {}, co = m.cohorts || [];
   return '<div class="two"><div class="card"><h2>일별 활동 가족 (기록한 가족 수, 30일)</h2>' + bars(m.dau || []) + '<div class="note" style="margin-top:6px">하루 평균 ' + ((m.dau || []).reduce(function(a, x){ return a + x.n; }, 0) / Math.max(1, (m.dau || []).length)).toFixed(1) + '가족 · 이번 주 활동 가족 ÷ 전체 가족 = ' + pct(s.active_7d, s.households) + '</div></div>' +

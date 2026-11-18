@@ -225,6 +225,12 @@ var Receipt = (function () {
   }
 
   /* ---------- 불러오기 ---------- */
+  // 하루 한 번 접속 기록 (운영 지표 DAU·MAU용, 기록 내용은 남기지 않아요)
+  function touchActive() {
+    var k = 'tuk_active_' + uidOf(), d = ymd(new Date());
+    try { if (localStorage.getItem(k) === d) return; } catch (e) {}
+    rpc('touch_active', { p_platform: window.NativeApp ? 'android' : 'web' }).then(function () { try { localStorage.setItem(k, d); } catch (e) {} }).catch(function () {});
+  }
   function signedAvatar(path) {
     return req('/storage/v1/object/sign/avatars/' + path, { method: 'POST', body: { expiresIn: 3600 * 24 } })
       .then(function (o) { return o && o.signedURL ? URL + '/storage/v1' + o.signedURL : ''; }).catch(function () { return ''; });
@@ -232,6 +238,7 @@ var Receipt = (function () {
   function load(p) {
     return loadCtx().then(function (me) {
       if (!me) throw Object.assign(new Error('가족이 아직 없어요'), { code: 'NOHH' });
+      touchActive();
       var months = Math.min(Number(p && p.months) || 13, 60);
       var since = new Date(); since.setMonth(since.getMonth() - months + 1, 1);
       var sinceS = ymd(since), adult = ctx.role !== 'child';
