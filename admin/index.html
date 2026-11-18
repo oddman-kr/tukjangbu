@@ -71,11 +71,20 @@ var rpc = function(fn, b){ return req('/rest/v1/rpc/' + fn, b); };
 // ---------- 로그인 ----------
 function loginView(msg){
   $('#app').innerHTML = '<div class="login"><img src="../icon-192.png" alt="" style="width:44px;height:44px;border-radius:12px"><h1>툭장부 관리자</h1><div class="note">운영자 전용이에요. 등록된 관리자 이메일로만 들어올 수 있어요.</div>' +
-    '<input class="inp" id="em" type="email" placeholder="관리자 이메일" autocomplete="email"><button class="btn pri" id="send">로그인 메일 받기</button>' +
-    '<div id="step2" hidden><div class="note" style="margin-top:12px">메일함에서 <b>로그인 링크</b>를 누르면 바로 들어와요. 메일에 6자리 코드가 있으면 아래에 넣어도 돼요.</div><input class="inp" id="code" inputmode="numeric" maxlength="6" placeholder="6자리 코드 (있을 때)"><button class="btn" id="verify">코드로 들어가기</button></div>' +
+    '<form id="pwf"><input class="inp" id="em" type="email" placeholder="관리자 이메일" autocomplete="username"><input class="inp" id="pw" type="password" placeholder="비밀번호" autocomplete="current-password"><button class="btn pri" id="pwgo" type="submit">로그인</button></form>' +
+    '<div class="note" style="margin-top:14px">처음이거나 비밀번호를 잊었다면 <button class="btn" id="send" style="width:auto;padding:4px 10px;margin:0">로그인 메일 받기</button></div>' +
+    '<div id="step2" hidden><div class="note" style="margin-top:10px">메일의 <b>로그인 링크</b>를 이 브라우저에서 누르면 들어와요. 들어온 뒤 오른쪽 위 <b>비밀번호 설정</b>에서 비밀번호를 정하면 다음부터는 이메일과 비밀번호로 로그인해요.</div><input class="inp" id="code" inputmode="numeric" maxlength="6" placeholder="메일에 6자리 코드가 있으면 입력"><button class="btn" id="verify">코드로 들어가기</button></div>' +
     '<div class="err" id="err">' + esc(msg || '') + '</div></div>';
+  $('#pwf').onsubmit = function(ev){
+    ev.preventDefault();
+    var e = $('#em').value.trim(), w = $('#pw').value; if (!e || !w) { $('#err').textContent = '이메일과 비밀번호를 넣어 주세요.'; return; }
+    $('#pwgo').disabled = true;
+    fetch(URL_ + '/auth/v1/token?grant_type=password', { method: 'POST', headers: { apikey: KEY, 'Content-Type': 'application/json' }, body: JSON.stringify({ email: e, password: w }) })
+      .then(function(r){ return r.json().then(function(o){ if (!r.ok || !o.access_token) throw new Error(/invalid/i.test(o.error_description || o.msg || '') ? '이메일이나 비밀번호가 맞지 않아요. 처음이라면 아래 로그인 메일로 들어가 비밀번호를 정해 주세요.' : (o.msg || o.error_description || '로그인하지 못했어요')); setS(fromTok(o)); boot(); }); })
+      .catch(function(x){ $('#err').textContent = x.message; }).then(function(){ var b = $('#pwgo'); if (b) b.disabled = false; });
+  };
   $('#send').onclick = function(){
-    var e = $('#em').value.trim(); if (!/.+@.+\..+/.test(e)) { $('#err').textContent = '이메일을 확인해 주세요.'; return; }
+    var e = $('#em').value.trim(); if (!/.+@.+\..+/.test(e)) { $('#err').textContent = '이메일을 먼저 넣어 주세요.'; return; }
     this.disabled = true;
     fetch(URL_ + '/auth/v1/otp?redirect_to=' + encodeURIComponent(location.origin + location.pathname), { method: 'POST', headers: { apikey: KEY, 'Content-Type': 'application/json' }, body: JSON.stringify({ email: e, create_user: true }) })
       .then(function(r){ return r.json().then(function(o){ if (!r.ok) throw new Error(o.msg || o.message || '메일을 보내지 못했어요'); }); })
@@ -94,9 +103,24 @@ var tab = 'dash', users = [], uq = '', uf = 'all', fbF = '새 의견';
 try { tab = localStorage.getItem('adm_tab') || 'dash'; } catch (e) {}
 function shell(){
   var s = getS() || {};
-  $('#app').innerHTML = '<div class="topbar"><div class="in"><img src="../icon-192.png" alt=""><b>툭장부 관리자</b><span class="sp"></span><span class="who">' + esc(s.email) + '</span><button class="btn ghostw" id="out">로그아웃</button></div>' +
+  $('#app').innerHTML = '<div class="topbar"><div class="in"><img src="../icon-192.png" alt=""><b>툭장부 관리자</b><span class="sp"></span><span class="who">' + esc(s.email) + '</span><button class="btn ghostw" id="setpw">비밀번호 설정</button><button class="btn ghostw" id="out">로그아웃</button></div>' +
     '<div class="tabs">' + [['dash', '대시보드'], ['users', '회원 관리'], ['fb', '사용자 의견'], ['log', '관리 기록']].map(function(t){ return '<button data-t="' + t[0] + '" class="' + (tab === t[0] ? 'on' : '') + '">' + t[1] + '</button>'; }).join('') + '</div></div><div class="wrap" id="view"><div class="note">불러오는 중…</div></div>';
   $('#out').onclick = function(){ setS(null); loginView(); };
+  $('#setpw').onclick = function(){
+    var bg = document.createElement('div'); bg.className = 'drawer-bg'; bg.style.alignItems = 'center'; bg.style.justifyContent = 'center';
+    bg.innerHTML = '<div class="login" style="margin:0"><h1>비밀번호 설정</h1><div class="note">다음부터 이메일과 이 비밀번호로 로그인해요. 8자 이상, 다른 사이트와 다른 비밀번호를 써 주세요.</div><input class="inp" id="np1" type="password" autocomplete="new-password" placeholder="새 비밀번호"><input class="inp" id="np2" type="password" autocomplete="new-password" placeholder="한 번 더"><button class="btn pri" id="npgo">저장</button><button class="btn" id="npx">닫기</button><div class="err" id="nperr"></div></div>';
+    document.body.appendChild(bg);
+    bg.querySelector('#npx').onclick = function(){ bg.remove(); };
+    bg.querySelector('#npgo').onclick = function(){
+      var a = bg.querySelector('#np1').value, b = bg.querySelector('#np2').value, er = bg.querySelector('#nperr');
+      if (a.length < 8) { er.textContent = '8자 이상으로 정해 주세요.'; return; }
+      if (a !== b) { er.textContent = '두 비밀번호가 달라요.'; return; }
+      token().then(function(t){ return fetch(URL_ + '/auth/v1/user', { method: 'PUT', headers: { apikey: KEY, Authorization: 'Bearer ' + t, 'Content-Type': 'application/json' }, body: JSON.stringify({ password: a }) }); })
+        .then(function(r){ return r.json().then(function(o){ if (!r.ok) throw new Error(/weak|short|characters/i.test(o.msg || '') ? '비밀번호가 너무 쉬워요. 더 길게 정해 주세요.' : (o.msg || '저장하지 못했어요')); }); })
+        .then(function(){ bg.remove(); toast('비밀번호를 정했어요. 다음부터 이메일과 비밀번호로 로그인하세요'); })
+        .catch(function(x){ er.textContent = x.message; });
+    };
+  };
   document.querySelectorAll('[data-t]').forEach(function(b){ b.onclick = function(){ tab = b.dataset.t; try { localStorage.setItem('adm_tab', tab); } catch (e) {} shell(); }; });
   ({ dash: dash, users: usersView, fb: fbView, log: logView })[tab]();
 }
