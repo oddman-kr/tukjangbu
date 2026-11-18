@@ -298,6 +298,15 @@ html,body{font-family:"Pretendard","Pretendard Variable","Apple SD Gothic Neo","
 .banner{border-radius:16px}
 .toast{border-radius:14px;box-shadow:0 10px 30px rgba(0,0,0,.18)}
 .sheet{border-radius:24px 24px 0 0}
+.plusbadge{display:inline-block;font-size:10.5px;font-weight:800;letter-spacing:.06em;color:#fff;background:linear-gradient(135deg,#41639E,#22375C);border-radius:6px;padding:2px 6px;vertical-align:2px;margin-left:2px}
+.card.plus{background:linear-gradient(160deg,var(--pri-soft),var(--card) 70%)}
+.pfeat{margin-top:8px;border-top:1px solid var(--line);border-bottom:1px solid var(--line);padding:4px 0}
+.pplans{display:flex;gap:8px;margin-top:12px}
+.pplans button{flex:1;display:flex;flex-direction:column;align-items:flex-start;gap:2px;border:1.5px solid var(--line);background:var(--card);border-radius:14px;padding:12px;text-align:left;color:inherit;cursor:pointer}
+.pplans button b{font-size:19px}
+.pplans button.on{border-color:var(--pri);box-shadow:0 0 0 1px var(--pri) inset;background:var(--pri-soft)}
+.locked{position:relative}
+.locked .lockcta{display:flex;align-items:center;justify-content:space-between;gap:10px}
 </style>
 </head>
 <body>
@@ -714,7 +723,7 @@ function toast(msg, actLabel, actFn, ms){
   t.classList.add('on'); clearTimeout(toast._t); toast._t = setTimeout(function(){ t.classList.remove('on'); }, ms || (actFn ? 5000 : 2400));
 }
 function haptic(){ try { if (window.NativeApp && NativeApp.vibrate) NativeApp.vibrate(); else if (navigator.vibrate) navigator.vibrate(12); } catch (e) {} }
-var WEB_VER = '2026.11.18t';
+var WEB_VER = '2026.11.18u';
 (function(){ try { var v = window.NativeApp ? Number(NativeApp.version()) : 0; var a = (navigator.userAgent.match(/Android (\d+)/) || [])[1]; if (v && v <= 6 && Number(a) >= 15) document.documentElement.classList.add('old-native'); } catch (e) {} })();
 var errShown = 0;
 function logErr(kind, msg, where){
@@ -1135,6 +1144,7 @@ function openLedgers(){
   $('#lgClose').onclick = closeSheet;
   sh.querySelectorAll('[data-lg]').forEach(function(b){ b.onclick = function(){ closeSheet(); call('switchLedger', { id: b.dataset.lg }).then(function(){ toast('가계부를 바꿨어요'); return load(); }); }; });
   var mk = $('#lgMake'); if (mk) mk.onclick = function(){
+    if (needPlus('travel')) return;
     var n = $('#lgName').value.trim(); if (!n) return toast('이름을 적어 주세요.');
     mk.disabled = true;
     call('createLedger', { name: n, currency: $('#lgCur').value, starts: $('#lgS').value, ends: $('#lgE').value }).then(function(){ closeSheet(); toast('✈️ ' + n + ' 가계부를 만들었어요. 이제 여기에 기록돼요'); return load(); }).catch(function(e){ mk.disabled = false; toast(e.message); });
@@ -1163,6 +1173,7 @@ function homeHTML(){
 }
 
 function cardPerfHTML(){
+  if (!isPlus()) return '';
   var cs = cards().filter(function(c){ return c.target > 0; });
   if (!cs.length) return '';
   var m = ym(new Date()), last = new Date(+m.slice(0, 4), +m.slice(5), 0).getDate();
@@ -1206,6 +1217,7 @@ function dLeft(d){ return Math.round((new Date(d + 'T00:00:00') - new Date(ymd(n
 function mdLabel(d){ return (+d.slice(5, 7)) + '/' + (+d.slice(8)); }
 function billHTML(){
   if (isKid()) return '';
+  if (!isPlus()) return cards().some(function(c){ return (c.kind || '신용') === '신용' || c.target > 0; }) ? '<div class="card locked"><div class="lockcta"><div><h3 style="margin:0">💳 카드 결제 예정 · 실적 ' + plusBadge() + '</h3><div class="faint xs" style="margin-top:4px">다음 결제일 금액과 실적 달성을 미리 알려 드려요</div></div><button class="btn pri" data-plus="card">보기</button></div></div>' : '';
   var cs = cards().filter(isPayCard);
   if (!cs.length) return cards().some(function(c){ return (c.kind || '신용') === '신용'; }) ? '<div class="card"><div class="row between"><h3 style="margin:0">🗓️ 카드 결제 예정</h3></div><div class="faint sm" style="margin-top:6px">카드에 <b>결제일</b>을 넣으면 다음 달 출금 금액을 미리 계산해 드려요.</div><button class="btn ghost block" id="billSetup" style="margin-top:10px">카드 결제일 넣기</button></div>' : '';
   var tot = 0;
@@ -1219,7 +1231,7 @@ function billHTML(){
     '<div class="faint xs" style="margin:4px 0 2px">카드로 쓴 돈은 쓴 날 지출로 이미 잡혀 있어요. 카드값 출금은 지출에 다시 더하지 않아요.</div>' + rows + '</div>';
 }
 function billBanner(){
-  if (isKid() || !aOn('bill')) return '';
+  if (isKid() || !aOn('bill') || !isPlus()) return '';
   var seen = LS.get('billSeen', {}), out = null;
   cards().filter(isPayCard).forEach(function(c){ var n = billsNow(c).next, d = dLeft(n.pay); if (d >= 0 && d <= 2 && n.amount && !seen[c.name + '_' + n.ym] && !out) out = { c: c, n: n, d: d }; });
   if (!out) return '';
@@ -1262,11 +1274,63 @@ function cardPayItem(p){
   return { card: c, bill: pick, amount: Math.round(p.amount) };
 }
 function bindCards(){
+  document.querySelectorAll('[data-plus]').forEach(function(b){ b.onclick = function(){ openPlus(b.dataset.plus); }; });
   document.querySelectorAll('[data-card]').forEach(function(b){ b.onclick = function(){ var c = cardOf(b.dataset.card); if (c) openCard(c); }; });
   document.querySelectorAll('[data-bill]').forEach(function(b){ b.onclick = function(){ var c = cardOf(b.dataset.bill); if (c) openBill(c); }; });
   document.querySelectorAll('[data-billx]').forEach(function(b){ b.onclick = function(){ var sn = LS.get('billSeen', {}); sn[b.dataset.billx] = 1; LS.set('billSeen', sn); render(); }; });
   var bs = $('#billSetup'); if (bs) bs.onclick = function(){ var c = cards().filter(function(x){ return (x.kind || '신용') === '신용'; })[0]; if (c) editCard(payInfo(c.name), true); };
 }
+
+/* ---------- 툭장부 플러스 (로그인 버전에서만 적용, 지금 버전은 모두 무료) ---------- */
+var PLUS_PRICE = { month: 2900, year: 29000 };
+var PLUS_FEATS = [['👨‍👩‍👧', '가족·자녀 인원 제한 없음', '무료는 2명까지'], ['🧾', '영수증 인식 무제한', '무료는 한 달 10장'], ['✈️', '여행 가계부 (외화)', '나라별 돈으로 말해도 원화로 정리'], ['💳', '카드 결제 예정·실적 관리', '결제일 금액 미리 계산, 실적 달성 확인'], ['📤', '엑셀로 내보내기', '전체 내역을 파일로'], ['🔔', '휴대폰 알림 전체', '카드값·정기 지출·용돈 알림']];
+function plan(){ return (S.data && S.data.plan) || null; }
+function isPlus(){ if (!window.BACKEND) return true; var p = plan(); return !!(p && p.plus); }
+function needPlus(reason){ if (isPlus()) return false; openPlus(reason); return true; }
+function dLeftISO(iso){ return Math.max(0, Math.ceil((new Date(iso) - new Date()) / 864e5)); }
+function plusBadge(){ return '<span class="plusbadge">PLUS</span>'; }
+function plusCardHTML(){
+  if (!window.BACKEND || isKid()) return '';
+  var p = plan() || {};
+  var st = p.paid ? '<b>플러스 이용 중</b>' + (p.expires ? ' · ' + String(p.expires).slice(0, 10).replace(/-/g, '.') + '까지' : '') :
+    p.trial ? '<b>무료 체험 중</b> · ' + dLeftISO(p.trialEnds) + '일 남았어요' : '<b>무료 이용 중</b> · 영수증 이번 달 ' + (p.ocrUsed || 0) + '/' + (p.ocrFree || 10) + '장';
+  return '<div class="card plus" data-sec="app"><div class="row between"><h3 style="margin:0">툭장부 ' + plusBadge() + '</h3>' + (p.paid ? '' : '<span class="faint xs">월 ' + won(PLUS_PRICE.month) + '원부터</span>') + '</div>' +
+    '<div class="sm" style="margin-top:6px">' + st + '</div>' +
+    '<button class="btn ' + (p.paid ? 'ghost' : 'pri') + ' block" id="plusOpen" style="margin-top:10px">' + (p.paid ? '구독 관리' : p.trial ? '체험 끝나도 계속 쓰기' : '플러스 알아보기') + '</button></div>';
+}
+var PLUS_WHY = { family: '무료로는 가족 2명까지 함께 쓸 수 있어요', receipt: '이번 달 무료 영수증 인식 10장을 다 썼어요', travel: '여행 가계부는 플러스에서 쓸 수 있어요', card: '카드 결제 예정·실적 관리는 플러스 기능이에요', export: '엑셀 내보내기는 플러스 기능이에요' };
+function openPlus(reason){
+  var sh = $('#sheet'), p = plan() || {}, per = 'year';
+  function draw(){
+    var save = Math.round((1 - PLUS_PRICE.year / (PLUS_PRICE.month * 12)) * 100);
+    sh.innerHTML = '<div class="row between"><h3 style="margin:0">툭장부 ' + plusBadge() + '</h3><button class="x" id="pxClose" aria-label="닫기" style="font-size:24px">×</button></div>' +
+      (reason && PLUS_WHY[reason] ? '<div class="tip" style="margin-top:10px">' + PLUS_WHY[reason] + '</div>' : '') +
+      '<div class="faint sm" style="margin-top:8px">가족 중 한 명만 구독하면 온 가족이 함께 써요.</div>' +
+      '<div class="pfeat">' + PLUS_FEATS.map(function(f){ return '<div class="row" style="gap:10px;padding:7px 0"><span style="font-size:20px;width:28px;text-align:center">' + f[0] + '</span><div><b>' + f[1] + '</b><div class="faint xs">' + f[2] + '</div></div></div>'; }).join('') + '</div>' +
+      (p.paid ? '<div class="tip">지금 플러스를 이용 중이에요. 해지·결제 수단 변경은 구글 플레이 → 결제 및 정기 결제에서 할 수 있어요.</div>' :
+      '<div class="pplans"><button data-pp="year" class="' + (per === 'year' ? 'on' : '') + '"><span class="faint xs">연간 · ' + save + '% 할인</span><b>' + won(PLUS_PRICE.year) + '원</b><span class="faint xs">한 달 ' + won(Math.round(PLUS_PRICE.year / 12 / 10) * 10) + '원꼴</span></button>' +
+        '<button data-pp="month" class="' + (per === 'month' ? 'on' : '') + '"><span class="faint xs">월간</span><b>' + won(PLUS_PRICE.month) + '원</b><span class="faint xs">언제든 해지</span></button></div>' +
+      '<button class="btn pri block" id="pxBuy" style="margin-top:12px">' + (per === 'year' ? '연간' : '월간') + ' 구독 시작하기</button>' +
+      '<div class="faint xs" style="margin-top:8px;text-align:center">구글 플레이로 결제되고, 다음 결제일 24시간 전까지 언제든 해지할 수 있어요.</div>') +
+      (p.trial ? '<div class="faint xs" style="margin-top:6px;text-align:center">무료 체험이 ' + dLeftISO(p.trialEnds) + '일 남았어요. 체험이 끝나도 기록은 그대로 남아요.</div>' : '');
+    $('#pxClose').onclick = closeSheet;
+    sh.querySelectorAll('[data-pp]').forEach(function(b){ b.onclick = function(){ per = b.dataset.pp; draw(); }; });
+    var bb = $('#pxBuy'); if (bb) bb.onclick = function(){
+      var pid = per === 'year' ? 'tuk_plus_year' : 'tuk_plus_month';
+      if (window.NativeApp && NativeApp.buy) { try { NativeApp.buy(pid); } catch (e) { toast('결제를 시작하지 못했어요.'); } return; }
+      toast('결제는 플레이스토어에서 받은 앱에서 할 수 있어요. 곧 열려요!');
+    };
+  }
+  draw(); $('#sheetBg').classList.add('on');
+}
+// 안드로이드 앱이 결제를 마치면 이 함수를 불러요 → 서버에서 영수증 확인
+window.onPlayPurchase = function(json){
+  var o = {}; try { o = typeof json === 'string' ? JSON.parse(json) : json; } catch (e) {}
+  if (!o.purchaseToken) return toast('결제 정보를 받지 못했어요.');
+  toast('결제를 확인하는 중이에요…');
+  call('verifyPurchase', { productId: o.productId, purchaseToken: o.purchaseToken }).then(function(){ closeSheet(); toast('🎉 툭장부 플러스가 시작됐어요. 고마워요!'); return load(true); })
+    .catch(function(e){ toast('결제 확인에 실패했어요: ' + e.message + ' (결제는 구글 플레이에서 자동 환불돼요)'); });
+};
 function openCard(c){
   var m = ym(new Date()), u = cardUse(c, m), sh = $('#sheet');
   sh.innerHTML = '<div class="row between"><h3 style="margin:0">💳 ' + esc(c.name) + '</h3><button class="x" id="cClose" aria-label="닫기" style="font-size:24px">×</button></div>' +
@@ -1551,6 +1615,8 @@ function handleReceipt(file){
       var sb = $('#saveAll'); sb.disabled = false; sb.textContent = '저장';
       toast((r.item.desc || '영수증') + ' ' + won(r.item.amount) + '원을 읽었어요');
       if (LS.get('autoSave', true)) startAuto();
+    } else if (r.limit) {
+      openPlus('receipt');
     } else {
       $('#pv').innerHTML = '';
       openEdit(null, { desc: r.store || '', date: r.date || ymd(new Date()), memo: r.memo || '' });
@@ -1877,6 +1943,7 @@ function settingsHTML(){
       (canNotify() ? '<label class="toggle"><span><b>휴대폰 알림 받기</b><br><span class="faint xs">앱이 꺼져 있어도 아래에서 켠 알림을 보내요 · 2시간마다 확인</span></span><input type="checkbox" id="tNotify"' + (LS.get('notifyOn', false) ? ' checked' : '') + '></label>' : '') +
       alertsFor().map(function(a){ return '<label class="toggle"><span>' + a[1] + '<br><span class="faint xs">' + a[2] + '</span></span><input type="checkbox" data-alert="' + a[0] + '"' + (aOn(a[0]) ? ' checked' : '') + '></label>'; }).join('') +
     '</div>' +
+    plusCardHTML() +
     '<div class="card" data-sec="app" id="fbBox"><h3>💬 의견 보내기</h3><div class="faint xs" style="margin-top:-2px">불편한 점, 있었으면 하는 기능, 무엇이든 좋아요. 만든 사람이 직접 하나하나 읽어요.</div>' +
       '<div class="seg" style="margin-top:10px">' + [['불편', '😣 불편해요'], ['기능', '💡 이런 기능'], ['칭찬', '👍 좋아요']].map(function(k, i){ return '<button data-fbk="' + k[0] + '" class="' + (i === 0 ? 'on' : '') + '">' + k[1] + '</button>'; }).join('') + '</div>' +
       '<textarea class="inp" id="fbText" rows="4" maxlength="2000" style="margin-top:8px" placeholder="예) 카드값 나가는 날을 달력에도 보여 주면 좋겠어요"></textarea>' +
@@ -1992,6 +2059,7 @@ function bindSettings(){
   };
   function busy(btn, p, ok){ btn.disabled = true; p.then(function(){ toast(ok); return load(true); }).catch(function(e){ toast('실패: ' + e.message); }).then(function(){ btn.disabled = false; }); }
   $('#memAdd').onclick = function(){
+    if (members().length >= ((plan() || {}).memberFree || 2) && needPlus('family')) return;
     var sh = $('#sheet'), role = '자녀';
     function draw(){
       sh.innerHTML = '<div class="row between"><h3 style="margin:0">가족 추가</h3><button class="x" id="mClose" aria-label="닫기" style="font-size:24px">×</button></div>' +
@@ -2054,6 +2122,7 @@ function bindSettings(){
   var tal = $('#tAutoListen'); if (tal) tal.onchange = function(){ LS.set('autoListen', tal.checked); toast(tal.checked ? '앱을 열면 바로 들어요' : '마이크를 눌러야 들어요'); };
   $('#tAutoSave').onchange = function(){ LS.set('autoSave', this.checked); };
   $('#sReload').onclick = function(){ load().then(flush); };
+  var po = $('#plusOpen'); if (po) po.onclick = function(){ openPlus(); };
   var fbKind = '불편';
   document.querySelectorAll('[data-fbk]').forEach(function(b){ b.onclick = function(){ fbKind = b.dataset.fbk; document.querySelectorAll('[data-fbk]').forEach(function(x){ x.classList.toggle('on', x === b); }); var t = $('#fbText'); if (t) t.placeholder = fbKind === '기능' ? '예) 카드값 나가는 날을 달력에도 보여 주면 좋겠어요' : fbKind === '칭찬' ? '예) 말로 입력이 정말 편해요!' : '예) 영수증 사진이 가끔 잘못 읽혀요'; }; });
   var fs = $('#fbSend'); if (fs) fs.onclick = function(){
@@ -2071,8 +2140,9 @@ function bindSettings(){
     if (tl.checked && !bioOK()) { tl.checked = false; return toast('앱을 최신 버전으로 업데이트한 뒤에 켤 수 있어요.'); }
     LS.set('appLock', tl.checked); toast(tl.checked ? '다음에 열 때부터 잠금을 확인해요' : '앱 잠금을 껐어요');
   };
-  $('#exMonth').onclick = function(){ exportCSV(txOfMonth(curM()), '툭장부_' + curM() + '.csv'); };
+  $('#exMonth').onclick = function(){ if (needPlus('export')) return; exportCSV(txOfMonth(curM()), '툭장부_' + curM() + '.csv'); };
   $('#exAll').onclick = function(){
+    if (needPlus('export')) return;
     var btn = this; btn.disabled = true; toast('전체 내역을 불러오는 중이에요…');
     call('load', { months: 60 }, 40000).then(function(d){ exportCSV(d.tx, '툭장부_전체_' + ymd(new Date()) + '.csv'); }).catch(function(e){ toast('불러오기 실패: ' + e.message); }).then(function(){ btn.disabled = false; });
   };
