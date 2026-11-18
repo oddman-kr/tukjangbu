@@ -503,7 +503,7 @@ var Receipt = (function () {
       if (me) return onReady();
       // 가족이 없으면: 새로 만들기 또는 초대 코드
       g.innerHTML = '<h2>환영해요!</h2><div class="muted sm">새 가계부를 만들거나, 받은 초대 코드를 넣어 주세요.</div>' +
-        '<input id="oName" class="inp" maxlength="20" placeholder="내 이름 (예: 정열, 엄마)" style="width:260px;margin-top:14px">' +
+        '<input id="oName" class="inp" maxlength="20" placeholder="내 이름 (예: 엄마, 아빠, 지우)" style="width:260px;margin-top:14px">' +
         '<div class="seg" style="width:260px;margin-top:8px">' + [['couple', '커플'], ['married', '부부'], ['family', '가족'], ['solo', '혼자']].map(function (k, i) { return '<button data-k="' + k[0] + '" class="' + (i === 1 ? 'on' : '') + '">' + k[1] + '</button>'; }).join('') + '</div>' +
         '<button class="btn pri" id="oMake" style="width:260px;margin-top:10px">새 가계부 만들기</button>' +
         '<div class="faint xs" style="margin:14px 0 6px">또는 초대 코드</div><input id="oCode" class="inp" maxlength="8" placeholder="8자리 코드" style="width:260px;text-transform:uppercase;text-align:center;letter-spacing:3px">' +
@@ -2358,7 +2358,7 @@ function settingsHTML(){
   return '<div class="settabs" role="tablist">' + tabs.map(function(t){ return '<button role="tab" data-st="' + t[0] + '" class="' + (setTab() === t[0] ? 'on' : '') + '">' + t[1] + '</button>'; }).join('') + '</div>' +
     '<div class="card" data-sec="me"><h3>이 폰의 사용자</h3><div class="chips">' + members().map(function(m){ return '<button class="chip' + (m === S.me ? ' on' : '') + '" data-me="' + esc(m) + '">' + avatar(m, 22) + esc(m) + '</button>'; }).join('') + '</div>' +
       (S.me ? '<div class="avedit">' + avatar(S.me, 56) + '<div class="grow"><div class="sm"><b>내 프로필 사진</b></div><div class="faint xs">가족 화면의 내 이름 옆에 보여요</div><div class="row" style="gap:6px;margin-top:6px"><button class="btn ghost sm" style="padding:6px 12px" id="avPick">' + (avatars()[S.me] ? '사진 바꾸기' : '사진 넣기') + '</button>' + (avatars()[S.me] ? '<button class="btn ghost sm" style="padding:6px 12px" id="avDel">지우기</button>' : '') + '</div></div><input type="file" id="avIn" accept="image/*" hidden></div>' : '') +
-      (S.me ? '<div class="fld" style="margin-top:12px"><label>내 이름 (가족에게 이렇게 보여요)</label><div class="row"><input class="inp grow" id="sMyName" maxlength="20" value="' + esc(S.me) + '" placeholder="예) 정열, 엄마, 민수"><button class="btn" id="sMyNameSave">바꾸기</button></div><div class="faint xs" style="margin-top:4px">지난 내역과 위시에 적힌 이름도 함께 바뀌어요.</div></div>' : '') + '</div>' +
+      (S.me ? '<div class="fld" style="margin-top:12px"><label>내 이름 (가족에게 이렇게 보여요)</label><div class="row"><input class="inp grow" id="sMyName" maxlength="20" value="' + esc(S.me) + '" placeholder="예) 엄마, 아빠, 지우"><button class="btn" id="sMyNameSave">바꾸기</button></div><div class="faint xs" style="margin-top:4px">지난 내역과 위시에 적힌 이름도 함께 바뀌어요.</div></div>' : '') + '</div>' +
     (isKid() ? '<div class="card" data-sec="me"><div class="sm muted">카드·용돈·카테고리 같은 가족 설정은 부모님 폰에서 바꿀 수 있어요.</div></div>' : '') +
     '<div' + (isKid() ? ' hidden' : '') + '>' +
     '<div class="card" data-sec="card"><h3>💳 내 카드 · 결제수단</h3><div class="faint xs" style="margin-bottom:6px">가지고 있는 카드를 모두 등록해 두세요. 이름·색깔로 구분되고, 실적 목표를 넣으면 홈에서 이번 달 실적을 보여 줘요.</div>' +
