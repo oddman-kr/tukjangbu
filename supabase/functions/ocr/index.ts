@@ -1,6 +1,6 @@
 // 영수증 글자 읽기 (유료 OCR 공급자 교체 가능)
 // 비밀값: OCR_PROVIDER = "clova" | "google",  CLOVA_OCR_URL, CLOVA_OCR_SECRET  또는  GOOGLE_VISION_KEY
-// 무료 요금제는 한 달 10장까지 (usage_counters.ocr_count)
+// 무료 요금제는 한 달 N장까지 (usage_counters.ocr_count, 한도는 app_config.free_limits)
 import { createClient } from "npm:@supabase/supabase-js@2.45.4";
 
 const cors = {
@@ -57,10 +57,13 @@ Deno.serve(async (req) => {
     const month = new Date().toISOString().slice(0, 7);
     const { data: sub } = await admin.from("subscriptions").select("plan,status,expires_at").eq("household_id", household).maybeSingle();
     const { data: hh } = await admin.from("households").select("trial_ends_at").eq("id", household).maybeSingle();
-    const paid = (sub && sub.plan !== "free" && sub.status === "active") || (hh && new Date(hh.trial_ends_at) > new Date());
+    const paid = (sub && sub.plan !== "free" && sub.status === "active" && (!sub.expires_at || new Date(sub.expires_at) > new Date())) || (hh && new Date(hh.trial_ends_at) > new Date());
     const { data: cnt } = await admin.from("usage_counters").select("ocr_count").eq("household_id", household).eq("month", month).maybeSingle();
     const used = cnt?.ocr_count ?? 0;
-    if (!paid && used >= 10) return json({ ok: false, limit: true, message: "무료 요금제는 영수증을 한 달 10장까지 읽을 수 있어요. 구독하면 마음껏 쓸 수 있어요." });
+    // 무료 한도는 관리자 페이지 → 운영 설정에서 바꿀 수 있어요 (app_config.free_limits)
+    const { data: cfg } = await admin.from("app_config").select("value").eq("key", "free_limits").maybeSingle();
+    const freeOcr = Number(cfg?.value?.ocr ?? 10);
+    if (!paid && used >= freeOcr) return json({ ok: false, limit: true, message: "무료 요금제는 영수증을 한 달 " + freeOcr + "장까지 읽을 수 있어요. 구독하면 마음껏 쓸 수 있어요." });
 
     const provider = Deno.env.get("OCR_PROVIDER") ?? "clova";
     let text = "";

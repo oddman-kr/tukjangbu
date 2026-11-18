@@ -41,6 +41,16 @@ Deno.serve(async (req) => {
       (ws ?? []).filter((w) => w.handled_at && w.handled_by && w.handled_by !== me.id && (!since || w.handled_at > since)).forEach((w) => out.push({
         id: "ans_" + (w.client_id || w.id) + "_" + w.handled_at, title: name(w.handled_by) + "님이 “" + w.name + "” 요청을 " + (w.status === "승인" ? "승인했어요 🙆" : w.status === "보류" ? "보류했어요 🤔" : "거절했어요"), body: w.reply || "앱에서 확인해 보세요" }));
     }
+    // 운영 공지(최근 7일, 대상에 맞는 것만)와 내 의견에 온 답변
+    {
+      const nowIso = new Date().toISOString();
+      const [{ data: ns }, { data: fbs }] = await Promise.all([
+        db.from("notices").select("id,title,body,audience,starts_at,ends_at").eq("active", true).lte("starts_at", nowIso).gte("starts_at", new Date(Date.now() - 7 * 864e5).toISOString()),
+        db.from("feedback").select("id,body,reply,replied_at").eq("user_id", dev.user_id).not("reply", "is", null).eq("reply_seen", false),
+      ]);
+      (ns ?? []).filter((n) => (!n.ends_at || n.ends_at > nowIso) && (n.audience === "all" || (n.audience === "paid") === !!(sub && sub.plan !== "free" && sub.status === "active" && (!sub.expires_at || Date.parse(sub.expires_at) > Date.now())))).forEach((n) => out.push({ id: "notice_" + n.id, title: "📢 " + n.title, body: (n.body || "앱에서 확인해 보세요").slice(0, 120) }));
+      (fbs ?? []).forEach((f) => out.push({ id: "reply_" + f.id + "_" + f.replied_at, title: "보내 주신 의견에 답이 왔어요", body: String(f.reply).slice(0, 120) }));
+    }
     if (me.role === "child") return json({ alerts: out });
     // 1) 나에게 온 사 주세요 요청 (아이 → 어른 누구나, 어른 → 지정한 사람)
     const { data: reqs } = await db.from("wishes").select("client_id,id,name,price,reason,request_msg,requested_by,requested_to").eq("household_id", hh).eq("status", "요청");
