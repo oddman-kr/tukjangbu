@@ -219,47 +219,86 @@ function usersView(){
   document.querySelectorAll('[data-uf]').forEach(function(b){ b.onclick = function(){ uf = b.dataset.uf; document.querySelectorAll('[data-uf]').forEach(function(x){ x.classList.toggle('on', x === b); }); run(); }; });
   run();
 }
+var ROLE_KO = { owner: '주인', adult: '어른', child: '자녀' }, SRC_KO = { manual: '직접·말', voice: '말로', receipt: '영수증', recurring: '정기 지출', import: '옮겨 오기', wish: '위시', allowance: '용돈' };
+var PROV_ICON = { kakao: '🟡', naver: '🟢', google: '🔵', email: '✉️', anonymous: '🧒' };
+function kv(l, v){ return '<div class="kv"><span>' + l + '</span><b style="text-align:right">' + v + '</b></div>'; }
+function face(url, name, size){ size = size || 44; return url ? '<img src="' + esc(url) + '" alt="" style="width:' + size + 'px;height:' + size + 'px;border-radius:50%;object-fit:cover;background:var(--soft)">' : '<span style="display:inline-grid;place-items:center;width:' + size + 'px;height:' + size + 'px;border-radius:50%;background:var(--soft);color:var(--pri);font-weight:800">' + esc(String(name || '?').slice(0, 1)) + '</span>'; }
+function catRows(o){ var ks = Object.keys(o || {}).sort(function(a, b){ return o[b] - o[a]; }); return ks.length ? ks.map(function(c){ return kv(esc(c), won(o[c]) + '원'); }).join('') : '<div class="note">없어요</div>'; }
+function moneyBlock(t, m){ return '<h2 style="margin-top:12px">' + t + '</h2>' + kv('수입', won(m.in) + '원') + kv('지출', won(m.out) + '원') + kv('저축·투자', won(m.save) + '원') +
+  '<div class="note" style="margin:8px 0 2px">분류별 지출</div>' + catRows(m.cats) + '<div class="note" style="margin:8px 0 2px">누가 썼나</div>' + catRows(m.who); }
+// 관리 버튼: 누르면 한 번 더 확인해요
+var ACTS = {
+  grant1: ['플러스 1개월 지급', '이 가족에게 플러스를 1개월 무료로 줘요. 이미 이용 중이면 만료일이 1개월 늘어나요.', 'grantPlus', { months: 1 }, '플러스 1개월을 지급했어요'],
+  grant12: ['플러스 12개월 지급', '이 가족에게 플러스를 12개월 무료로 줘요. 이미 이용 중이면 만료일이 12개월 늘어나요.', 'grantPlus', { months: 12 }, '플러스 12개월을 지급했어요'],
+  trial7: ['무료 체험 7일 연장', '체험 끝나는 날을 7일 늦춰요. 이미 끝났다면 오늘부터 7일이에요.', 'extendTrial', { days: 7 }, '체험을 7일 늘렸어요'],
+  trial30: ['무료 체험 30일 연장', '체험 끝나는 날을 30일 늦춰요. 이미 끝났다면 오늘부터 30일이에요.', 'extendTrial', { days: 30 }, '체험을 30일 늘렸어요'],
+  revoke: ['지급한 플러스 회수', '관리자가 준 플러스를 바로 끝내요. 이 가족은 무료 요금으로 돌아가요.', 'revokePlus', {}, '지급한 플러스를 회수했어요'],
+  unban: ['정지 해제', '다시 로그인할 수 있게 돼요.', 'unban', {}, '정지를 풀었어요'],
+  ban: ['이용 정지', '로그인할 수 없게 돼요. 데이터는 그대로 남아요.', 'ban', {}, '이용을 정지했어요', true],
+  del: ['강제 탈퇴', '계정이 지워지고 되돌릴 수 없어요. 가계부 주인이고 다른 어른 가족이 없으면 가계부 전체가 지워져요.', 'delete', { confirm: '탈퇴' }, '탈퇴 처리했어요', true, '탈퇴']
+};
 function openUser(id){
   var bg = document.createElement('div'); bg.className = 'drawer-bg'; bg.innerHTML = '<div class="drawer"><div class="note">불러오는 중…</div></div>'; document.body.appendChild(bg);
   bg.onclick = function(e){ if (e.target === bg) bg.remove(); };
   var draw = function(){ api('user', { id: id }).then(function(r){
-    var u = r.user, s = r.stats || {}, banned = u.banned_until && Date.parse(u.banned_until) > Date.now();
-    bg.firstChild.innerHTML = '<div style="display:flex;justify-content:space-between;align-items:center"><h3>' + esc(u.name || '이름 없음') + ' ' + planPill(u) + '</h3><button class="btn" id="dx">닫기</button></div>' +
-      '<div class="card"><div class="kv"><span>로그인 방법</span><b>' + (PROV[u.provider] || u.provider) + '</b></div><div class="kv"><span>이메일</span><b>' + esc(u.email && !/\.invalid$/.test(u.email) ? u.email : '-') + '</b></div><div class="kv"><span>가입</span><b>' + dt(u.created_at) + '</b></div><div class="kv"><span>최근 로그인</span><b>' + dt(u.last_sign_in_at) + '</b></div><div class="kv"><span>회원 번호</span><span class="note">' + u.id + '</span></div></div>' +
-      (u.household ? '<div class="card"><h2>가계부 · ' + esc(u.household.name) + '</h2><div class="kv"><span>역할</span><b>' + ({ owner: '주인', adult: '어른', child: '자녀' }[u.role] || u.role) + '</b></div><div class="kv"><span>요금</span><b>' + (u.plan === 'paid' ? '유료 (' + (u.sub.period === 'comp' ? '관리자 지급' : u.sub.period === 'year' ? '연간' : '월간') + ') · ' + d8(u.sub.expires_at) + '까지' : u.plan === 'trial' ? '무료 체험 · ' + d8(u.household.trial_ends_at) + '까지' : '무료') + '</b></div><div class="kv"><span>기록 수</span><b>' + won(s.tx) + '건</b></div><div class="kv"><span>마지막 기록</span><b>' + dt(s.last_record) + '</b></div><div class="kv"><span>위시 · 알림 기기</span><b>' + s.wishes + ' · ' + s.devices + '</b></div>' +
-        '<h2 style="margin-top:12px">가족 (' + r.family.length + ')</h2>' + r.family.map(function(f){ return '<div class="kv"><span>' + esc(f.name) + '</span><span class="note">' + ({ owner: '주인', adult: '어른', child: '자녀' }[f.role] || f.role) + (f.joined ? '' : ' · 초대 대기') + '</span></div>'; }).join('') + '</div>' : '<div class="card note">아직 가계부를 만들지 않았어요.</div>') +
-      (isOwner() && u.household ? '<div class="card"><h2>가계부 내용 보기 (고객 문의 처리용)</h2><div class="note">회원이 문의한 문제를 확인할 때만 열어 주세요. 사유와 열람 시각이 관리 기록에 남아요. 회원이 “개인 용돈 내용 숨기기”를 켠 내역은 가려져요.</div><div class="row" style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap"><input class="inp" id="lgWhy" placeholder="열람 사유 (예: 3월 합계가 이상하다는 문의)" style="flex:2;min-width:180px"><input class="inp" id="lgMon" type="month" value="' + new Date(Date.now() + 9 * 3600e3).toISOString().slice(0, 7) + '" style="flex:1;min-width:130px"></div><button class="btn" id="lgGo" style="margin-top:8px">열람하기</button><div id="lgOut"></div></div>' : '') +
-      (isOwner() ? '<div class="card"><h2>관리</h2><div class="acts">' : '<div hidden><div>') +
-        (u.household ? '<button class="btn" data-a="grant1">플러스 1개월 지급</button><button class="btn" data-a="grant12">플러스 12개월 지급</button><button class="btn" data-a="trial7">체험 7일 연장</button><button class="btn" data-a="trial30">체험 30일 연장</button>' + (u.plan === 'paid' && u.sub && u.sub.source === 'admin' ? '<button class="btn" data-a="revoke">지급한 플러스 회수</button>' : '') : '') +
-        (banned ? '<button class="btn" data-a="unban">정지 해제</button>' : '<button class="btn danger" data-a="ban">이용 정지</button>') + '<button class="btn danger" data-a="del">강제 탈퇴</button></div><div id="cf"></div>' +
-        '<div class="note" style="margin-top:8px">구글 플레이로 결제한 구독의 환불·해지는 플레이 콘솔 → 주문 관리에서 해요.</div></div>' +
-      (r.feedback.length ? '<div class="card"><h2>보낸 의견</h2>' + r.feedback.map(fbItem).join('') + '</div>' : '') +
-      (r.log.length ? '<div class="card"><h2>이 회원 관리 기록</h2>' + r.log.map(function(l){ return '<div class="kv"><span>' + esc(l.action) + '</span><span class="note">' + dt(l.at) + ' · ' + esc(l.admin_email) + '</span></div>'; }).join('') + '</div>' : '') +
-      '';
+    var u = r.user, a = r.account || {}, s = r.stats || {}, h = r.household, x = r.extra || {}, banned = u.banned_until && Date.parse(u.banned_until) > Date.now();
+    var photo = a.app_photo || a.social_avatar, realEmail = u.email && !/\.invalid$/.test(u.email) ? u.email : '';
+    var sub = x.sub, plan = u.plan === 'paid' ? '유료 (' + (sub && sub.period === 'comp' ? '관리자 지급' : sub && sub.period === 'year' ? '연간' : '월간') + ') · ' + d8(u.sub.expires_at) + '까지' : u.plan === 'trial' ? '무료 체험 · ' + d8(u.household.trial_ends_at) + '까지' : u.household ? '무료' : '-';
+    var H = '<div style="display:flex;justify-content:space-between;align-items:center;gap:10px"><div style="display:flex;align-items:center;gap:12px">' + face(photo, u.name, 56) + '<div><h3>' + esc(u.name || '이름 없음') + ' ' + planPill(u) + '</h3><div class="note">' + (PROV_ICON[u.provider] || '') + ' ' + (PROV[u.provider] || u.provider) + ' 가입 · ' + d8(u.created_at) + (u.admin ? ' · <span class="pill p-adm">관리자</span>' : '') + '</div></div></div><button class="btn" id="dx">닫기</button></div>';
+    // 계정
+    H += '<div class="card"><h2>로그인 계정</h2>' + kv('가입 방법', (PROV[u.provider] || u.provider)) + kv('이메일', esc(realEmail || '-') + (a.email_confirmed_at ? ' <span class="note">확인됨</span>' : '')) +
+      (a.social_name ? kv('소셜 계정 이름', esc(a.social_name)) : '') + (a.phone ? kv('전화번호', esc(a.phone)) : '') + kv('가입', dt(u.created_at)) + kv('최근 로그인', dt(u.last_sign_in_at)) +
+      kv('최근 30일 접속', (s.active_days_30 || 0) + '일' + (s.last_active ? ' · 마지막 ' + d8(s.last_active) : '') + (s.platforms && s.platforms.length ? ' · ' + s.platforms.map(function(p){ return p === 'android' ? '앱' : '웹'; }).join('·') : '')) +
+      '<div class="note" style="margin:10px 0 4px">연결된 로그인 (' + (a.identities || []).length + ')</div>' + (a.identities || []).map(function(i){ return '<div class="kv"><span style="display:flex;gap:8px;align-items:center">' + face(i.avatar, i.name || i.provider, 26) + (PROV[i.provider] || i.provider) + (i.name ? ' · ' + esc(i.name) : '') + '</span><span class="note">' + esc(i.email && !/\.invalid$/.test(i.email) ? i.email : (i.naver_id ? '네이버 ID ' + String(i.naver_id).slice(0, 6) + '…' : '')) + ' · 최근 ' + d8(i.last_sign_in_at) + '</span></div>'; }).join('') +
+      (a.app_photo || a.social_avatar ? '<div class="note" style="margin:10px 0 4px">프로필 사진</div><div style="display:flex;gap:14px">' + (a.app_photo ? '<div style="text-align:center">' + face(a.app_photo, '', 72) + '<div class="note">앱에서 올린 사진</div></div>' : '') + (a.social_avatar ? '<div style="text-align:center">' + face(a.social_avatar, '', 72) + '<div class="note">소셜 계정 사진</div></div>' : '') + '</div>' : '') +
+      kv('회원 번호', '<span class="note">' + u.id + '</span>') + '</div>';
+    if (u.household && h) {
+      H += '<div class="card"><h2>가계부 · ' + esc(h.name) + '</h2>' + kv('내 역할', ROLE_KO[u.role] || u.role) + kv('주인', esc(h.owner || '-')) + kv('만든 날', d8(h.created_at)) + kv('한 달 시작일', '매달 ' + (h.month_start || 1) + '일') + kv('요금', plan) +
+        (sub ? kv('구독 정보', esc((sub.source === 'play' ? '구글 플레이' : sub.source === 'admin' ? '관리자' : sub.source || '-') + ' · ' + (sub.product_id || sub.plan) + ' · ' + sub.status) + ' <span class="note">변경 ' + d8(sub.updated_at) + '</span>') : '') +
+        kv('기록 수', won(s.tx) + '건') + kv('첫 기록 · 마지막 기록', d8(s.first_record) + ' · ' + dt(s.last_record)) +
+        kv('기록 방법', Object.keys(s.by_source || {}).map(function(k2){ return (SRC_KO[k2] || k2) + ' ' + s.by_source[k2]; }).join(' · ') || '-') +
+        kv('영수증 인식', (x.ocr || []).map(function(o){ return o.month.slice(2) + ' ' + o.ocr_count + '장'; }).join(' · ') || '없음') +
+        ((x.ledgers || []).filter(function(l){ return !l.is_default; }).length ? kv('여행 가계부', x.ledgers.filter(function(l){ return !l.is_default; }).map(function(l){ return esc(l.name) + ' (' + l.currency + ')'; }).join(', ')) : '') + '</div>';
+      H += '<div class="card"><h2>가족 (' + r.family.length + ')</h2>' + r.family.map(function(f){ return '<div class="kv"><span style="display:flex;gap:10px;align-items:center">' + face(f.photo, f.name, 34) + '<span><b>' + esc(f.name) + '</b>' + (f.me ? ' <span class="pill p-trial">이 회원</span>' : '') + '<br><span class="note">' + (ROLE_KO[f.role] || f.role) + (f.joined ? ' · ' + d8(f.joined_at) + ' 참여' : ' · 초대 대기') + (f.allowance ? ' · 용돈 ' + (f.period === '주' ? '주 ' : '월 ') + won(f.allowance) + '원' : '') + (f.hide ? ' · 개인 내용 숨김' : '') + (f.consent_at ? ' · 보호자 동의 ' + d8(f.consent_at) : '') + '</span></span></span><span class="note">30일 접속 ' + f.active_days + '일</span></div>'; }).join('') + '</div>';
+      if (r.money) H += '<div class="card"><h2>돈 흐름 요약</h2>' + moneyBlock(r.money.month + ' (이번 달)', r.money.cur) + moneyBlock(r.money.prevMonth + ' (지난달)', r.money.prev) +
+        '<div class="note" style="margin-top:8px">“개인 용돈 내용 숨기기”를 켠 가족의 개인 지출은 분류가 “개인(숨김)”으로 보여요.</div></div>';
+      H += '<div class="card"><h2>등록해 둔 것</h2>' +
+        '<div class="note" style="margin:2px 0">카드·결제수단 (' + (x.cards || []).length + ')</div>' + ((x.cards || []).length ? x.cards.map(function(c){ return kv(esc(c.name), esc((c.kind || '') + (c.owner ? ' · ' + c.owner : '') + (c.pay_day ? ' · 결제일 ' + c.pay_day + '일' : '') + (c.target ? ' · 실적 ' + won(c.target) + '원' : ''))); }).join('') : '<div class="note">없어요</div>') +
+        '<div class="note" style="margin:10px 0 2px">정기 지출·수입 (' + (x.recurring || []).length + ')</div>' + ((x.recurring || []).length ? x.recurring.map(function(q){ return kv(esc(q.desc) + (q.active ? '' : ' <span class="note">꺼짐</span>'), won(q.amount) + '원 · ' + (q.every > 1 ? q.every : '') + (q.cycle || '월') + '마다'); }).join('') : '<div class="note">없어요</div>') +
+        '<div class="note" style="margin:10px 0 2px">갖고 싶은 것·사 주세요 (최근 ' + (x.wishes || []).length + ')</div>' + ((x.wishes || []).length ? x.wishes.map(function(w){ return kv(esc(w.name) + ' <span class="note">' + esc(w.by) + '</span>', (w.price ? won(w.price) + '원 · ' : '') + esc(w.status)); }).join('') : '<div class="note">없어요</div>') +
+        '<div class="note" style="margin:10px 0 2px">알림 켠 기기 (' + (x.devices || []).length + ')</div>' + ((x.devices || []).length ? x.devices.map(function(d){ return kv(esc(d.who || '-'), '등록 ' + d8(d.created_at) + ' · 마지막 확인 ' + dt(d.last_seen)); }).join('') : '<div class="note">없어요</div>') + '</div>';
+      if (isOwner()) H += '<div class="card"><h2>지출 내역 하나하나 보기</h2><div class="note">달을 골라 내역을 봐요. 볼 때마다 관리 기록에 남아요 (사유는 적어도 되고 안 적어도 돼요).</div><div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap"><input class="inp" id="lgMon" type="month" value="' + new Date(Date.now() + 9 * 3600e3).toISOString().slice(0, 7) + '" style="flex:1;min-width:130px"><input class="inp" id="lgWhy" placeholder="사유 (선택)" style="flex:2;min-width:160px"><button class="btn pri" id="lgGo">내역 보기</button></div><div id="lgOut"></div></div>';
+    } else H += '<div class="card note">아직 가계부를 만들지 않았거나 참여하지 않았어요.</div>';
+    if (isOwner()) H += '<div class="card"><h2>관리</h2><div class="acts">' +
+      (u.household ? '<button class="btn" data-a="grant1">플러스 1개월 지급</button><button class="btn" data-a="grant12">플러스 12개월 지급</button><button class="btn" data-a="trial7">체험 7일 연장</button><button class="btn" data-a="trial30">체험 30일 연장</button>' + (u.plan === 'paid' && u.sub && u.sub.source === 'admin' ? '<button class="btn" data-a="revoke">지급한 플러스 회수</button>' : '') : '') +
+      (banned ? '<button class="btn" data-a="unban">정지 해제</button>' : '<button class="btn danger" data-a="ban">이용 정지</button>') + '<button class="btn danger" data-a="del">강제 탈퇴</button></div><div id="cf"></div>' +
+      '<div class="note" style="margin-top:8px">구글 플레이로 결제한 구독의 환불·해지는 플레이 콘솔 → 주문 관리에서 해요.</div></div>';
+    if (r.feedback.length) H += '<div class="card"><h2>보낸 의견 (' + r.feedback.length + ')</h2>' + r.feedback.map(fbItem).join('') + '</div>';
+    if (r.log.length) H += '<div class="card"><h2>이 회원 관리 기록</h2>' + r.log.map(function(l){ return '<div class="kv"><span>' + esc(l.action) + (l.detail && l.detail.reason ? ' <span class="note">' + esc(l.detail.reason) + '</span>' : '') + '</span><span class="note">' + dt(l.at) + ' · ' + esc(l.admin_email) + '</span></div>'; }).join('') + '</div>';
+    bg.firstChild.innerHTML = H;
     bg.querySelector('#dx').onclick = function(){ bg.remove(); };
     bindReplies(bg, draw);
     var lg = bg.querySelector('#lgGo'); if (lg) lg.onclick = function(){
-      var why = bg.querySelector('#lgWhy').value.trim(); if (why.length < 4) return toast('열람 사유를 4자 이상 적어 주세요');
-      lg.disabled = true; api('ledger', { id: id, reason: why, month: bg.querySelector('#lgMon').value }).then(function(L){
-        var mk = Object.keys(L.months).sort(), cats = Object.keys(L.cats).sort(function(a, b){ return L.cats[b] - L.cats[a]; });
-        bg.querySelector('#lgOut').innerHTML = '<h2 style="margin-top:12px">최근 6개월</h2>' + (mk.length ? mk.map(function(k){ return '<div class="kv"><span>' + k + '</span><span>수입 <b>' + won(L.months[k].in) + '</b> · 지출 <b>' + won(L.months[k].out) + '</b></span></div>'; }).join('') : '<div class="note">기록이 없어요.</div>') +
-          '<h2 style="margin-top:12px">' + L.month + ' 지출 분류</h2>' + (cats.length ? cats.map(function(c){ return '<div class="kv"><span>' + esc(c) + '</span><b>' + won(L.cats[c]) + '</b></div>'; }).join('') : '<div class="note">지출이 없어요.</div>') +
-          '<h2 style="margin-top:12px">' + L.month + ' 내역 (' + L.rows.length + '건' + (L.rows.length >= 300 ? ', 앞 300건' : '') + ')</h2><div class="tbl"><table><thead><tr><th>날짜</th><th>구분</th><th>분류</th><th>내용</th><th>금액</th><th>누가</th><th>결제</th></tr></thead><tbody>' +
-          L.rows.map(function(t){ return '<tr style="cursor:default"><td>' + t.date.slice(5) + '</td><td>' + esc(t.type) + '</td><td>' + esc(t.category) + (t.ledger ? ' <span class="pill p-trial">' + esc(t.ledger) + '</span>' : '') + '</td><td>' + esc(t.desc) + '</td><td style="text-align:right">' + won(t.amount) + '</td><td>' + esc(t.who) + '</td><td class="note">' + esc(t.method || '') + '</td></tr>'; }).join('') + '</tbody></table></div>';
+      lg.disabled = true; api('ledger', { id: id, reason: bg.querySelector('#lgWhy').value.trim(), month: bg.querySelector('#lgMon').value }).then(function(L){
+        var tot = L.rows.reduce(function(acc, t){ if (t.type === '지출') acc.o += t.amount; else if (t.type === '수입') acc.i += t.amount; return acc; }, { o: 0, i: 0 });
+        bg.querySelector('#lgOut').innerHTML = '<div class="note" style="margin:10px 0 6px">' + L.month + ' · ' + L.rows.length + '건' + (L.rows.length >= 300 ? ' (앞 300건)' : '') + ' · 지출 ' + won(tot.o) + '원 · 수입 ' + won(tot.i) + '원</div>' + (L.rows.length ? '<div class="tbl"><table><thead><tr><th>날짜</th><th>구분</th><th>분류</th><th>내용</th><th style="text-align:right">금액</th><th>누가</th><th>결제</th><th>방법</th></tr></thead><tbody>' +
+          L.rows.map(function(t){ return '<tr style="cursor:default"><td>' + t.date.slice(5) + '</td><td>' + esc(t.type) + '</td><td>' + esc(t.category) + (t.ledger ? ' <span class="pill p-trial">' + esc(t.ledger) + '</span>' : '') + '</td><td>' + esc(t.desc) + '</td><td style="text-align:right">' + won(t.amount) + '</td><td>' + esc(t.who) + '</td><td class="note">' + esc(t.method || '') + '</td><td class="note">' + esc(SRC_KO[t.source] || t.source || '') + '</td></tr>'; }).join('') + '</tbody></table></div>' : '<div class="note">이 달 기록이 없어요.</div>');
       }).catch(function(e){ toast(e.message); }).then(function(){ lg.disabled = false; });
     };
-    var act = function(name, body, ok){ return api(name, Object.assign({ id: id }, body || {})).then(function(){ toast(ok); draw(); if (users.length) usersView(); }).catch(function(e){ toast(e.message); }); };
     bg.querySelectorAll('[data-a]').forEach(function(b){ b.onclick = function(){
-      var a = b.dataset.a, cf = bg.querySelector('#cf');
-      if (a === 'grant1') return act('grantPlus', { months: 1 }, '플러스 1개월을 지급했어요');
-      if (a === 'grant12') return act('grantPlus', { months: 12 }, '플러스 12개월을 지급했어요');
-      if (a === 'trial7') return act('extendTrial', { days: 7 }, '체험을 7일 늘렸어요');
-      if (a === 'trial30') return act('extendTrial', { days: 30 }, '체험을 30일 늘렸어요');
-      if (a === 'revoke') return act('revokePlus', {}, '지급한 플러스를 회수했어요');
-      if (a === 'unban') return act('unban', {}, '정지를 풀었어요');
-      if (a === 'ban') { cf.innerHTML = '<div class="confirm"><b>이용 정지</b><div class="note">로그인할 수 없게 돼요. 데이터는 그대로 남아요.</div><input class="inp" id="why" placeholder="사유 (기록용)" style="width:100%;margin-top:8px"><button class="btn danger" id="cfgo" style="margin-top:8px">정지하기</button></div>'; bg.querySelector('#cfgo').onclick = function(){ act('ban', { reason: bg.querySelector('#why').value }, '이용을 정지했어요'); }; return; }
-      if (a === 'del') { cf.innerHTML = '<div class="confirm"><b>강제 탈퇴</b><div class="note">계정이 지워지고 되돌릴 수 없어요. 가계부 주인이고 다른 어른 가족이 없으면 가계부 전체가 지워져요. 확인하려면 <b>탈퇴</b>라고 적어 주세요.</div><input class="inp" id="why" placeholder="사유 (기록용)" style="width:100%;margin-top:8px"><input class="inp" id="ok" placeholder="탈퇴" style="width:100%;margin-top:6px"><button class="btn danger" id="cfgo" style="margin-top:8px">탈퇴 처리</button></div>';
-        bg.querySelector('#cfgo').onclick = function(){ if (bg.querySelector('#ok').value.trim() !== '탈퇴') return toast('“탈퇴”라고 적어 주세요'); api('delete', { id: id, confirm: '탈퇴', reason: bg.querySelector('#why').value }).then(function(){ toast('탈퇴 처리했어요'); bg.remove(); usersView(); }).catch(function(e){ toast(e.message); }); }; }
+      var A = ACTS[b.dataset.a], cf = bg.querySelector('#cf');
+      bg.querySelectorAll('[data-a]').forEach(function(x){ x.classList.toggle('pri', x === b && !A[5]); });
+      cf.innerHTML = '<div class="confirm" style="background:' + (A[5] ? 'var(--badbg)' : 'var(--soft)') + '"><b>' + A[0] + '할까요?</b><div class="note" style="margin-top:2px">' + esc(u.name || '') + (u.household ? ' · ' + esc(u.household.name) : '') + ' — ' + A[1] + '</div>' +
+        (A[5] ? '<input class="inp" id="why" placeholder="사유 (기록용)" style="width:100%;margin-top:8px">' : '<input class="inp" id="why" placeholder="메모 (선택, 관리 기록에 남아요)" style="width:100%;margin-top:8px">') +
+        (A[6] ? '<input class="inp" id="okw" placeholder="확인하려면 “' + A[6] + '”라고 적어 주세요" style="width:100%;margin-top:6px">' : '') +
+        '<div style="display:flex;gap:8px;margin-top:8px"><button class="btn ' + (A[5] ? 'danger' : 'pri') + '" id="cfYes">예, ' + A[0] + '</button><button class="btn" id="cfNo">아니요</button></div></div>';
+      bg.querySelector('#cfNo').onclick = function(){ cf.innerHTML = ''; bg.querySelectorAll('[data-a]').forEach(function(x){ x.classList.remove('pri'); }); };
+      bg.querySelector('#cfYes').onclick = function(){
+        if (A[6] && bg.querySelector('#okw').value.trim() !== A[6]) return toast('“' + A[6] + '”라고 적어 주세요');
+        var why = bg.querySelector('#why').value.trim(), yes = this; yes.disabled = true;
+        api(A[2], Object.assign({ id: id, reason: why, memo: why }, A[3])).then(function(){ toast(A[4]); if (b.dataset.a === 'del') { bg.remove(); usersView(); return; } draw(); if (users.length && tab === 'users') usersView(); })
+          .catch(function(e){ toast(e.message); yes.disabled = false; });
+      };
     }; });
   }).catch(function(e){ if (e.login) { bg.remove(); return loginView('다시 로그인해 주세요.'); } bg.firstChild.innerHTML = '<div class="card">불러오지 못했어요: ' + esc(e.message) + '</div>'; }); };
   draw();

@@ -77,23 +77,68 @@ Deno.serve(async (req) => {
     if (act === "user") {
       const { data: g, error } = await db.auth.admin.getUserById(String(body.id));
       if (error || !g?.user) return json({ ok: false, message: "회원을 찾지 못했어요" }, 404);
-      const [row] = await enrich([g.user]);
-      let family: any[] = [], stats: any = {};
+      const au: any = g.user;
+      const [row] = await enrich([au]);
+      const md = au.user_metadata || {};
+      // 로그인 계정 정보: 연결된 소셜 계정(카카오·네이버·구글·이메일)과 소셜 프로필
+      const identities = (au.identities || []).map((i: any) => ({ provider: i.provider, email: i.identity_data?.email || null, name: i.identity_data?.full_name || i.identity_data?.name || i.identity_data?.user_name || null,
+        avatar: i.identity_data?.avatar_url || i.identity_data?.picture || null, created_at: i.created_at, last_sign_in_at: i.last_sign_in_at }));
+      if (md.provider === "naver") identities.unshift({ provider: "naver", email: null, name: md.name || null, avatar: md.avatar_url || null, created_at: au.created_at, last_sign_in_at: au.last_sign_in_at, naver_id: md.naver_id || null });
+      const account: any = { email_confirmed_at: au.email_confirmed_at || null, phone: au.phone || null, anonymous: !!au.is_anonymous, social_name: md.full_name || md.name || md.nickname || null,
+        social_avatar: md.avatar_url || md.picture || identities.find((i: any) => i.avatar)?.avatar || null, identities };
+      let family: any[] = [], stats: any = {}, household: any = null, money: any = null, extra: any = {};
       if (row.household) {
         const hid = row.household.id;
-        const [{ data: ms }, { count: txc }, { data: last }, { count: wc }, { count: dc }] = await Promise.all([
-          db.from("members").select("display_name,role,user_id,joined_at").eq("household_id", hid),
+        const now9 = new Date(Date.now() + 9 * 3600e3), ym = now9.toISOString().slice(0, 7);
+        const prev = new Date(Date.UTC(now9.getUTCFullYear(), now9.getUTCMonth() - 1, 1)).toISOString().slice(0, 7);
+        const since30 = new Date(Date.now() - 30 * 864e5 + 9 * 3600e3).toISOString().slice(0, 10);
+        const [{ data: ms }, { count: txc }, { data: last }, { data: first }, { data: hh }, { data: sub }, { data: lgs }, { data: cards }, { data: recs }, { data: wishes }, { data: use }, { data: devs }, { data: act30 }, { data: tx2 }, { data: srcs }] = await Promise.all([
+          db.from("members").select("id,display_name,role,user_id,joined_at,color,avatar_path,monthly_allowance,allowance_period,hide_personal,guardian_consent_at").eq("household_id", hid),
           db.from("transactions").select("id", { count: "exact", head: true }).eq("household_id", hid).is("deleted_at", null),
           db.from("transactions").select("created_at").eq("household_id", hid).order("created_at", { ascending: false }).limit(1),
-          db.from("wishes").select("id", { count: "exact", head: true }).eq("household_id", hid),
-          db.from("device_tokens").select("id", { count: "exact", head: true }).eq("household_id", hid),
+          db.from("transactions").select("created_at").eq("household_id", hid).order("created_at", { ascending: true }).limit(1),
+          db.from("households").select("name,kind,created_at,month_start,base_currency,owner_id,trial_ends_at").eq("id", hid).maybeSingle(),
+          db.from("subscriptions").select("plan,period,status,source,product_id,expires_at,updated_at").eq("household_id", hid).maybeSingle(),
+          db.from("ledgers").select("name,kind,currency,is_default,archived,starts_on,ends_on").eq("household_id", hid),
+          db.from("cards").select("name,kind,member_id,pay_day,monthly_target").eq("household_id", hid).order("sort"),
+          db.from("recurring").select("description,amount,cycle,every,starts_on,active,type").eq("household_id", hid),
+          db.from("wishes").select("name,price,status,requested_by,created_at").eq("household_id", hid).order("created_at", { ascending: false }).limit(30),
+          db.from("usage_counters").select("month,ocr_count").eq("household_id", hid).order("month", { ascending: false }).limit(6),
+          db.from("device_tokens").select("user_id,created_at,last_seen").eq("household_id", hid),
+          db.from("daily_active").select("user_id,day,platform").eq("household_id", hid).gte("day", since30),
+          db.from("transactions").select("date,type,category,amount_base,member_id,scope").eq("household_id", hid).is("deleted_at", null).gte("date", prev + "-01"),
+          db.from("transactions").select("source").eq("household_id", hid).is("deleted_at", null).limit(5000),
         ]);
-        family = (ms ?? []).map((x: any) => ({ name: x.display_name, role: x.role, joined: !!x.user_id, joined_at: x.joined_at }));
-        stats = { tx: txc ?? 0, last_record: last?.[0]?.created_at || null, wishes: wc ?? 0, devices: dc ?? 0 };
+        const mname = (id: string | null) => (ms ?? []).find((m: any) => m.id === id)?.display_name || "";
+        const uname = (uid2: string | null) => (ms ?? []).find((m: any) => m.user_id === uid2)?.display_name || "";
+        const sign = async (path: string | null) => { if (!path) return null; const { data } = await db.storage.from("avatars").createSignedUrl(path, 3600); return data?.signedUrl || null; };
+        family = await Promise.all((ms ?? []).map(async (x: any) => ({ name: x.display_name, role: x.role, joined: !!x.user_id, joined_at: x.joined_at, me: x.user_id === row.id, color: x.color,
+          photo: await sign(x.avatar_path), allowance: Number(x.monthly_allowance) || 0, period: x.allowance_period, hide: !!x.hide_personal, consent_at: x.guardian_consent_at,
+          active_days: (act30 ?? []).filter((a: any) => a.user_id && a.user_id === x.user_id).length })));
+        const meMember = (ms ?? []).find((m: any) => m.user_id === row.id);
+        account.app_photo = await sign(meMember?.avatar_path || null);
+        // 이번 달·지난달 돈 흐름 요약 (개인 내용 숨기기를 켠 사람의 개인 지출은 분류를 가려요)
+        const hideIds = new Set((ms ?? []).filter((m: any) => m.hide_personal).map((m: any) => m.id));
+        const sum = (k: string) => { const o: any = { in: 0, out: 0, save: 0, cats: {}, who: {} };
+          for (const t of tx2 ?? []) { if (String(t.date).slice(0, 7) !== k) continue; const a = Number(t.amount_base) || 0;
+            if (t.type === "수입") o.in += a; else if (t.type === "지출") { o.out += a; const c = t.scope === "개인" && hideIds.has(t.member_id) ? "개인(숨김)" : (t.category || "기타"); o.cats[c] = (o.cats[c] || 0) + a; const w = mname(t.member_id) || "자동"; o.who[w] = (o.who[w] || 0) + a; } else o.save += a; }
+          return o; };
+        money = { month: ym, cur: sum(ym), prevMonth: prev, prev: sum(prev) };
+        const bySrc: Record<string, number> = {}; for (const t of srcs ?? []) bySrc[t.source || "manual"] = (bySrc[t.source || "manual"] || 0) + 1;
+        const myDays = (act30 ?? []).filter((a: any) => a.user_id === row.id);
+        stats = { tx: txc ?? 0, last_record: last?.[0]?.created_at || null, first_record: first?.[0]?.created_at || null, wishes: (wishes ?? []).length, devices: (devs ?? []).length, by_source: bySrc,
+          active_days_30: myDays.length, last_active: myDays.map((a: any) => a.day).sort().pop() || null, platforms: [...new Set(myDays.map((a: any) => a.platform).filter(Boolean))] };
+        household = hh ? { name: hh.name, kind: hh.kind, created_at: hh.created_at, month_start: hh.month_start, currency: hh.base_currency, owner: uname(hh.owner_id), trial_ends_at: hh.trial_ends_at } : null;
+        extra = { sub: sub || null, ledgers: lgs ?? [], cards: (cards ?? []).map((c: any) => ({ name: c.name, kind: c.kind, owner: mname(c.member_id), pay_day: c.pay_day, target: c.monthly_target })),
+          recurring: (recs ?? []).map((r: any) => ({ desc: r.description, amount: Number(r.amount), cycle: r.cycle, every: r.every, start: r.starts_on, active: r.active, type: r.type })),
+          wishes: (wishes ?? []).map((w: any) => ({ name: w.name, price: Number(w.price) || 0, status: w.status, by: mname(w.requested_by), at: w.created_at })),
+          ocr: use ?? [], devices: (devs ?? []).map((d: any) => ({ who: uname(d.user_id), created_at: d.created_at, last_seen: d.last_seen })) };
       }
-      const { data: fb } = await db.from("feedback").select("id,created_at,kind,body,status,reply,replied_at").eq("user_id", row.id).order("created_at", { ascending: false }).limit(20);
-      const { data: log } = await db.from("admin_audit").select("at,admin_email,action,detail").eq("target", row.id).order("at", { ascending: false }).limit(20);
-      return json({ ok: true, user: row, family, stats, feedback: fb ?? [], log: log ?? [] });
+      const { data: fb } = await db.from("feedback").select("id,created_at,kind,body,status,reply,replied_at,app_ver,device,contact").eq("user_id", row.id).order("created_at", { ascending: false }).limit(20);
+      const { data: log } = await db.from("admin_audit").select("at,admin_email,action,detail").eq("target", row.id).neq("action", "회원 상세 열람").order("at", { ascending: false }).limit(30);
+      if (role !== "owner") { money = null; extra = { sub: extra.sub || null }; } // 상담 담당에게는 돈 내용을 보여 주지 않아요
+      await audit("회원 상세 열람", row.id);
+      return json({ ok: true, user: row, account, household, family, stats, money, extra, feedback: fb ?? [], log: log ?? [] });
     }
 
     const uid = String(body.id || "");
@@ -152,8 +197,7 @@ Deno.serve(async (req) => {
     }
     // ---- 가계부 열람: 고객 문의 처리용. 사유를 꼭 남기고, 열람할 때마다 관리 기록에 남겨요 ----
     if (act === "ledger") {
-      const reason = String(body.reason || "").trim();
-      if (reason.length < 4) return json({ ok: false, message: "열람 사유를 4자 이상 적어 주세요" }, 400);
+      const reason = String(body.reason || "").trim() || "(사유 미입력)";
       const { data: m } = await db.from("members").select("household_id").eq("user_id", uid).maybeSingle();
       if (!m) return json({ ok: false, message: "가족 가계부가 없는 회원이에요" }, 400);
       const hid = m.household_id;
