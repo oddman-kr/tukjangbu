@@ -6,7 +6,7 @@
 
 var TZ = 'Asia/Seoul';
 var SH_TX = '거래내역', SH_CAT = '카테고리', SH_REC = '고정지출', SH_CFG = '설정', SH_WISH = '위시리스트';
-var WISH_HEAD = ['ID', '이름', '가격', '링크', '분류', '메모', '조건', '목표금액', '상태', '요청자', '요청메시지', '답장', '처리자', '생성시각', '처리시각', '필요한 이유', '필요한 날짜', '필수'];
+var WISH_HEAD = ['ID', '이름', '가격', '링크', '분류', '메모', '조건', '목표금액', '상태', '요청자', '요청메시지', '답장', '처리자', '생성시각', '처리시각', '필요한 이유', '필요한 날짜', '필수', '받는 사람'];
 var WISH_STATUS = ['원함', '요청', '승인', '거절', '보류', '구매함'];
 var TX_HEAD = ['ID', '날짜', '구분', '카테고리', '금액', '내용', '결제수단', '입력자', '메모', '입력시각', '공용/개인'];
 var CAT_HEAD = ['구분', '카테고리', '월예산', '키워드(쉼표로 구분)', '순서', '고정·필수'];
@@ -423,14 +423,15 @@ function alerts_(p) {
   var today = Utilities.formatDate(new Date(), TZ, 'yyyy-MM-dd');
   var since = String(p.since || '');
   var wishes = readWish_();
-  if (isKid) {
-    wishes.filter(function (w) { return w.by === who && (w.status === '승인' || w.status === '거절' || w.status === '보류') && w.handled && w.handled > since; }).forEach(function (w) {
+  // 내가 보낸 요청에 대한 답 (아이·어른 모두)
+  {
+    wishes.filter(function (w) { return w.by === who && w.handledBy && w.handledBy !== who && (w.status === '승인' || w.status === '거절' || w.status === '보류') && w.handled && w.handled > since; }).forEach(function (w) {
       out.push({ id: 'ans_' + w.id + '_' + w.handled, title: (w.handledBy || '부모님') + '님이 “' + w.name + '” 요청을 ' + (w.status === '승인' ? '승인했어요 🙆' : w.status === '보류' ? '보류했어요 🤔' : '거절했어요'), body: w.reply || '앱에서 확인해 보세요' });
     });
-    return { alerts: out };
   }
-  // 1) 아이들 사 주세요 요청
-  wishes.filter(function (w) { return w.status === '요청'; }).forEach(function (w) {
+  if (isKid) return { alerts: out };
+  // 1) 나에게 온 사 주세요 요청 (아이 → 어른 누구나, 어른 → 지정한 사람)
+  wishes.filter(function (w) { return w.status === '요청' && w.by !== who && (!w.to || w.to === who); }).forEach(function (w) {
     out.push({ id: 'req_' + w.id, title: w.by + '님이 “' + w.name + '” 사 달래요', body: [w.price ? Number(w.price).toLocaleString() + '원' : '', w.reason].filter(String).join(' · ') || '앱에서 확인해 보세요' });
   });
   // 2) 자녀 용돈 50% 이하
@@ -1108,7 +1109,7 @@ function readWish_() {
       cond: String(r[6] || '없음'), target: Number(r[7]) || 0, status: String(r[8] || '원함'), by: String(r[9] || ''), msg: String(r[10] || ''),
       reply: String(r[11] || ''), handledBy: String(r[12] || ''), created: iso(r[13]), handled: iso(r[14]),
       reason: String(r[15] || ''), needBy: r[16] instanceof Date ? fmtDate_(r[16]) : String(r[16] || ''),
-      need: r[17] === true || String(r[17]) === 'Y' || (r[17] === '' && (String(r[4]) === '생필품' || String(r[4]) === '식재료')) };
+      need: r[17] === true || String(r[17]) === 'Y' || (r[17] === '' && (String(r[4]) === '생필품' || String(r[4]) === '식재료')), to: String(r[18] || '') };
   });
 }
 
@@ -1121,7 +1122,7 @@ function saveWish_(w) {
     Math.max(0, Math.round(Number(w.target) || 0)), WISH_STATUS.indexOf(w.status) >= 0 ? w.status : '원함', String(w.by || '').slice(0, 20),
     String(w.msg || '').slice(0, 300), String(w.reply || '').slice(0, 300), String(w.handledBy || '').slice(0, 20),
     w.created ? new Date(w.created) : new Date(), w.handled ? new Date(w.handled) : '',
-    String(w.reason || '').slice(0, 300), /^\d{4}-\d{2}-\d{2}$/.test(String(w.needBy || '')) ? String(w.needBy) : '', w.need ? 'Y' : 'N'];
+    String(w.reason || '').slice(0, 300), /^\d{4}-\d{2}-\d{2}$/.test(String(w.needBy || '')) ? String(w.needBy) : '', w.need ? 'Y' : 'N', String(w.to || '').slice(0, 20)];
   var sh = wishSheet_();
   var n = sh.getLastRow();
   if (n >= 2) {

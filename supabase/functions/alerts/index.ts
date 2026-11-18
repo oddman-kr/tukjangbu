@@ -35,15 +35,16 @@ Deno.serve(async (req) => {
     const plus = (sub && sub.plan !== "free" && sub.status === "active" && (!sub.expires_at || Date.parse(sub.expires_at) > Date.now())) || (house?.trial_ends_at && Date.parse(house.trial_ends_at) > Date.now());
     const today = kst(), out: { id: string; title: string; body: string }[] = [];
 
-    if (me.role === "child") {
+    // 내가 보낸 요청에 대한 답 (아이·어른 모두)
+    {
       const { data: ws } = await db.from("wishes").select("client_id,id,name,status,reply,handled_at,handled_by").eq("household_id", hh).eq("requested_by", me.id).in("status", ["승인", "거절", "보류"]);
-      (ws ?? []).filter((w) => w.handled_at && (!since || w.handled_at > since)).forEach((w) => out.push({
+      (ws ?? []).filter((w) => w.handled_at && w.handled_by && w.handled_by !== me.id && (!since || w.handled_at > since)).forEach((w) => out.push({
         id: "ans_" + (w.client_id || w.id) + "_" + w.handled_at, title: name(w.handled_by) + "님이 “" + w.name + "” 요청을 " + (w.status === "승인" ? "승인했어요 🙆" : w.status === "보류" ? "보류했어요 🤔" : "거절했어요"), body: w.reply || "앱에서 확인해 보세요" }));
-      return json({ alerts: out });
     }
-    // 1) 아이들 사 주세요 요청
-    const { data: reqs } = await db.from("wishes").select("client_id,id,name,price,reason,request_msg,requested_by").eq("household_id", hh).eq("status", "요청");
-    (reqs ?? []).forEach((w) => out.push({ id: "req_" + (w.client_id || w.id), title: name(w.requested_by) + "님이 “" + w.name + "” 사 달래요", body: [w.price ? won(Number(w.price)) + "원" : "", w.reason || w.request_msg || ""].filter(Boolean).join(" · ") || "앱에서 확인해 보세요" }));
+    if (me.role === "child") return json({ alerts: out });
+    // 1) 나에게 온 사 주세요 요청 (아이 → 어른 누구나, 어른 → 지정한 사람)
+    const { data: reqs } = await db.from("wishes").select("client_id,id,name,price,reason,request_msg,requested_by,requested_to").eq("household_id", hh).eq("status", "요청");
+    (reqs ?? []).filter((w) => w.requested_by !== me.id && (!w.requested_to || w.requested_to === me.id)).forEach((w) => out.push({ id: "req_" + (w.client_id || w.id), title: name(w.requested_by) + "님이 “" + w.name + "” 사 달래요", body: [w.price ? won(Number(w.price)) + "원" : "", w.reason || w.request_msg || ""].filter(Boolean).join(" · ") || "앱에서 확인해 보세요" }));
 
     // 2) 자녀 용돈 50% 이하
     const ms = Math.min(28, Math.max(1, Number(house?.month_start) || 1));
