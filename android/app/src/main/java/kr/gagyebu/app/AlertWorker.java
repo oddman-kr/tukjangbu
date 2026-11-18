@@ -44,7 +44,8 @@ public class AlertWorker extends Worker {
             JSONObject o = new JSONObject(json);
             SharedPreferences sp = ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE);
             sp.edit().putBoolean("on", o.optBoolean("on")).putString("url", o.optString("url"))
-                .putString("pin", o.optString("pin")).putString("me", o.optString("me")).putString("off", "," + o.optString("off") + ",").apply();
+                .putString("pin", o.optString("pin")).putString("me", o.optString("me")).putString("off", "," + o.optString("off") + ",")
+                .putString("mode", o.optString("mode")).putString("key", o.optString("key")).putString("token", o.optString("token")).apply();
             WorkManager wm = WorkManager.getInstance(ctx);
             if (o.optBoolean("on")) {
                 Constraints cs = new Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build();
@@ -60,13 +61,21 @@ public class AlertWorker extends Worker {
         SharedPreferences sp = ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE);
         if (!sp.getBoolean("on", false)) return Result.success();
         String url = sp.getString("url", ""), pin = sp.getString("pin", ""), me = sp.getString("me", "");
-        if (url.isEmpty() || pin.isEmpty()) return Result.success();
+        boolean sb = "sb".equals(sp.getString("mode", ""));
+        if (url.isEmpty() || (!sb && pin.isEmpty()) || (sb && sp.getString("token", "").isEmpty())) return Result.success();
         try {
-            JSONObject body = new JSONObject();
-            body.put("pin", pin); body.put("action", "alerts");
-            JSONObject pl = new JSONObject(); pl.put("who", me); pl.put("since", sp.getString("since", ""));
-            body.put("payload", pl);
-            String res = post(url, body.toString());
+            String res;
+            if (sb) { // 로그인 버전: 이 폰 전용 열쇠(token)로 서버 함수에 물어봐요
+                JSONObject body = new JSONObject();
+                body.put("token", sp.getString("token", "")); body.put("since", sp.getString("since", ""));
+                res = postJson(url, sp.getString("key", ""), body.toString());
+            } else {
+                JSONObject body = new JSONObject();
+                body.put("pin", pin); body.put("action", "alerts");
+                JSONObject pl = new JSONObject(); pl.put("who", me); pl.put("since", sp.getString("since", ""));
+                body.put("payload", pl);
+                res = post(url, body.toString());
+            }
             JSONArray list = new JSONObject(res).optJSONArray("alerts");
             Set<String> seen = new HashSet<>(sp.getStringSet("seen", new HashSet<>()));
             boolean first = !sp.getBoolean("primed", false);
@@ -107,6 +116,16 @@ public class AlertWorker extends Worker {
             return read(g.getInputStream());
         }
         return read(c.getInputStream());
+    }
+
+    static String postJson(String url, String key, String body) throws Exception {
+        HttpURLConnection c = (HttpURLConnection) new URL(url).openConnection();
+        c.setConnectTimeout(20000); c.setReadTimeout(30000);
+        c.setRequestMethod("POST"); c.setDoOutput(true);
+        c.setRequestProperty("Content-Type", "application/json");
+        if (!key.isEmpty()) c.setRequestProperty("apikey", key);
+        try (OutputStream os = c.getOutputStream()) { os.write(body.getBytes(StandardCharsets.UTF_8)); }
+        return read(c.getResponseCode() < 400 ? c.getInputStream() : c.getErrorStream());
     }
 
     static String read(InputStream in) throws Exception {

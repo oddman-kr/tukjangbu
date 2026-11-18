@@ -1003,8 +1003,17 @@ var ALERTS = [
 function alertsFor(){ return ALERTS.filter(function(a){ return a[3] === 'all' || (a[3] === 'kid') === isKid(); }); }
 function aOn(k){ return !LS.get('alertOff', {})[k]; }
 function setAlert(k, on){ var o = LS.get('alertOff', {}); if (on) delete o[k]; else o[k] = 1; LS.set('alertOff', o); syncNotify(); }
-function canNotify(){ return !window.BACKEND && !!(window.NativeApp && NativeApp.setNotify); }
-function syncNotify(){ try { if (canNotify()) NativeApp.setNotify(JSON.stringify({ on: !!LS.get('notifyOn', false), url: window.API_URL, pin: S.pin, me: S.me, off: Object.keys(LS.get('alertOff', {})).join(',') })); } catch (e) {} }
+function canNotify(){ return !!(window.NativeApp && NativeApp.setNotify) && (!window.BACKEND || !!NativeApp.openAuth); }
+function syncNotify(){
+  try {
+    if (!canNotify()) return;
+    var base = { on: !!LS.get('notifyOn', false), me: S.me, off: Object.keys(LS.get('alertOff', {})).join(',') };
+    if (!window.BACKEND) { base.url = window.API_URL; base.pin = S.pin; NativeApp.setNotify(JSON.stringify(base)); return; }
+    // 로그인 버전: 기기 전용 열쇠로 서버 함수에 물어봐요
+    if (!base.on) { NativeApp.setNotify(JSON.stringify(base)); return; }
+    BACKEND.deviceToken().then(function(tok){ base.mode = 'sb'; base.url = BACKEND.url + '/functions/v1/alerts'; base.key = BACKEND.key; base.token = tok; NativeApp.setNotify(JSON.stringify(base)); }).catch(function(){});
+  } catch (e) {}
+}
 function setNotifyOn(on){
   LS.set('notifyOn', on); LS.set('notifyAsked', true);
   if (on && NativeApp.askNotify && NativeApp.notifyAllowed && !NativeApp.notifyAllowed()) NativeApp.askNotify();
@@ -1023,6 +1032,7 @@ function render(){
   if (!S.data) return;
   pushWidget();
   if (!S.notifySynced) { S.notifySynced = true; syncNotify(); }
+  if (window.BACKEND && window.NativeApp && NativeApp.restorePurchases && !S.restoreTried && !(plan() || {}).paid) { S.restoreTried = true; try { NativeApp.restorePurchases(); } catch (e) {} }
   if (V.rec && S.view !== 'home') { try{ V.rec.abort(); }catch(e){} }
   if (V.rec && S.view === 'home' && $('#micBig')) return;
   if (S.autoTimer && S.view === 'home' && $('#autoBox')) return;
@@ -1326,11 +1336,63 @@ function openPlus(reason){
 // 안드로이드 앱이 결제를 마치면 이 함수를 불러요 → 서버에서 영수증 확인
 window.onPlayPurchase = function(json){
   var o = {}; try { o = typeof json === 'string' ? JSON.parse(json) : json; } catch (e) {}
-  if (!o.purchaseToken) return toast('결제 정보를 받지 못했어요.');
+  if (!o.purchaseToken) return o.silent ? null : toast('결제 정보를 받지 못했어요.');
+  if (o.silent) { var p0 = plan(); if (p0 && p0.paid) return; return call('verifyPurchase', { productId: o.productId, purchaseToken: o.purchaseToken }).then(function(){ return load(true); }).catch(function(){}); }
   toast('결제를 확인하는 중이에요…');
   call('verifyPurchase', { productId: o.productId, purchaseToken: o.purchaseToken }).then(function(){ closeSheet(); toast('🎉 툭장부 플러스가 시작됐어요. 고마워요!'); return load(true); })
     .catch(function(e){ toast('결제 확인에 실패했어요: ' + e.message + ' (결제는 구글 플레이에서 자동 환불돼요)'); });
 };
+function openImport(){
+  var sh = $('#sheet'), info = null, me = '', busyNow = false;
+  function draw(msg){
+    sh.innerHTML = '<div class="row between"><h3 style="margin:0">📦 예전 툭장부 옮겨 오기</h3><button class="x" id="imClose" aria-label="닫기" style="font-size:24px">×</button></div>' +
+      (!info ? '<div class="fld"><label>예전 툭장부의 가족 비밀번호</label><input class="inp pin" id="imPin" type="password" inputmode="numeric" maxlength="8" style="width:100%;margin:0" placeholder="숫자 4~8자리"></div>' +
+        '<button class="btn pri block" id="imPeek">불러오기</button>' :
+        '<div class="sumrow" style="margin-top:12px"><div><div class="k">내역</div><div class="v">' + won(info.tx) + '건</div></div><div><div class="k">정기 지출</div><div class="v">' + info.rec + '건</div></div><div><div class="k">위시</div><div class="v">' + info.wishes + '개</div></div></div>' +
+        '<div class="fld"><label>예전 가계부에서 나는 누구였나요?</label><div class="chips" style="flex-wrap:wrap">' + info.members.map(function(m){ return '<button class="chip' + (m === me ? ' on' : '') + '" data-imme="' + esc(m) + '">' + esc(m) + '</button>'; }).join('') + '</div>' +
+        '<div class="faint xs">나머지 가족은 초대 자리로 만들어 둬요. 나중에 초대 코드로 들어오면 그 사람 기록이 그대로 이어져요.</div></div>' +
+        (info.kids.length ? '<label class="toggle"><span>보호자로서 자녀(' + esc(info.kids.join(', ')) + ')의 정보를 옮기는 데 동의해요<br><span class="faint xs">만 14세 미만 자녀 정보는 법정대리인 동의가 필요해요</span></span><input type="checkbox" id="imConsent"></label>' : '') +
+        '<button class="btn pri block" id="imRun" style="margin-top:10px"' + (busyNow ? ' disabled' : '') + '>' + (busyNow ? '옮기는 중…' : '이 계정으로 옮기기') + '</button>') +
+      (msg ? '<div class="tip">' + esc(msg) + '</div>' : '');
+    $('#imClose').onclick = function(){ if (!busyNow) closeSheet(); };
+    var pk = $('#imPeek'); if (pk) pk.onclick = function(){
+      var pin = $('#imPin').value.trim(); if (!/^\d{4,8}$/.test(pin)) return toast('비밀번호를 확인해 주세요.');
+      pk.disabled = true; pk.textContent = '불러오는 중…';
+      call('importPeek', { pin: pin }).then(function(r){ info = r; me = r.members.filter(function(m){ return r.kids.indexOf(m) < 0; })[0] || r.members[0] || ''; draw(); })
+        .catch(function(e){ pk.disabled = false; pk.textContent = '불러오기'; toast(e.message); });
+    };
+    sh.querySelectorAll('[data-imme]').forEach(function(b){ b.onclick = function(){ me = b.dataset.imme; draw(); }; });
+    var rn = $('#imRun'); if (rn) rn.onclick = function(){
+      if (!me) return toast('나였던 이름을 골라 주세요.');
+      var ck = $('#imConsent'); if (info.kids.length && !(ck && ck.checked)) return toast('자녀 정보를 옮기려면 보호자 동의에 체크해 주세요.');
+      busyNow = true; draw('준비하는 중…');
+      call('importRun', { me: me, consent: true, onProgress: function(m){ var t = sh.querySelector('.tip'); if (t) t.textContent = m; } })
+        .then(function(r){ busyNow = false; closeSheet(); toast('📦 내역 ' + won(r.tx) + '건을 옮겼어요!'); return load(true); })
+        .catch(function(e){ busyNow = false; draw('옮기다 멈췄어요: ' + e.message + ' (다시 누르면 이어서 옮겨요)'); });
+    };
+  }
+  draw(); $('#sheetBg').classList.add('on');
+  setTimeout(function(){ var x = $('#imPin'); if (x) x.focus(); }, 80);
+}
+function openDeleteAccount(){
+  var sh = $('#sheet'), owner = !!S.data.isOwner, others = members().filter(function(m){ return m !== S.me; }).length;
+  sh.innerHTML = '<div class="row between"><h3 style="margin:0">계정 삭제</h3><button class="x" id="daClose" aria-label="닫기" style="font-size:24px">×</button></div>' +
+    '<div class="tip" style="background:var(--bad-soft)">' + (owner ? (others ? '내가 가계부 주인이라, 다른 어른 가족이 있으면 그 사람이 새 주인이 되고 가계부는 그대로 남아요. 다른 어른이 없으면 <b>가계부의 모든 내역이 함께 지워지고 되돌릴 수 없어요.</b>' : '<b>가계부의 모든 내역·카테고리·위시가 함께 지워지고 되돌릴 수 없어요.</b>') : '내 계정과 로그인 정보가 지워져요. 내가 쓴 기록은 가족 가계부에 “가족” 이름으로 남아요.') + '</div>' +
+    ((plan() || {}).paid ? '<div class="faint xs" style="margin-top:8px">⚠️ 구독은 자동으로 해지되지 않아요. 구글 플레이 → 결제 및 정기 결제에서 먼저 해지해 주세요.</div>' : '') +
+    '<div class="fld"><label>떠나시는 이유 (선택, 더 나은 앱을 만드는 데 써요)</label><input class="inp" id="daWhy" maxlength="200"></div>' +
+    '<div class="fld"><label>확인을 위해 <b>삭제</b>라고 적어 주세요</label><input class="inp" id="daOk" maxlength="4" autocomplete="off"></div>' +
+    '<button class="btn danger block" id="daGo">계정 삭제하기</button>';
+  $('#sheetBg').classList.add('on');
+  $('#daClose').onclick = closeSheet;
+  $('#daGo').onclick = function(){
+    if ($('#daOk').value.trim() !== '삭제') return toast('“삭제”라고 적어 주세요.');
+    var b = this; b.disabled = true; b.textContent = '지우는 중…';
+    call('deleteAccount', { confirm: '삭제', reason: $('#daWhy').value.trim() }).then(function(){
+      closeSheet(); LS.del('pin'); LS.del('cache'); LS.del('me'); S.pin = ''; S.data = null; S.me = '';
+      toast('계정을 삭제했어요. 그동안 툭장부를 써 주셔서 고마워요.'); showGate();
+    }).catch(function(e){ b.disabled = false; b.textContent = '계정 삭제하기'; toast(e.message); });
+  };
+}
 function openCard(c){
   var m = ym(new Date()), u = cardUse(c, m), sh = $('#sheet');
   sh.innerHTML = '<div class="row between"><h3 style="margin:0">💳 ' + esc(c.name) + '</h3><button class="x" id="cClose" aria-label="닫기" style="font-size:24px">×</button></div>' +
@@ -1944,6 +2006,8 @@ function settingsHTML(){
       alertsFor().map(function(a){ return '<label class="toggle"><span>' + a[1] + '<br><span class="faint xs">' + a[2] + '</span></span><input type="checkbox" data-alert="' + a[0] + '"' + (aOn(a[0]) ? ' checked' : '') + '></label>'; }).join('') +
     '</div>' +
     plusCardHTML() +
+    (!window.BACKEND && !isKid() ? '<div class="card" data-sec="app"><h3>🔐 새 로그인 버전으로 옮기기</h3><div class="faint xs" style="margin-top:-2px">카카오·네이버·구글로 로그인하는 새 버전이에요. 가족 비밀번호 없이 각자 계정으로 쓰고, 지금까지의 기록은 새 버전의 <b>설정 → 앱 → 예전 툭장부에서 옮겨 오기</b>로 그대로 가져갈 수 있어요.</div><button class="btn ghost block" id="toV2" style="margin-top:10px">새 버전 열기</button></div>' : '') +
+    (window.BACKEND && S.data.isOwner ? '<div class="card" data-sec="app"><h3>📦 예전 툭장부에서 옮겨 오기</h3><div class="faint xs" style="margin-top:-2px">구글 시트로 쓰던 툭장부(가족 비밀번호 방식)의 내역·카테고리·정기 지출·카드·위시를 이 계정으로 옮겨요. 여러 번 눌러도 겹치지 않아요.</div><button class="btn ghost block" id="impOpen" style="margin-top:10px">옮겨 오기 시작</button></div>' : '') +
     '<div class="card" data-sec="app" id="fbBox"><h3>💬 의견 보내기</h3><div class="faint xs" style="margin-top:-2px">불편한 점, 있었으면 하는 기능, 무엇이든 좋아요. 만든 사람이 직접 하나하나 읽어요.</div>' +
       '<div class="seg" style="margin-top:10px">' + [['불편', '😣 불편해요'], ['기능', '💡 이런 기능'], ['칭찬', '👍 좋아요']].map(function(k, i){ return '<button data-fbk="' + k[0] + '" class="' + (i === 0 ? 'on' : '') + '">' + k[1] + '</button>'; }).join('') + '</div>' +
       '<textarea class="inp" id="fbText" rows="4" maxlength="2000" style="margin-top:8px" placeholder="예) 카드값 나가는 날을 달력에도 보여 주면 좋겠어요"></textarea>' +
@@ -1962,6 +2026,7 @@ function settingsHTML(){
       '<div class="fld"' + (isKid() || window.BACKEND ? ' hidden' : '') + '><label>가족 비밀번호 바꾸기</label><div class="row"><input class="inp grow" id="sPin" type="password" inputmode="numeric" maxlength="8" placeholder="새 비밀번호"><button class="btn" id="sPinSave">변경</button></div></div>' +
       '<div class="row" style="gap:8px"><button class="btn ghost grow" id="sReload">새로고침</button><button class="btn ghost grow" id="sLogout">로그아웃</button></div>' +
       '<div class="tip">모든 내역은 구글 시트 <b>“거래내역”</b> 탭에 쌓여요. 컴퓨터에서 시트를 열면 엑셀처럼 정리하거나 내려받을 수 있어요.</div></div>' +
+    (window.BACKEND ? '<div class="card" data-sec="app"><h3>계정</h3><div class="row" style="gap:8px;flex-wrap:wrap"><a class="btn ghost grow" href="../terms.html" target="_blank" style="text-align:center;text-decoration:none">이용약관</a><a class="btn ghost grow" href="../privacy.html" target="_blank" style="text-align:center;text-decoration:none">개인정보 처리방침</a></div><button class="linkbtn" id="delAcc" style="margin-top:14px;color:var(--bad)">계정 삭제(탈퇴)</button></div>' : '') +
     '<div class="card" data-sec="app"><h3>앱 정보</h3>' +
       '<div class="row between sm" style="padding:4px 0"><span class="muted">앱 버전</span><span class="num">' + (window.NativeApp ? '안드로이드 ' + appVersion() + ' · ' : '') + '화면 ' + WEB_VER + '</span></div>' +
       (window.NativeApp ? '<button class="btn ghost block" id="updCheck" style="margin-top:8px">업데이트 확인</button>' : '') +
@@ -2122,6 +2187,9 @@ function bindSettings(){
   var tal = $('#tAutoListen'); if (tal) tal.onchange = function(){ LS.set('autoListen', tal.checked); toast(tal.checked ? '앱을 열면 바로 들어요' : '마이크를 눌러야 들어요'); };
   $('#tAutoSave').onchange = function(){ LS.set('autoSave', this.checked); };
   $('#sReload').onclick = function(){ load().then(flush); };
+  var da = $('#delAcc'); if (da) da.onclick = openDeleteAccount;
+  var tv = $('#toV2'); if (tv) tv.onclick = function(){ if (window.NativeApp && NativeApp.setStart) NativeApp.setStart('https://zkskslsk-del.github.io/gagyebu/v2/'); location.href = 'v2/?app=1'; };
+  var io = $('#impOpen'); if (io) io.onclick = openImport;
   var po = $('#plusOpen'); if (po) po.onclick = function(){ openPlus(); };
   var fbKind = '불편';
   document.querySelectorAll('[data-fbk]').forEach(function(b){ b.onclick = function(){ fbKind = b.dataset.fbk; document.querySelectorAll('[data-fbk]').forEach(function(x){ x.classList.toggle('on', x === b); }); var t = $('#fbText'); if (t) t.placeholder = fbKind === '기능' ? '예) 카드값 나가는 날을 달력에도 보여 주면 좋겠어요' : fbKind === '칭찬' ? '예) 말로 입력이 정말 편해요!' : '예) 영수증 사진이 가끔 잘못 읽혀요'; }; });

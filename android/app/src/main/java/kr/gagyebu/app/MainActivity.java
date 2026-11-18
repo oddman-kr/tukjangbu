@@ -50,7 +50,9 @@ import java.util.ArrayList;
  */
 public class MainActivity extends Activity {
 
-    static final String HOME = "https://zkskslsk-del.github.io/gagyebu/";
+    static final String HOME_V1 = "https://zkskslsk-del.github.io/gagyebu/";
+    static final String HOME_V2 = "https://zkskslsk-del.github.io/gagyebu/v2/";
+    PlayBilling billing;
     static final String HOST = "zkskslsk-del.github.io";
     static final int REQ_MIC = 7;
     static final int REQ_FILE = 8;
@@ -143,6 +145,7 @@ public class MainActivity extends Activity {
             public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest req) {
                 Uri u = req.getUrl();
                 if (HOST.equals(u.getHost())) return false;
+                if (isAuthUrl(u)) { openAuthTab(u.toString()); return true; }
                 try { startActivity(new Intent(Intent.ACTION_VIEW, u)); } catch (Exception ignored) { }
                 return true;
             }
@@ -156,12 +159,36 @@ public class MainActivity extends Activity {
         else web.loadUrl(urlFor(getIntent()));
     }
 
+    // 처음 켤 때는 로그인 버전. '예전 방식으로 쓰기'를 고르면 그걸 기억해요
+    String home() { return getSharedPreferences("app", MODE_PRIVATE).getString("start", HOME_V2); }
+
     String urlFor(Intent intent) {
         Uri d = intent == null ? null : intent.getData();
         String q = d == null ? null : d.getQuery();
+        String HOME = home();
+        // 카카오·네이버·구글 로그인이 끝나면 gagyebu://auth-callback#access_token=... 으로 돌아와요
+        if (d != null && "gagyebu".equals(d.getScheme()) && "auth-callback".equals(d.getHost())) {
+            String f = d.getEncodedFragment();
+            return HOME_V2 + "?app=1" + (f != null ? "#" + f : "");
+        }
         if (q != null && q.contains("voice=1")) return HOME + "?voice=1&app=1";
         if (q != null && q.contains("manual=1")) return HOME + "?manual=1&app=1";
         return HOME + "?app=1";
+    }
+
+    static boolean isAuthUrl(Uri u) {
+        String h = u.getHost() == null ? "" : u.getHost(), p = u.getPath() == null ? "" : u.getPath();
+        return (h.endsWith("supabase.co") && (p.startsWith("/auth/v1/authorize") || p.startsWith("/functions/v1/naver-auth")))
+            || h.equals("accounts.google.com") || h.equals("kauth.kakao.com") || h.equals("accounts.kakao.com") || h.equals("nid.naver.com");
+    }
+
+    // 구글은 앱 안 화면(WebView)에서 로그인을 막아서, 로그인은 크롬 탭으로 열어요
+    void openAuthTab(String url) {
+        try {
+            new androidx.browser.customtabs.CustomTabsIntent.Builder().setShowTitle(true).build().launchUrl(this, Uri.parse(url));
+        } catch (Exception e) {
+            try { startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse(url))); } catch (Exception ignored) { }
+        }
     }
 
     @Override
@@ -247,6 +274,11 @@ public class MainActivity extends Activity {
     void authDone(boolean ok, String reason) {
         authBusy = false;
         js0("window.__app && window.__app.authResult(" + ok + "," + JSONObject.quote(reason == null ? "" : reason) + ")");
+    }
+
+    PlayBilling playBilling() {
+        if (billing == null) billing = new PlayBilling(this, this::js0);
+        return billing;
     }
 
     void js0(final String code) {
@@ -353,6 +385,13 @@ public class MainActivity extends Activity {
         @JavascriptInterface public void setWidget(final String json) {
             try { SpendWidget.save(getApplicationContext(), json); } catch (Exception ignored) { }
         }
+        @JavascriptInterface public void openAuth(final String url) { runOnUiThread(() -> openAuthTab(url)); }
+        @JavascriptInterface public String authRedirect() { return "gagyebu://auth-callback"; }
+        @JavascriptInterface public void setStart(final String url) {
+            if (url != null && (url.equals(HOME_V1) || url.equals(HOME_V2))) getSharedPreferences("app", MODE_PRIVATE).edit().putString("start", url).apply();
+        }
+        @JavascriptInterface public void buy(final String productId) { runOnUiThread(() -> playBilling().buy(productId)); }
+        @JavascriptInterface public void restorePurchases() { runOnUiThread(() -> playBilling().restore()); }
         @JavascriptInterface public void openExternal(final String url) {
             runOnUiThread(() -> { try { startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse(url))); } catch (Exception ignored) { } });
         }
