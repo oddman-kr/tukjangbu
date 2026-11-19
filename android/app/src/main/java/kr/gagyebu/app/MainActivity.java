@@ -31,6 +31,7 @@ import android.view.WindowInsetsController;
 import android.widget.FrameLayout;
 import android.graphics.Insets;
 import android.view.Window;
+import android.window.OnBackInvokedDispatcher;
 import android.webkit.JavascriptInterface;
 import android.webkit.PermissionRequest;
 import android.webkit.WebChromeClient;
@@ -74,6 +75,8 @@ public class MainActivity extends Activity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        // 안드로이드 13+ : 새 뒤로가기 방식(안드로이드 16을 대상으로 하면 onBackPressed가 더는 불리지 않아요)
+        if (Build.VERSION.SDK_INT >= 33) getOnBackInvokedDispatcher().registerOnBackInvokedCallback(OnBackInvokedDispatcher.PRIORITY_DEFAULT, this::handleBack);
         Window w = getWindow();
         // 화면 가장자리까지 그리고(안드로이드 15+ 기본 동작), 상태바·내비바·키보드 영역은 직접 비워 둔다
         w.setStatusBarColor(Color.TRANSPARENT);
@@ -227,7 +230,9 @@ public class MainActivity extends Activity {
 
     /** 뒤로가기: 먼저 화면(열린 창·다른 탭)에 물어보고, 처리할 게 없으면 앱을 뒤로 보냄(다시 열 때 빠름) */
     @Override
-    public void onBackPressed() {
+    public void onBackPressed() { handleBack(); }
+
+    void handleBack() {
         web.evaluateJavascript("(function(){ try { return window.__onBack ? !!window.__onBack() : false; } catch(e) { return false; } })()", value -> {
             if ("true".equals(value)) return;
             if (web.canGoBack()) web.goBack();

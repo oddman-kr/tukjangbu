@@ -32,6 +32,7 @@ class PlayBilling {
                 else js.run("window.__toast && __toast(" + JSONObject.quote("결제를 마치지 못했어요 (" + res.getResponseCode() + ")") + ")");
             })
             .enablePendingPurchases(PendingPurchasesParams.newBuilder().enableOneTimeProducts().build())
+            .enableAutoServiceReconnection()
             .build();
     }
 
@@ -50,7 +51,8 @@ class PlayBilling {
         ready(() -> {
             QueryProductDetailsParams q = QueryProductDetailsParams.newBuilder().setProductList(Collections.singletonList(
                 QueryProductDetailsParams.Product.newBuilder().setProductId(productId).setProductType(BillingClient.ProductType.SUBS).build())).build();
-            client.queryProductDetailsAsync(q, (r, list) -> {
+            client.queryProductDetailsAsync(q, (r, res) -> {
+                List<ProductDetails> list = res == null ? null : res.getProductDetailsList();
                 if (list == null || list.isEmpty() || list.get(0).getSubscriptionOfferDetails() == null || list.get(0).getSubscriptionOfferDetails().isEmpty()) {
                     js.run("window.__toast && __toast('구독 상품을 찾지 못했어요. 잠시 뒤 다시 시도해 주세요')"); return;
                 }

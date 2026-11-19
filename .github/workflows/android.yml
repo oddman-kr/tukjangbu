@@ -22,7 +22,7 @@ jobs:
 
       - uses: gradle/actions/setup-gradle@v4
         with:
-          gradle-version: '8.9'
+          gradle-version: '8.11.1'
 
       - name: APK 빌드
         shell: bash
@@ -41,16 +41,46 @@ jobs:
       - name: 파일 이름 정리
         run: cp android/app/build/outputs/apk/release/app-release.apk gagyebu.apk
 
+      # 플레이스토어용 AAB: 업로드 키가 Secrets에 있을 때만 만들어요
+      - name: 플레이스토어용 AAB 빌드
+        id: aab
+        env:
+          UPLOAD_KEYSTORE_B64: ${{ secrets.UPLOAD_KEYSTORE_B64 }}
+          UPLOAD_STORE_PASSWORD: ${{ secrets.UPLOAD_STORE_PASSWORD }}
+          UPLOAD_KEY_ALIAS: ${{ secrets.UPLOAD_KEY_ALIAS }}
+          UPLOAD_KEY_PASSWORD: ${{ secrets.UPLOAD_KEY_PASSWORD }}
+        shell: bash
+        run: |
+          set -o pipefail
+          if [ -z "$UPLOAD_KEYSTORE_B64" ]; then echo "업로드 키가 아직 없어서 AAB는 건너뛰어요"; echo "made=false" >> $GITHUB_OUTPUT; exit 0; fi
+          echo "$UPLOAD_KEYSTORE_B64" | base64 -d > "$RUNNER_TEMP/upload.jks"
+          export UPLOAD_KEYSTORE_FILE="$RUNNER_TEMP/upload.jks"
+          gradle -p android bundleRelease -Pupload --no-daemon 2>&1 | tee build.log
+          cp android/app/build/outputs/bundle/release/app-release.aab gagyebu.aab
+          rm -f "$RUNNER_TEMP/upload.jks"
+          echo "made=true" >> $GITHUB_OUTPUT
+
       - uses: actions/upload-artifact@v4
         with:
           name: gagyebu-apk
           path: gagyebu.apk
 
+      - uses: actions/upload-artifact@v4
+        if: steps.aab.outputs.made == 'true'
+        with:
+          name: gagyebu-aab-for-play-store
+          path: gagyebu.aab
+
       - name: 다운로드 페이지(Release)에 올리기
         uses: softprops/action-gh-release@v2
         with:
           tag_name: app-v${{ github.run_number }}
-          name: 우리집 가계부 앱 ${{ github.run_number }}
-          body: 갤럭시(안드로이드)용 설치 파일입니다. gagyebu.apk를 눌러 내려받아 설치하세요.
-          files: gagyebu.apk
+          name: 툭장부 앱 1.0.${{ github.run_number }}
+          body: |
+            갤럭시(안드로이드)용 설치 파일입니다. gagyebu.apk를 눌러 내려받아 설치하세요.
+            gagyebu.aab는 플레이 콘솔에 올리는 파일이에요 (폰에 직접 설치하는 파일이 아니에요).
+          files: |
+            gagyebu.apk
+            gagyebu.aab
+          fail_on_unmatched_files: false
           make_latest: true

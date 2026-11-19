@@ -2,11 +2,11 @@ plugins { id 'com.android.application' }
 
 android {
     namespace 'kr.gagyebu.app'
-    compileSdk 35
+    compileSdk 36
     defaultConfig {
         applicationId 'kr.gagyebu.app'
         minSdk 26
-        targetSdk 35
+        targetSdk 36
         def runNo = System.getenv('GITHUB_RUN_NUMBER') ?: '1'
         versionCode Integer.parseInt(runNo)
         versionName "1.0.${runNo}"
@@ -18,11 +18,22 @@ android {
             keyAlias 'gagyebu'
             keyPassword 'gagyebu-app'
         }
+        // 플레이스토어 업로드 키: 깃허브 Secrets에서만 읽어요 (저장소에는 없어요)
+        upload {
+            def ks = System.getenv('UPLOAD_KEYSTORE_FILE')
+            if (ks) {
+                storeFile file(ks)
+                storePassword System.getenv('UPLOAD_STORE_PASSWORD')
+                keyAlias System.getenv('UPLOAD_KEY_ALIAS')
+                keyPassword System.getenv('UPLOAD_KEY_PASSWORD')
+            }
+        }
     }
     buildTypes {
         release {
             minifyEnabled false
-            signingConfig signingConfigs.release
+            // -Pupload 로 빌드하면(플레이스토어용 AAB) 업로드 키로, 아니면(직접 설치용 APK) 기존 키로 서명해요
+            signingConfig project.hasProperty('upload') ? signingConfigs.upload : signingConfigs.release
         }
     }
     lint {
@@ -39,5 +50,5 @@ dependencies {
     implementation 'androidx.core:core:1.13.1'
     implementation 'androidx.work:work-runtime:2.9.1'
     implementation 'androidx.browser:browser:1.8.0'
-    implementation 'com.android.billingclient:billing:7.1.1'
+    implementation 'com.android.billingclient:billing:8.0.0'
 }
