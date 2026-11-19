@@ -2165,7 +2165,7 @@ function bindSettings(){
   };
   $('#memInvite').onclick = function(){
     if (window.BACKEND) return $('#memAdd').click();
-    var txt = '우리 가족 가계부 "툭장부"에 초대해요!\n1) 이 링크로 앱 설치: https://github.com/zkskslsk-del/gagyebu/releases/latest/download/gagyebu.apk\n2) 앱을 열고 가족 비밀번호 입력 (따로 알려 줄게요)\n3) 내 이름을 고르면 끝!';
+    var txt = '우리 가족 가계부 "툭장부"에 초대해요!\n1) 이 링크로 앱 설치: https://github.com/zkskslsk-del/gagyebu/releases/latest\n2) 앱을 열고 가족 비밀번호 입력 (따로 알려 줄게요)\n3) 내 이름을 고르면 끝!';
     var done = function(){ toast('초대 문구를 복사했어요. 카카오톡에 붙여 넣어 보내세요. 비밀번호는 따로 알려 주세요'); };
     try { navigator.clipboard.writeText(txt).then(done, function(){ prompt('복사해서 보내세요', txt); }); } catch (e) { prompt('복사해서 보내세요', txt); }
   };

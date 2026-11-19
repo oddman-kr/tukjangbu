@@ -39,7 +39,7 @@ jobs:
           tail -40 build.log | sed 's/%/%25/g' | sed ':a;N;$!ba;s/\n/%0A/g' | xargs -0 -I{} echo "::error title=build-tail::{}"
 
       - name: 파일 이름 정리
-        run: cp android/app/build/outputs/apk/release/app-release.apk gagyebu.apk
+        run: cp android/app/build/outputs/apk/release/app-release.apk tukjangbu-v1.0.${{ github.run_number }}.apk
 
       # 플레이스토어용 AAB: 업로드 키가 Secrets에 있을 때만 만들어요
       - name: 플레이스토어용 AAB 빌드
@@ -56,20 +56,20 @@ jobs:
           echo "$UPLOAD_KEYSTORE_B64" | base64 -d > "$RUNNER_TEMP/upload.jks"
           export UPLOAD_KEYSTORE_FILE="$RUNNER_TEMP/upload.jks"
           gradle -p android bundleRelease -Pupload --no-daemon 2>&1 | tee build.log
-          cp android/app/build/outputs/bundle/release/app-release.aab gagyebu.aab
+          cp android/app/build/outputs/bundle/release/app-release.aab tukjangbu-v1.0.${{ github.run_number }}.aab
           rm -f "$RUNNER_TEMP/upload.jks"
           echo "made=true" >> $GITHUB_OUTPUT
 
       - uses: actions/upload-artifact@v4
         with:
-          name: gagyebu-apk
-          path: gagyebu.apk
+          name: tukjangbu-v1.0.${{ github.run_number }}-apk
+          path: tukjangbu-v1.0.${{ github.run_number }}.apk
 
       - uses: actions/upload-artifact@v4
         if: steps.aab.outputs.made == 'true'
         with:
-          name: gagyebu-aab-for-play-store
-          path: gagyebu.aab
+          name: tukjangbu-v1.0.${{ github.run_number }}-aab-for-play-store
+          path: tukjangbu-v1.0.${{ github.run_number }}.aab
 
       - name: 다운로드 페이지(Release)에 올리기
         uses: softprops/action-gh-release@v2
@@ -77,10 +77,10 @@ jobs:
           tag_name: app-v${{ github.run_number }}
           name: 툭장부 앱 1.0.${{ github.run_number }}
           body: |
-            갤럭시(안드로이드)용 설치 파일입니다. gagyebu.apk를 눌러 내려받아 설치하세요.
-            gagyebu.aab는 플레이 콘솔에 올리는 파일이에요 (폰에 직접 설치하는 파일이 아니에요).
+            갤럭시(안드로이드)용 설치 파일입니다. tukjangbu-v1.0.${{ github.run_number }}.apk를 눌러 내려받아 설치하세요.
+            tukjangbu-v1.0.${{ github.run_number }}.aab는 플레이 콘솔에 올리는 파일이에요 (폰에 직접 설치하는 파일이 아니에요).
           files: |
-            gagyebu.apk
-            gagyebu.aab
+            tukjangbu-v1.0.${{ github.run_number }}.apk
+            tukjangbu-v1.0.${{ github.run_number }}.aab
           fail_on_unmatched_files: false
           make_latest: true
