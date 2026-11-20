@@ -26,7 +26,7 @@ Deno.serve(async (req) => {
     const hh = dev.household_id;
     const [{ data: members }, { data: house }, { data: sub }] = await Promise.all([
       db.from("members").select("id,user_id,role,display_name,monthly_allowance,allowance_period").eq("household_id", hh),
-      db.from("households").select("month_start,trial_ends_at").eq("id", hh).maybeSingle(),
+      db.from("households").select("month_start,trial_ends_at,allow_alert_pct").eq("id", hh).maybeSingle(),
       db.from("subscriptions").select("plan,status,expires_at").eq("household_id", hh).maybeSingle(),
     ]);
     const me = (members ?? []).find((m) => m.user_id === dev.user_id);
@@ -75,7 +75,7 @@ Deno.serve(async (req) => {
     const { data: reqs } = await db.from("wishes").select("client_id,id,name,price,reason,request_msg,requested_by,requested_to").eq("household_id", hh).eq("status", "요청");
     (reqs ?? []).filter((w) => w.requested_by !== me.id && (!w.requested_to || w.requested_to === me.id)).forEach((w) => out.push({ id: "req_" + (w.client_id || w.id), title: name(w.requested_by) + "님이 “" + w.name + "” 사 달래요", body: [w.price ? won(Number(w.price)) + "원" : "", w.reason || w.request_msg || ""].filter(Boolean).join(" · ") || "앱에서 확인해 보세요" }));
 
-    // 2) 자녀 용돈 50% 이하
+    // 2) 자녀 용돈이 부모가 정한 비율(기본 50%) 이하
     const ms = Math.min(28, Math.max(1, Number(house?.month_start) || 1));
     const kids = (members ?? []).filter((m) => m.role === "child" && Number(m.monthly_allowance) > 0);
     if (kids.length) {
@@ -85,7 +85,8 @@ Deno.serve(async (req) => {
         if (k.allowance_period === "주") { const dow = (new Date(today + "T00:00:00Z").getUTCDay() + 6) % 7; from = addDays(today, -dow); to = addDays(from, 6); }
         else { const [y, m, d] = today.split("-").map(Number); const st = d >= ms ? new Date(Date.UTC(y, m - 1, ms)) : new Date(Date.UTC(y, m - 2, ms)); from = st.toISOString().slice(0, 10); to = addDays(new Date(Date.UTC(st.getUTCFullYear(), st.getUTCMonth() + 1, ms)).toISOString().slice(0, 10), -1); }
         const amt = Number(k.monthly_allowance), used = (tx ?? []).filter((t) => t.member_id === k.id && t.date >= from && t.date <= to).reduce((a, t) => a + Number(t.amount_base), 0), left = amt - used;
-        if (left <= amt * 0.5) out.push({ id: "allow_" + k.display_name + "_" + from + "_" + (left <= 0 ? "out" : "half"), title: k.display_name + "님 용돈이 " + (left <= 0 ? "다 떨어졌어요" : "절반 이하로 남았어요"), body: (k.allowance_period === "주" ? "이번 주 " : "이번 달 ") + won(used) + " / " + won(amt) + "원 썼어요" });
+        const pct = Math.min(90, Math.max(10, Number(house?.allow_alert_pct) || 50));
+        if (left <= amt * pct / 100) out.push({ id: "allow_" + k.display_name + "_" + from + "_" + (left <= 0 ? "out" : "low" + pct), title: k.display_name + "님 용돈이 " + (left <= 0 ? "다 떨어졌어요" : Math.max(0, Math.round(left / amt * 100)) + "%만 남았어요"), body: (k.allowance_period === "주" ? "이번 주 " : "이번 달 ") + won(used) + " / " + won(amt) + "원 썼어요" });
       });
     }
 

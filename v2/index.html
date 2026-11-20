@@ -305,7 +305,7 @@ var Receipt = (function () {
         pending: mem.filter(function (m) { return !m.user_id; }).map(function (m) { return m.display_name; }),
         methods: cards.map(function (c) { return c.name; }),
         cards: cards.map(function (c) { return { name: c.name, kind: c.kind, color: c.color || '', owner: memName(c.member_id), target: Number(c.monthly_target) || 0, benefits: c.benefits, exclude: c.exclude_categories || [], memo: c.memo, payDay: c.pay_day || undefined, useFrom: c.use_from || undefined, useBack: c.use_back || undefined, bills: c.bills || {} }; }),
-        avatars: avatars, allowance: allowance, monthStart: hh ? hh.month_start : 1,
+        avatars: avatars, allowance: allowance, monthStart: hh ? hh.month_start : 1, allowAlert: hh && hh.allow_alert_pct ? hh.allow_alert_pct : 50,
         hide: mem.filter(function (m) { return m.hide_personal; }).map(function (m) { return m.display_name; })
       },
       cats: cats.map(function (c, i) { return { type: c.type, name: c.name, budget: Number(c.budget) || 0, keywords: c.keywords, order: c.sort || i + 1, fixed: c.fixed }; }),
@@ -465,6 +465,7 @@ var Receipt = (function () {
   function saveCfg(p) {
     var jobs = [];
     if (p.monthStart != null) jobs.push(upd('households', 'id=eq.' + ctx.hh, { month_start: p.monthStart }));
+    if (p.allowAlert != null) jobs.push(upd('households', 'id=eq.' + ctx.hh, { allow_alert_pct: Math.min(90, Math.max(10, Math.round(p.allowAlert / 10) * 10)) }));
     if (p.hide) jobs.push(upd('members', 'id=eq.' + ctx.meId, { hide_personal: p.hide.indexOf(memName(ctx.meId)) >= 0 }));
     if (p.allowance) ctx.members.forEach(function (m) { var a = p.allowance[m.display_name]; jobs.push(rpc('set_allowance', { p_member: m.id, p_amount: a ? Math.round(a.a || a) : 0, p_period: a && a.p === '주' ? '주' : '월' })); });
     if (p.cards || p.methods) {
@@ -572,7 +573,8 @@ var Receipt = (function () {
   document.addEventListener('visibilitychange', function () { if (document.visibilityState === 'visible') pollHandoff(); });
   window.addEventListener('focus', function () { pollHandoff(); });
   function go(url) { if (native()) { startPoll(); NativeApp.openAuth(url); } else location.href = url; }
-  function oauth(p) { go(URL + '/auth/v1/authorize?provider=' + p + '&redirect_to=' + enc(back())); }
+  // 카카오·구글은 매번 어떤 계정으로 들어갈지 고르게 해요
+  function oauth(p) { go(URL + '/auth/v1/authorize?provider=' + p + '&redirect_to=' + enc(back()) + (p === 'google' || p === 'kakao' ? '&prompt=select_account' : '')); }
   function el(id) { return document.getElementById(id); }
   function say(m) { if (typeof window.__toast === 'function') window.__toast(m); else alert(m); }
   function gate(onReady) {
@@ -589,7 +591,7 @@ var Receipt = (function () {
       '<button class="linkbtn" id="lCode" style="margin-top:6px">초대 코드를 받았어요 (아이)</button></div>' +
       '<div class="faint xs" style="margin-top:14px;max-width:280px;text-align:center">시작하면 <a href="../terms.html" target="_blank">이용약관</a>과 <a href="../privacy.html" target="_blank">개인정보 처리방침</a>에 동의하는 것으로 봐요.</div>' +
       '<button class="linkbtn" id="lOld" style="margin-top:18px;font-weight:500;color:var(--ink3)">예전 방식(가족 비밀번호)으로 계속 쓰기</button>' +
-      '<div class="faint xs" style="margin-top:10px;opacity:.6">화면 버전 2026.11.20c</div>';
+      '<div class="faint xs" style="margin-top:10px;opacity:.6">화면 버전 2026.11.20e</div>';
     providers().then(function (ext) {
       g.querySelectorAll('[data-p]').forEach(function (b) {
         var p = b.dataset.p;
@@ -676,7 +678,11 @@ var Receipt = (function () {
   }
   function logout() { var s = getSess(); setSess(null); try { localStorage.removeItem('tuk_dev_token'); } catch (e) {} if (s) fetch(URL + '/auth/v1/logout', { method: 'POST', headers: { apikey: KEY, Authorization: 'Bearer ' + s.access_token } }).catch(function () {}); }
 
-  window.BACKEND = { call: call, gate: gate, logout: logout, ctx: ctx, deviceToken: deviceToken, url: URL, key: KEY, loggedIn: function () { return !!getSess(); } };
+  function provider() {
+    var s = getSess(); if (!s || !s.access_token) return '';
+    try { var p = JSON.parse(decodeURIComponent(escape(atob(s.access_token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/'))))); var a = p.app_metadata || {}, u = p.user_metadata || {}; return u.provider === 'naver' ? 'naver' : (a.provider || 'email'); } catch (e) { return ''; }
+  }
+  window.BACKEND = { call: call, gate: gate, logout: logout, ctx: ctx, deviceToken: deviceToken, url: URL, key: KEY, provider: provider, loggedIn: function () { return !!getSess(); } };
 })();
 </script>
 <style>
@@ -1395,7 +1401,7 @@ function toast(msg, actLabel, actFn, ms){
   t.classList.add('on'); clearTimeout(toast._t); toast._t = setTimeout(function(){ t.classList.remove('on'); }, ms || (actFn ? 5000 : 2400));
 }
 function haptic(){ try { if (window.NativeApp && NativeApp.vibrate) NativeApp.vibrate(); else if (navigator.vibrate) navigator.vibrate(12); } catch (e) {} }
-var WEB_VER = '2026.11.20c';
+var WEB_VER = '2026.11.20e';
 (function(){ try { var v = window.NativeApp ? Number(NativeApp.version()) : 0; var a = (navigator.userAgent.match(/Android (\d+)/) || [])[1]; if (v && v <= 6 && Number(a) >= 15) document.documentElement.classList.add('old-native'); } catch (e) {} })();
 var errShown = 0;
 function logErr(kind, msg, where){
@@ -1668,7 +1674,7 @@ var ALERTS = [
   ['ans', '내가 보낸 요청의 답', '승인·보류·거절되면 알려 줘요', 'all'],
   ['met', '갖고 싶은 것 목표 달성', '저축·부수입 목표를 채우면 알려 줘요', 'all'],
   ['rec', '정기 지출 미리 알림', '정한 날짜 며칠 전에 알려 줘요', 'adult'],
-  ['allow', '자녀 용돈 절반 이하', '아이 용돈이 절반 남거나 다 떨어지면 알려 줘요', 'adult'],
+  ['allow', '자녀 용돈이 적게 남았을 때', '정해 둔 비율 이하로 남거나 다 떨어지면 알려 줘요 (설정 → 가족 → 용돈에서 비율 조정)', 'adult'],
   ['bill', '카드 결제일 알림', '결제일 이틀 전에 청구 예정 금액을 알려 줘요', 'adult'],
   ['talk', '가족톡 (댓글·메모)', '가족이 내역에 댓글을 달거나 메모를 남기면 알려 줘요', 'all'],
   ['update', '새 버전 안내', '앱 업데이트가 나오면 알려 줘요', 'all'],
@@ -1753,7 +1759,7 @@ function summaryCard(m, mode){
   var remain = bud - exp;
   var cls = pct >= 1 ? 'bad' : pct >= 0.85 ? 'warn' : '';
   var fc = isCur && mode && !isKid() ? forecast() : null, fcH = '';
-  if (fc && fc.total > exp) fcH = '<div class="fc"><span>🔮</span><div>이 속도면 이번 달 <b class="num">' + won(fc.total) + '원</b> 정도 쓸 것 같아요' + (bud && fc.total > bud ? ' · <b style="color:var(--bad)">예산보다 ' + won(fc.total - bud) + '원 많아요</b>' : '') + '<div class="faint xs">' + fc.basis + ' · 고정지출 포함</div></div></div>';
+  if (fc && fc.total > exp) fcH = '<div class="fc"><span>🔮</span><div>이 속도면 이번 달 <b class="num">' + won(fc.total) + '원</b> 정도 쓸 것 같아요' + (bud && fc.total > bud ? ' · <b style="color:var(--bad)">예산보다 ' + won(fc.total - bud) + '원 많아요</b>' : '') + '<div class="faint xs">' + fc.basis + ' · 정기지출 포함</div></div></div>';
   return '<div class="card' + (mode ? ' hero' : '') + '">' + (mode ? sumTabs('month') : '') +
     '<div class="row between"><span class="muted sm">' + (isCur ? '이번 달' : mLabel(m)) + ' 지출' + (periodRange(m) ? ' <span class="faint xs">' + periodRange(m) + '</span>' : '') + '</span>' + (bud ? '<span class="faint xs">예산 ' + won(bud) + '원</span>' : '') + '</div>' +
     '<div class="big">' + won(exp) + '<span style="font-size:17px;font-weight:600"> 원</span></div>' +
@@ -1804,12 +1810,12 @@ function bannersHTML(){
   }
   h += opsBanners();
   h += wishBanners();
-  if (canNotify() && !LS.get('notifyAsked', false)) h += '<div class="banner"><span>🔔</span><div class="grow"><b>휴대폰 알림을 켤까요?</b><div class="faint xs">' + (isKid() ? '부모님이 요청에 답하면 알려 드려요' : '아이 용돈이 절반 남았을 때, 정기 지출 전날, 사 주세요 요청이 오면 알려 드려요') + '</div></div><button class="btn pri" id="ntOn">켜기</button><button class="x" id="ntNo" aria-label="나중에">×</button></div>';
+  if (canNotify() && !LS.get('notifyAsked', false)) h += '<div class="banner"><span>🔔</span><div class="grow"><b>휴대폰 알림을 켤까요?</b><div class="faint xs">' + (isKid() ? '부모님이 요청에 답하면 알려 드려요' : '아이 용돈이 적게 남았을 때, 정기 지출 전날, 사 주세요 요청·가족 댓글이 오면 알려 드려요') + '</div></div><button class="btn pri" id="ntOn">켜기</button><button class="x" id="ntNo" aria-label="나중에">×</button></div>';
   var up = upcomingRec();
   h += billBanner();
   if (up.length && aOn('rec')) { var u0 = up[0]; h += '<div class="banner"><span>🔔</span><div class="grow"><b>' + esc(u0.r.desc) + ' ' + (u0.d === 1 ? '내일' : u0.d + '일 뒤') + ' 나가요</b><div class="faint xs">' + (+u0.date.slice(5, 7)) + '월 ' + (+u0.date.slice(8)) + '일 · ' + won(u0.r.amount) + '원' + (up.length > 1 ? ' · 외 ' + (up.length - 1) + '건' : '') + '</div></div><button class="x" data-recx="' + esc(u0.r.id + '_' + u0.date) + '" aria-label="알림 닫기">×</button></div>'; }
   h += allowBanner();
-  if (!LS.get('tipsDone', false)) h += '<div class="banner" style="align-items:flex-start"><span>💡</span><div class="grow"><b>이렇게 쓰면 편해요</b><div class="sm" style="margin-top:4px;line-height:1.6">· 마이크를 누르고 “개인 용돈 술자리 3만원, 가족 저녁 식사 8만원”처럼 말하면 개인·공용이 나뉘어 저장돼요<br>· 영수증은 <b>영수증 찍기</b>로 사진만 찍으면 끝<br>· 매달 나가는 돈은 설정 → <b>고정지출</b>에 넣어 두면 자동 기록<br>· 저장 직후 <b>실행 취소</b>로 되돌릴 수 있어요</div></div><button class="x" id="tipsX" aria-label="안내 닫기">×</button></div>';
+  if (!LS.get('tipsDone', false)) h += '<div class="banner" style="align-items:flex-start"><span>💡</span><div class="grow"><b>이렇게 쓰면 편해요</b><div class="sm" style="margin-top:4px;line-height:1.6">' + (isKid() ? '· 마이크를 누르고 “떡볶이 4천원, 문구점 2천원”처럼 말하면 한 번에 저장돼요<br>· 갖고 싶은 게 있으면 <b>위시</b>에서 부모님께 “사 주세요” 요청을 보내요<br>· 저장 직후 <b>실행 취소</b>로 되돌릴 수 있어요' : '· 마이크를 누르고 “개인 용돈 술자리 3만원, 가족 저녁 식사 8만원”처럼 말하면 개인·공용이 나뉘어 저장돼요<br>· 영수증은 <b>영수증 찍기</b>로 사진만 찍으면 끝<br>· 매달 나가는 돈은 설정 → <b>정기지출</b>에 넣어 두면 자동 기록<br>· 내역을 눌러 가족에게 <b>댓글</b>로 물어볼 수 있어요<br>· 저장 직후 <b>실행 취소</b>로 되돌릴 수 있어요') + '</div></div><button class="x" id="tipsX" aria-label="안내 닫기">×</button></div>';
   return h;
 }
 function ledgerBar(){
@@ -1845,8 +1851,8 @@ function homeHTML(){
   return ledgerBar() + bannersHTML() + summaryCard(curM(), LS.get('sumMode', 'month')) +
     '<div class="card">' +
       '<div class="row between" style="margin-bottom:8px"><h3 style="margin:0">어디에 얼마 썼나요?</h3><span class="faint xs">' + (S.me ? avatar(S.me, 22) + ' ' + esc(S.me) : '') + '</span></div>' +
-      (SR ? '<div class="voice"><button class="micbig" id="micBig" aria-label="말로 입력">' + MIC_SVG + '</button><div class="vt" id="vt"><b>눌러서 말하기</b><span>예) 개인 용돈 술자리 3만원, 가족 저녁 식사 8만원</span></div></div>' : '') +
-      '<div class="saybox"><textarea id="say" class="say" rows="2" placeholder="' + (SR ? '또는 여기에 쓰기' : '예) 개인 용돈 술자리 3만원, 가족 저녁 식사 8만원') + '">' + esc(S.draft) + '</textarea></div>' +
+      (SR ? '<div class="voice"><button class="micbig" id="micBig" aria-label="말로 입력">' + MIC_SVG + '</button><div class="vt" id="vt"><b>눌러서 말하기</b><span>' + sayEx() + '</span></div></div>' : '') +
+      '<div class="saybox"><textarea id="say" class="say" rows="2" placeholder="' + (SR ? '또는 여기에 쓰기' : sayEx()) + '">' + esc(S.draft) + '</textarea></div>' +
       (SR ? '' : '<div class="faint xs" style="margin-top:6px">이 브라우저는 앱 안 녹음을 지원하지 않아요. 키보드의 🎤 버튼을 쓰거나' + (isIOS() ? ' 아이폰 단축어 아이콘을 써 보세요.' : ' Chrome으로 열어 주세요.') + '</div>') +
       '<div id="autoBox"></div>' +
       '<div id="pv"></div>' +
@@ -2538,7 +2544,7 @@ function startListen(fromGesture){
       if (!st.gesture) setMicUI('hint', '눌러서 말하기', '버튼을 누르면 바로 들어요'); // 자동으로 시작한 녹음은 실패해도 조용히 대기
       else if (st.err === 'no-speech' || !st.err) setMicUI('', '못 들었어요', '버튼을 누르고 다시 말해 주세요');
       else if (st.err === 'network') setMicUI('', '음성 인식이 인터넷에 연결되지 않았어요', '연결을 확인하거나 아래에 써 주세요');
-      else if (st.err === 'aborted') setMicUI('', '눌러서 말하기', '예) 개인 용돈 술자리 3만원, 가족 저녁 식사 8만원');
+      else if (st.err === 'aborted') setMicUI('', '눌러서 말하기', sayEx());
       else setMicUI('', '잠시 후 다시 눌러 주세요', '음성 인식이 아직 준비되지 않았어요. 계속되면 아래에 써 주세요');
     }
   };
@@ -2778,7 +2784,7 @@ function settingsHTML(){
   var tabs = isKid() ? [['me', '나'], ['app', '앱']] : [['me', '가족'], ['card', '카드'], ['budget', '예산'], ['rec', '정기지출'], ['app', '앱']];
   var V2 = !!window.BACKEND;
   return '<div class="settabs" role="tablist">' + tabs.map(function(t){ return '<button role="tab" data-st="' + t[0] + '" class="' + (setTab() === t[0] ? 'on' : '') + '">' + t[1] + '</button>'; }).join('') + '</div>' +
-    '<div class="card" data-sec="me"><h3>이 폰의 사용자</h3><div class="chips">' + members().map(function(m){ return '<button class="chip' + (m === S.me ? ' on' : '') + '" data-me="' + esc(m) + '">' + avatar(m, 22) + esc(m) + '</button>'; }).join('') + '</div>' +
+    '<div class="card" data-sec="me"><h3>' + (window.BACKEND ? '내 프로필' : '이 폰의 사용자') + '</h3>' + (window.BACKEND ? '' : '<div class="chips">' + members().map(function(m){ return '<button class="chip' + (m === S.me ? ' on' : '') + '" data-me="' + esc(m) + '">' + avatar(m, 22) + esc(m) + '</button>'; }).join('') + '</div>') +
       (S.me ? '<div class="avedit">' + avatar(S.me, 56) + '<div class="grow"><div class="sm"><b>내 프로필 사진</b></div><div class="faint xs">가족 화면의 내 이름 옆에 보여요</div><div class="row" style="gap:6px;margin-top:6px"><button class="btn ghost sm" style="padding:6px 12px" id="avPick">' + (avatars()[S.me] ? '사진 바꾸기' : '사진 넣기') + '</button>' + (avatars()[S.me] ? '<button class="btn ghost sm" style="padding:6px 12px" id="avDel">지우기</button>' : '') + '</div></div><input type="file" id="avIn" accept="image/*" hidden></div>' : '') +
       (S.me ? '<div class="fld" style="margin-top:12px"><label>내 이름 (가족에게 이렇게 보여요)</label><div class="row"><input class="inp grow" id="sMyName" maxlength="20" value="' + esc(S.me) + '" placeholder="예) 엄마, 아빠, 지우"><button class="btn" id="sMyNameSave">바꾸기</button></div><div class="faint xs" style="margin-top:4px">지난 내역과 위시에 적힌 이름도 함께 바뀌어요.</div></div>' : '') + '</div>' +
     (isKid() ? '<div class="card" data-sec="me"><div class="sm muted">카드·용돈·카테고리 같은 가족 설정은 부모님 폰에서 바꿀 수 있어요.</div></div>' : '') +
@@ -2789,7 +2795,8 @@ function settingsHTML(){
     '<div class="card" data-sec="me"><h3>한 달 기준 · 개인 용돈</h3>' +
       '<div class="fld"><label>한 달 시작일 (월급날에 맞추면 편해요)</label><select class="inp" id="sMS">' + Array.apply(null, Array(28)).map(function(_, i){ var d = i + 1; return '<option value="' + d + '"' + (d === MS() ? ' selected' : '') + '>' + (d === 1 ? '매달 1일 (기본)' : '매달 ' + d + '일') + '</option>'; }).join('') + '</select>' +
         (MS() > 1 ? '<div class="faint xs" style="margin-top:4px">이번 달: ' + periodRange(curM()) + ' · 요약·예산·통계가 이 기간으로 계산돼요</div>' : '') + '</div>' +
-      (isKid() ? '' : '<div class="fld"><label>용돈 (개인 용돈으로 쓴 돈에서 빠져요 · 자녀는 절반 이하로 남으면 알려 드려요)</label>' + members().map(function(m){ var v = allowOf(m); return '<div class="row" style="gap:8px;margin:6px 0">' + avatar(m, 26) + '<span class="grow sm">' + esc(m) + '</span><select class="inp" data-allowp="' + esc(m) + '" style="width:76px;padding:8px 6px"><option value="월"' + (!v || v.p === '월' ? ' selected' : '') + '>매달</option><option value="주"' + (v && v.p === '주' ? ' selected' : '') + '>매주</option></select><input class="inp num" data-allow="' + esc(m) + '" inputmode="numeric" style="width:120px;text-align:right" value="' + (v ? won(v.a) : '') + '" placeholder="없음"></div>'; }).join('') + '<button class="btn ghost block" id="allowSave" style="margin-top:4px">용돈 저장</button></div>') +
+      (isKid() ? '' : '<div class="fld"><label>용돈 (개인 용돈으로 쓴 돈에서 빠져요)</label>' + members().map(function(m){ var v = allowOf(m); return '<div class="row" style="gap:8px;margin:6px 0">' + avatar(m, 26) + '<span class="grow sm">' + esc(m) + '</span><select class="inp" data-allowp="' + esc(m) + '" style="width:76px;padding:8px 6px"><option value="월"' + (!v || v.p === '월' ? ' selected' : '') + '>매달</option><option value="주"' + (v && v.p === '주' ? ' selected' : '') + '>매주</option></select><input class="inp num" data-allow="' + esc(m) + '" inputmode="numeric" style="width:120px;text-align:right" value="' + (v ? won(v.a) : '') + '" placeholder="없음"></div>'; }).join('') + '<button class="btn ghost block" id="allowSave" style="margin-top:4px">용돈 저장</button></div>') +
+      (isKid() || !kids().length ? '' : '<div class="fld"><label>자녀 용돈 알림 기준</label><select class="inp" id="sAllowPct">' + [10,20,30,40,50,60,70,80,90].map(function(v){ return '<option value="' + v + '"' + (v === allowPct() ? ' selected' : '') + '>남은 용돈이 ' + v + '% 이하일 때 알려 줘요</option>'; }).join('') + '</select><div class="faint xs" style="margin-top:4px">다 떨어졌을 때도 한 번 더 알려 줘요</div></div>') +
       (S.me ? '<label class="toggle"><span>내 개인 용돈 내용 숨기기<br><span class="faint xs">가족에게는 “개인 지출”과 금액만 보여요</span></span><input type="checkbox" id="tHide"' + (hiders().indexOf(S.me) >= 0 ? ' checked' : '') + '></label>' : '') +
     '</div>' +
     '<div class="card" data-sec="me"><h3>가족 구성원</h3>' +
@@ -2797,10 +2804,10 @@ function settingsHTML(){
       '<button class="btn ghost block" id="memAdd" style="margin-top:10px">+ 가족 추가 (자녀·배우자)</button>' +
       (window.BACKEND ? '<div class="tip">가족을 추가하면 <b>초대 코드</b>가 나와요. 코드를 받은 가족이 앱에서 코드를 넣으면 함께 써요. <button class="linkbtn" id="memInvite">초대하기</button></div>' :
         '<div class="tip">새 가족의 휴대폰에서는 <b>툭장부를 설치 → 같은 가족 비밀번호 입력 → 자기 이름 선택</b>하면 함께 써요. <button class="linkbtn" id="memInvite">초대 안내 문구 복사</button></div>') +
-      '<details style="margin-top:10px"><summary class="sm faint" style="cursor:pointer">이름·자녀 지정 직접 고치기</summary>' +
+      (window.BACKEND ? '' : '<details style="margin-top:10px"><summary class="sm faint" style="cursor:pointer">이름·자녀 지정 직접 고치기</summary>' +
       '<div class="fld"><label>구성원 (쉼표로 구분)</label><input class="inp" id="sMembers" value="' + esc(members().join(', ')) + '"></div>' +
       '<div class="fld"><label>자녀로 지정 (위시에서 “사 주세요” 요청을 보내요)</label><div class="chips" id="sKids">' + members().map(function(m){ return '<button class="chip' + (kids().indexOf(m) >= 0 ? ' on' : '') + '" data-kid="' + esc(m) + '" aria-pressed="' + (kids().indexOf(m) >= 0) + '">' + esc(m) + '</button>'; }).join('') + '</div></div>' +
-      '<button class="btn pri block" id="sCfgSave">저장</button></details></div>' +
+      '<button class="btn pri block" id="sCfgSave">저장</button></details>') + '</div>' +
     '<details class="card fold" data-sec="budget" id="catBox" open><summary><div class="grow"><b>카테고리 · 월 예산</b><div class="faint xs">' + c.length + '개 · 지출 예산 합계 ' + won(budgetTotal()) + '원</div></div><span class="faint sm">편집</span></summary><div class="faint xs" style="margin:10px 0 6px"><b>고정·필수</b>에 체크한 항목(월세·통신·보험처럼 꼭 나가는 돈)은 위시의 “남은 생활 예산”에서 빠져요. 키워드가 문장에 들어 있으면 그 카테고리로 자동 분류돼요. 한 번 고친 분류는 다음부터 기억해요.</div><div id="catRows">' +
       c.map(function(x, i){ return catRowHTML(x, i); }).join('') + '</div>' +
       '<div class="row" style="margin-top:10px"><button class="btn ghost" id="catAdd">+ 추가</button><button class="btn pri grow" id="catSave">카테고리 저장</button></div>' +
@@ -2819,8 +2826,9 @@ function settingsHTML(){
     '<div class="card" data-sec="app" id="fbBox"><h3>💬 의견 보내기</h3><div class="faint xs" style="margin-top:-2px">불편한 점, 있었으면 하는 기능, 무엇이든 좋아요. 만든 사람이 직접 하나하나 읽어요.</div>' +
       '<div class="seg" style="margin-top:10px">' + [['불편', '😣 불편해요'], ['기능', '💡 이런 기능'], ['칭찬', '👍 좋아요']].map(function(k, i){ return '<button data-fbk="' + k[0] + '" class="' + (i === 0 ? 'on' : '') + '">' + k[1] + '</button>'; }).join('') + '</div>' +
       '<textarea class="inp" id="fbText" rows="4" maxlength="2000" style="margin-top:8px" placeholder="예) 카드값 나가는 날을 달력에도 보여 주면 좋겠어요"></textarea>' +
-      '<input class="inp" id="fbContact" maxlength="120" style="margin-top:8px" placeholder="답은 이 아래로 와요 · 메일로도 받으려면 연락처 (선택)">' +
-      '<button class="btn pri block" id="fbSend" style="margin-top:8px">보내기</button>' + myFeedbackHTML() + '</div>' +
+      (window.BACKEND ? '' : '<label class="faint xs" for="fbContact" style="display:block;margin-top:10px">답장받을 연락처 (선택)</label><input class="inp" id="fbContact" maxlength="120" style="margin-top:4px" placeholder="이메일 또는 전화번호">') +
+      '<button class="btn pri block" id="fbSend" style="margin-top:8px">보내기</button>' +
+      (window.BACKEND ? '<div class="faint xs" style="margin-top:8px">답변은 아래 “내가 보낸 의견”과 휴대폰 알림으로 받아요.</div>' : '') + myFeedbackHTML() + '</div>' +
     '<div class="card" data-sec="app"><h3>말로 입력</h3>' +
       (SR ? '<label class="toggle"><span>앱을 열면 바로 듣기<br><span class="faint xs">아이콘을 누르자마자 녹음이 시작돼요</span></span><input type="checkbox" id="tAutoListen"' + (LS.get('autoListen', true) ? ' checked' : '') + '></label>' : '<div class="faint sm">이 브라우저는 앱 안 녹음을 지원하지 않아요.</div>') +
       '<label class="toggle"><span>말하고 나면 3초 뒤 자동 저장<br><span class="faint xs">그 사이에 내용을 누르면 멈춰요</span></span><input type="checkbox" id="tAutoSave"' + (LS.get('autoSave', true) ? ' checked' : '') + '></label>' +
@@ -2832,19 +2840,28 @@ function settingsHTML(){
     '<div class="card" data-sec="app"><h3>보안 · 기타</h3>' +
       (window.NativeApp && NativeApp.canLock ? '<label class="toggle"><span>앱 잠금<br><span class="faint xs">열 때 지문·얼굴·화면 잠금으로 확인해요</span></span><input type="checkbox" id="tLock"' + (LS.get('appLock', false) ? ' checked' : '') + '></label>' : '') +
       '<div class="fld"' + (isKid() || window.BACKEND ? ' hidden' : '') + '><label>가족 비밀번호 바꾸기</label><div class="row"><input class="inp grow" id="sPin" type="password" inputmode="numeric" maxlength="8" placeholder="새 비밀번호"><button class="btn" id="sPinSave">변경</button></div></div>' +
-      '<div class="row" style="gap:8px"><button class="btn ghost grow" id="sReload">새로고침</button><button class="btn ghost grow" id="sLogout">로그아웃</button></div>' +
+      '<div class="row" style="gap:8px"><button class="btn ghost grow" id="sReload">새로고침</button><button class="btn ghost grow" id="sLogout"' + (window.BACKEND ? ' hidden' : '') + '>로그아웃</button></div>' +
       (window.BACKEND ? '<div class="tip">모든 기록은 툭장부 서버에 암호화된 연결로 저장돼요. 폰을 바꾸거나 잃어버려도 같은 계정으로 로그인하면 그대로 이어져요.</div>' : '<div class="tip">모든 내역은 구글 시트 <b>“거래내역”</b> 탭에 쌓여요. 컴퓨터에서 시트를 열면 엑셀처럼 정리하거나 내려받을 수 있어요.</div>') + '</div>' +
-    (window.BACKEND ? '<div class="card" data-sec="app"><h3>계정</h3><div class="row" style="gap:8px;flex-wrap:wrap"><a class="btn ghost grow" href="../terms.html" target="_blank" style="text-align:center;text-decoration:none">이용약관</a><a class="btn ghost grow" href="../privacy.html" target="_blank" style="text-align:center;text-decoration:none">개인정보 처리방침</a></div><button class="linkbtn" id="delAcc" style="margin-top:14px;color:var(--bad)">계정 삭제(탈퇴)</button></div>' : '') +
+    (window.BACKEND ? '<div class="card" data-sec="app"><h3>계정</h3>' +
+      '<div class="row between" style="margin-bottom:10px"><span class="row" style="gap:10px">' + avatar(S.me, 34) + '<span><b>' + esc(S.me) + '</b><div class="faint xs">' + esc(acctLabel()) + '</div></span></span><button class="btn ghost" id="sLogout2" style="padding:8px 14px">로그아웃</button></div>' +
+      '<div class="row" style="gap:8px;flex-wrap:wrap"><a class="btn ghost grow" href="../terms.html" target="_blank" style="text-align:center;text-decoration:none">이용약관</a><a class="btn ghost grow" href="../privacy.html" target="_blank" style="text-align:center;text-decoration:none">개인정보 처리방침</a><button class="btn ghost grow" id="delAcc" style="color:var(--bad)">계정 삭제(탈퇴)</button></div></div>' : '') +
     '<div class="card" data-sec="app"><h3>앱 정보</h3>' +
       '<div class="row between sm" style="padding:4px 0"><span class="muted">앱 버전</span><span class="num">' + (window.NativeApp ? 'v1.0.' + appVersion() : '웹') + ' <span class="faint xs">(화면 ' + WEB_VER.slice(2) + ')</span></span></div>' +
       (window.NativeApp ? '<button class="btn ghost block" id="updCheck" style="margin-top:8px">업데이트 확인</button>' : '') +
       errLogHTML() +
       '<details style="margin-top:10px"><summary class="sm" style="cursor:pointer">개인정보는 어떻게 다뤄지나요?</summary><div class="sm muted" style="margin-top:8px;line-height:1.7">' +
+        (window.BACKEND ?
+        '· 기록은 툭장부 서버(Supabase, 암호화된 연결)에 저장되고, 같은 가계부 가족만 볼 수 있어요.<br>' +
+        '· “개인 용돈 내용 숨기기”를 켜면 가족에게도, 운영자에게도 개인 지출 내용이 가려져요.<br>' +
+        '· 영수증 사진은 글자를 읽는 데만 쓰고 저장하지 않아요.<br>' +
+        '· 말로 입력은 휴대폰의 음성 인식 서비스(구글 등)를 거쳐 글자로 바뀌어요.<br>' +
+        '· 운영자는 문의 처리 등 꼭 필요할 때만 기록을 열람하고, 열람 기록이 남아요.<br>' +
+        '· 계정을 삭제하면 기록도 함께 지워져요. 자세한 내용은 개인정보 처리방침에 있어요.' :
         '· 내역은 본인 구글 계정의 시트에만 저장돼요. 앱 만든 사람이나 다른 서버로 보내지 않아요.<br>' +
         '· 서버는 가족 비밀번호가 맞을 때만 내역을 보여 줘요.<br>' +
         '· 영수증 사진은 본인 구글 드라이브 “가계부 영수증” 폴더에 보관돼요.<br>' +
         '· 말로 입력은 휴대폰의 음성 인식 서비스(구글 등)를 거쳐 글자로 바뀌어요.<br>' +
-        '· 이 폰에는 비밀번호와 최근 내역 사본만 저장되고, 로그아웃하면 지워져요.</div></details></div>';
+        '· 이 폰에는 비밀번호와 최근 내역 사본만 저장되고, 로그아웃하면 지워져요.') + '</div></details></div>';
 }
 function catRowHTML(x, i){
   return '<div class="set-row" data-ci="' + i + '"><select data-k="type">' + TYPES.map(function(t){ return '<option' + (t === x.type ? ' selected' : '') + '>' + t + '</option>'; }).join('') + '</select>' +
@@ -2894,6 +2911,10 @@ function bindSettings(){
   }
   $('#cardAdd').onclick = function(){ editCard(null); };
   document.querySelectorAll('[data-cedit]').forEach(function(b){ b.onclick = function(){ editCard(payInfo(b.dataset.cedit), true); }; });
+  var ap = $('#sAllowPct'); if (ap) ap.onchange = function(){
+    var v = +this.value, prev = allowPct(); S.data.cfg.allowAlert = v; LS.set('cache', S.data); render();
+    call('saveCfg', { allowAlert: v }).then(function(){ toast('남은 용돈이 ' + v + '% 이하일 때 알려 드릴게요'); }).catch(function(er){ S.data.cfg.allowAlert = prev; LS.set('cache', S.data); render(); toast('저장하지 못했어요: ' + er.message); });
+  };
   $('#sMS').onchange = function(){
     var d = +this.value, prev = MS(); S.data.cfg.monthStart = d; S.month = curM(); LS.set('cache', S.data); render();
     call('saveCfg', { monthStart: d }).then(function(){ toast(d === 1 ? '한 달을 1일부터 계산해요' : '한 달을 매달 ' + d + '일부터 계산해요'); }).catch(function(er){ S.data.cfg.monthStart = prev; render(); toast('저장하지 못했어요: ' + er.message); });
@@ -2977,7 +2998,7 @@ function bindSettings(){
     var done = function(){ toast('초대 문구를 복사했어요. 카카오톡에 붙여 넣어 보내세요. 비밀번호는 따로 알려 주세요'); };
     try { navigator.clipboard.writeText(txt).then(done, function(){ prompt('복사해서 보내세요', txt); }); } catch (e) { prompt('복사해서 보내세요', txt); }
   };
-  $('#sCfgSave').onclick = function(){
+  if ($('#sCfgSave')) $('#sCfgSave').onclick = function(){
     var mem = $('#sMembers').value.split(',').map(function(s){ return s.trim(); }).filter(Boolean);
     if (!mem.length) return toast('구성원을 한 명 이상 적어 주세요.');
     if (mem.indexOf(S.me) < 0) { S.me = mem[0]; LS.set('me', S.me); }
@@ -3005,8 +3026,8 @@ function bindSettings(){
   var fs = $('#fbSend'); if (fs) fs.onclick = function(){
     var t = $('#fbText').value.trim(); if (t.length < 2) return toast('내용을 조금 더 적어 주세요.');
     fs.disabled = true; fs.textContent = '보내는 중…';
-    call('feedback', { kind: fbKind, text: t, contact: $('#fbContact').value.trim(), who: S.me, ver: WEB_VER + (window.NativeApp ? ' / 앱 ' + appVersion() : ''), device: (navigator.userAgent || '').slice(0, 120) })
-      .then(function(){ $('#fbText').value = ''; $('#fbContact').value = ''; toast('고마워요! 보내 주신 의견은 꼭 읽고 반영할게요 🙏'); if (window.BACKEND) load(true); })
+    call('feedback', { kind: fbKind, text: t, contact: $('#fbContact') ? $('#fbContact').value.trim() : '', who: S.me, ver: WEB_VER + (window.NativeApp ? ' / 앱 ' + appVersion() : ''), device: (navigator.userAgent || '').slice(0, 120) })
+      .then(function(){ $('#fbText').value = ''; if ($('#fbContact')) $('#fbContact').value = ''; toast('고마워요! 보내 주신 의견은 꼭 읽고 반영할게요 🙏'); if (window.BACKEND) load(true); })
       .catch(function(e){ toast('보내지 못했어요: ' + e.message); })
       .then(function(){ fs.disabled = false; fs.textContent = '보내기'; });
   };
@@ -3025,6 +3046,7 @@ function bindSettings(){
   };
   var uc = $('#updCheck'); if (uc) uc.onclick = function(){ checkUpdate(true); };
   var ec = $('#errClear'); if (ec) ec.onclick = function(){ try { localStorage.removeItem('hhb_errLog'); } catch (e) {} render(); };
+  var lo2 = $('#sLogout2'); if (lo2) lo2.onclick = function(){ $('#sLogout').click(); };
   $('#sLogout').onclick = function(){ if (window.BACKEND) window.BACKEND.logout(); LS.del('pin'); LS.del('cache'); LS.del('me'); S.pin = ''; S.data = null; S.me = ''; showGate(); };
 }
 
@@ -3402,20 +3424,23 @@ function allowHTML(){
   return '<div class="card"><div class="row between"><h3 style="margin:0">👛 용돈</h3><span class="faint xs">주간은 월~일 기준</span></div>' +
     rows.map(function(x){
       var isK = kids().indexOf(x.m) >= 0;
-      var pct = Math.min(1, x.l.used / x.l.total), out = x.l.left <= 0, low = !out && x.l.left <= x.l.total * (isK ? 0.5 : 0.2);
+      var pct = Math.min(1, x.l.used / x.l.total), out = x.l.left <= 0, low = !out && x.l.left <= x.l.total * (isK ? allowPct() / 100 : 0.2);
       return '<div class="flex-row"><div class="row between"><span>' + avatar(x.m, 22) + ' ' + esc(x.m) + (kids().indexOf(x.m) >= 0 ? ' <span class="faint xs">자녀</span>' : '') + '</span><span class="num sm">' + (out ? '<b style="color:var(--bad)">' + (x.l.left < 0 ? won(-x.l.left) + '원 넘게 씀' : '다 썼어요') + '</b>' : '<b>' + won(x.l.left) + '원</b> <span class="faint xs">남음</span>') + '</span></div>' +
         '<div class="bar thin"><i class="' + (out ? 'bad' : low ? 'warn' : '') + '" style="width:' + (pct * 100).toFixed(1) + '%"></i></div><div class="faint xs">' + (x.l.p === '주' ? '이번 주' : '이번 달') + ' ' + won(x.l.used) + ' / ' + won(x.l.total) + '원</div></div>';
     }).join('') + '</div>';
 }
+function sayEx(){ return isKid() ? '예) 떡볶이 4천원, 문구점 2천원' : '예) 개인 용돈 술자리 3만원, 가족 저녁 식사 8만원'; }
+function allowPct(){ var v = S.data && S.data.cfg && +S.data.cfg.allowAlert; return v >= 10 && v <= 90 ? v : 50; }
+function acctLabel(){ var p = window.BACKEND && window.BACKEND.provider ? window.BACKEND.provider() : ''; return ({ kakao: '카카오로 로그인', naver: '네이버로 로그인', google: 'Google로 로그인', email: '이메일로 로그인' })[p] || '로그인됨'; }
 function allowBanner(){
   if (isKid() || !aOn('allow')) return '';
-  // 자녀 용돈이 절반(50%) 이하로 남으면 부모에게 알려요
+  // 자녀 용돈이 부모가 정한 비율(기본 50%) 이하로 남으면 알려요
   var seen = LS.get('allowSeen', {});
-  var key = function(k, l){ return k + '_' + l.range.from + '_' + (l.left <= 0 ? 'out' : 'half'); };
-  var outK = kids().filter(function(k){ var l = allowLeft(k); return l && l.left <= l.total * 0.5 && !seen[key(k, l)]; });
+  var key = function(k, l){ return k + '_' + l.range.from + '_' + (l.left <= 0 ? 'out' : 'low' + allowPct()); };
+  var outK = kids().filter(function(k){ var l = allowLeft(k); return l && l.left <= l.total * allowPct() / 100 && !seen[key(k, l)]; });
   if (!outK.length) return '';
   var k = outK[0], l = allowLeft(k);
-  return '<div class="banner warn">' + avatar(k, 30) + '<div class="grow"><b>' + esc(k) + '님 용돈이 ' + (l.left <= 0 ? '다 떨어졌어요' : '절반 이하로 남았어요') + '</b><div class="faint xs">' + (l.p === '주' ? '이번 주' : '이번 달') + ' ' + won(l.used) + ' / ' + won(l.total) + '원 썼어요 · 남은 돈 ' + won(Math.max(0, l.left)) + '원</div></div><button class="x" data-allowx="' + esc(key(k, l)) + '" aria-label="알림 닫기">×</button></div>';
+  return '<div class="banner warn">' + avatar(k, 30) + '<div class="grow"><b>' + esc(k) + '님 용돈이 ' + (l.left <= 0 ? '다 떨어졌어요' : Math.max(0, Math.round(l.left / l.total * 100)) + '%만 남았어요') + '</b><div class="faint xs">' + (l.p === '주' ? '이번 주' : '이번 달') + ' ' + won(l.used) + ' / ' + won(l.total) + '원 썼어요 · 남은 돈 ' + won(Math.max(0, l.left)) + '원</div></div><button class="x" data-allowx="' + esc(key(k, l)) + '" aria-label="알림 닫기">×</button></div>';
 }
 
 function errLogHTML(){
@@ -3466,7 +3491,7 @@ window.__app = {
     if (ok) return unlock();
     if (reason === 'no-lock') { LS.set('appLock', false); unlock(); return toast('휴대폰 화면 잠금이 꺼져 있어서 앱 잠금을 껐어요.'); }
     $('#unlockBtn').textContent = '다시 시도';
-    $('#lockMsg').textContent = '확인이 취소됐어요. 다시 시도하거나 가족 비밀번호로 열어 주세요.';
+    $('#lockMsg').textContent = (window.BACKEND ? '확인이 취소됐어요. 다시 시도해 주세요.' : '확인이 취소됐어요. 다시 시도하거나 가족 비밀번호로 열어 주세요.');
   },
   toast: function(m){ toast(m); }
 };
@@ -3475,15 +3500,17 @@ function bioOK(){ return appVersion() >= 6; } // 5 이하 앱은 지문 권한�
 function askBio(){
   if (!bioOK()) return;
   LS.set('authPending', Date.now());
-  try { NativeApp.authenticate(); } catch (e) { LS.del('authPending'); $('#lockMsg').textContent = '지문 확인을 시작하지 못했어요. 비밀번호로 열어 주세요.'; }
+  try { NativeApp.authenticate(); } catch (e) { LS.del('authPending'); $('#lockMsg').textContent = (window.BACKEND ? '지문 확인을 시작하지 못했어요. 아래 버튼으로 다시 로그인해 주세요.' : '지문 확인을 시작하지 못했어요. 비밀번호로 열어 주세요.'); }
 }
 function lock(){
   if (!lockOn()) return false;
   S.locked = true; $('#lock').classList.remove('hidden');
   $('#lockMsg').textContent = ''; $('#lockPin').value = '';
   $('#unlockBtn').style.display = bioOK() ? '' : 'none';
+  // 로그인 버전에는 가족 비밀번호가 없어서, 막히면 다시 로그인해서 열어요
+  if (window.BACKEND) { $('#pinUnlock').innerHTML = '<button class="btn ghost" id="lockRelogin" style="width:240px">로그아웃하고 다시 로그인</button>'; $('#lockRelogin').onclick = function(){ unlock(); LS.set('appLock', false); var b = document.getElementById('sLogout'); if (b) b.click(); else { window.BACKEND.logout(); location.reload(); } }; }
   if (!bioOK()) { $('#lockMsg').textContent = '앱을 최신 버전으로 업데이트하면 지문으로 열 수 있어요.'; return true; }
-  if (LS.get('authPending', 0)) { LS.del('authPending'); $('#lockMsg').textContent = '지난번 지문 확인이 끝나지 않았어요. 버튼을 눌러 다시 시도하거나 비밀번호로 열어 주세요.'; return true; }
+  if (LS.get('authPending', 0)) { LS.del('authPending'); $('#lockMsg').textContent = '지난번 지문 확인이 끝나지 않았어요. 버튼을 눌러 다시 시도해 주세요.'; return true; }
   setTimeout(function(){ if (S.locked && document.visibilityState === 'visible') askBio(); }, 500);
   return true;
 }
