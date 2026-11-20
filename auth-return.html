@@ -19,11 +19,20 @@ a.sub{display:inline-block;margin-top:16px;color:var(--ink2);font-size:14px}
   var ok = /(?:^|&)access_token=/.test(h);
   var intent = 'intent://auth-callback?' + h + '#Intent;scheme=tukjangbu;package=kr.oddman.tukjangbu;end';
   var b = document.getElementById('b');
+  var nm = /[?&]n=([A-Za-z0-9_-]{32,80})/.exec(location.search);
   if (!ok && !err) { location.replace(app); return; }
+  // 앱이 기다리고 있으면 로그인 정보를 잠깐 맡겨 둬요 (앱이 3분 안에 가져가요)
+  if (ok && nm) {
+    var q = {}; h.split('&').forEach(function (kv) { var i = kv.indexOf('='); if (i > 0) q[decodeURIComponent(kv.slice(0, i))] = decodeURIComponent(kv.slice(i + 1)); });
+    fetch('https://tognnsgghtmnwfwksegp.supabase.co/functions/v1/auth-handoff', { method: 'POST', headers: { 'Content-Type': 'application/json', apikey: 'sb_publishable_VaTsnqKViXWOaoh3SmTd3g_VceRqIa9' },
+      body: JSON.stringify({ op: 'put', n: nm[1], access_token: q.access_token, refresh_token: q.refresh_token, expires_in: q.expires_in }) })
+      .then(function (r) { var t = document.getElementById('st'); if (t) t.textContent = r.ok ? '앱으로 돌아가면 바로 로그인돼요.' : '잠시 뒤 다시 시도해 주세요.'; })
+      .catch(function () {});
+  }
   b.innerHTML = '<div class="mark">툭</div><h1>' + (ok ? '로그인됐어요' : '로그인하지 못했어요') + '</h1>' +
-    '<p>' + (ok ? '아래 버튼을 눌러 툭장부 앱으로 돌아가세요.' : decodeURIComponent(err[1].replace(/\+/g, ' '))) + '</p>' +
+    '<p id="st">' + (ok ? '툭장부 앱으로 돌아가세요.' : decodeURIComponent(err[1].replace(/\+/g, ' '))) + '</p>' +
     '<a class="btn" id="go" href="' + intent + '">툭장부 앱으로 돌아가기</a>' +
-    (ok ? '<a class="sub" href="' + app + '#' + h + '">앱이 없으면 웹에서 계속하기</a>' : '');
+    (ok ? '<p style="margin-top:14px;font-size:13px">버튼이 안 되면 이 창을 닫거나(왼쪽 위 ×) 뒤로 가기를 눌러도 앱에서 로그인돼요.</p><a class="sub" href="' + app + '#' + h + '">앱이 없으면 웹에서 계속하기</a>' : '');
   // 크롬이 허락하면 바로 앱으로 넘어가요 (막히면 위 버튼을 누르면 돼요)
   if (/Android/i.test(navigator.userAgent)) setTimeout(function () { location.href = intent; }, 150);
   else location.replace(app + '#' + h);

@@ -544,14 +544,41 @@ var Receipt = (function () {
   function providers() { return fetch(URL + '/auth/v1/settings', { headers: { apikey: KEY } }).then(function (r) { return r.json(); }).then(function (o) { return (o && o.external) || {}; }).catch(function () { return {}; }); }
   // 안드로이드 앱에서는 로그인을 크롬 탭으로 열고, 끝나면 tukjangbu://auth-callback 으로 앱에 돌아와요
   function native() { return !!(window.NativeApp && NativeApp.openAuth); }
-  function back() { return native() ? NativeApp.authRedirect() : location.origin + location.pathname; }
-  function go(url) { if (native()) NativeApp.openAuth(url); else location.href = url; }
+  // 앱에서는 로그인 창(크롬)이 끝나면 로그인 완료 페이지가 서버에 3분짜리 보관함을 만들고, 앱이 그걸 가져가요
+  // (크롬이 앱으로 바로 넘겨주지 못하는 폰에서도 로그인되게)
+  var HANDOFF = URL + '/functions/v1/auth-handoff', RETURN = 'https://oddman-kr.github.io/tukjangbu/auth-return.html';
+  function nonce() {
+    var o = null; try { o = JSON.parse(localStorage.getItem('tuk_handoff') || 'null'); } catch (e) {}
+    if (o && o.n && Date.now() - o.t < 170000) return o.n;
+    var a = new Uint8Array(24); crypto.getRandomValues(a);
+    var n = Array.prototype.map.call(a, function (x) { return ('0' + x.toString(16)).slice(-2); }).join('');
+    try { localStorage.setItem('tuk_handoff', JSON.stringify({ n: n, t: Date.now() })); } catch (e) {}
+    return n;
+  }
+  function back() { return native() ? RETURN + '?n=' + nonce() : location.origin + location.pathname; }
+  var polling = null;
+  function pollHandoff() {
+    var o = null; try { o = JSON.parse(localStorage.getItem('tuk_handoff') || 'null'); } catch (e) {}
+    if (!o || !o.n || Date.now() - o.t > 180000 || getSess()) { stopPoll(); return; }
+    fetch(HANDOFF, { method: 'POST', headers: { apikey: KEY, 'Content-Type': 'application/json' }, body: JSON.stringify({ op: 'take', n: o.n }) })
+      .then(function (r) { return r.json(); }).then(function (r) {
+        if (!r || !r.ready || !r.session) return;
+        stopPoll(); try { localStorage.removeItem('tuk_handoff'); } catch (e) {}
+        setSess(fromToken(r.session)); location.replace(location.pathname + '?app=1');
+      }).catch(function () {});
+  }
+  function stopPoll() { if (polling) { clearInterval(polling); polling = null; } }
+  function startPoll() { if (!native()) return; stopPoll(); polling = setInterval(pollHandoff, 1500); }
+  document.addEventListener('visibilitychange', function () { if (document.visibilityState === 'visible') pollHandoff(); });
+  window.addEventListener('focus', function () { pollHandoff(); });
+  function go(url) { if (native()) { startPoll(); NativeApp.openAuth(url); } else location.href = url; }
   function oauth(p) { go(URL + '/auth/v1/authorize?provider=' + p + '&redirect_to=' + enc(back())); }
   function el(id) { return document.getElementById(id); }
   function say(m) { if (typeof window.__toast === 'function') window.__toast(m); else alert(m); }
   function gate(onReady) {
     var g = el('gate'); el('app').classList.add('hidden'); g.classList.remove('hidden');
     if (getSess()) return afterLogin(g, onReady);
+    if (native()) { pollHandoff(); startPoll(); }
     var logo = (document.querySelector('.top h1 .logo') || {}).outerHTML || '';
     g.innerHTML = '<div class="gatelogo">' + logo + '</div><h2>툭장부</h2><div class="muted sm" style="margin-top:-4px">말로 툭, 가족 가계부</div>' +
       '<div class="loginbtns">' +
@@ -1367,7 +1394,7 @@ function toast(msg, actLabel, actFn, ms){
   t.classList.add('on'); clearTimeout(toast._t); toast._t = setTimeout(function(){ t.classList.remove('on'); }, ms || (actFn ? 5000 : 2400));
 }
 function haptic(){ try { if (window.NativeApp && NativeApp.vibrate) NativeApp.vibrate(); else if (navigator.vibrate) navigator.vibrate(12); } catch (e) {} }
-var WEB_VER = '2026.11.20a';
+var WEB_VER = '2026.11.20b';
 (function(){ try { var v = window.NativeApp ? Number(NativeApp.version()) : 0; var a = (navigator.userAgent.match(/Android (\d+)/) || [])[1]; if (v && v <= 6 && Number(a) >= 15) document.documentElement.classList.add('old-native'); } catch (e) {} })();
 var errShown = 0;
 function logErr(kind, msg, where){
