@@ -588,7 +588,8 @@ var Receipt = (function () {
       '<button class="lbtn email" id="lEmail">이메일로 시작하기</button>' +
       '<button class="linkbtn" id="lCode" style="margin-top:6px">초대 코드를 받았어요 (아이)</button></div>' +
       '<div class="faint xs" style="margin-top:14px;max-width:280px;text-align:center">시작하면 <a href="../terms.html" target="_blank">이용약관</a>과 <a href="../privacy.html" target="_blank">개인정보 처리방침</a>에 동의하는 것으로 봐요.</div>' +
-      '<button class="linkbtn" id="lOld" style="margin-top:18px;font-weight:500;color:var(--ink3)">예전 방식(가족 비밀번호)으로 계속 쓰기</button>';
+      '<button class="linkbtn" id="lOld" style="margin-top:18px;font-weight:500;color:var(--ink3)">예전 방식(가족 비밀번호)으로 계속 쓰기</button>' +
+      '<div class="faint xs" style="margin-top:10px;opacity:.6">화면 버전 2026.11.20c</div>';
     providers().then(function (ext) {
       g.querySelectorAll('[data-p]').forEach(function (b) {
         var p = b.dataset.p;
@@ -1394,7 +1395,7 @@ function toast(msg, actLabel, actFn, ms){
   t.classList.add('on'); clearTimeout(toast._t); toast._t = setTimeout(function(){ t.classList.remove('on'); }, ms || (actFn ? 5000 : 2400));
 }
 function haptic(){ try { if (window.NativeApp && NativeApp.vibrate) NativeApp.vibrate(); else if (navigator.vibrate) navigator.vibrate(12); } catch (e) {} }
-var WEB_VER = '2026.11.20b';
+var WEB_VER = '2026.11.20c';
 (function(){ try { var v = window.NativeApp ? Number(NativeApp.version()) : 0; var a = (navigator.userAgent.match(/Android (\d+)/) || [])[1]; if (v && v <= 6 && Number(a) >= 15) document.documentElement.classList.add('old-native'); } catch (e) {} })();
 var errShown = 0;
 function logErr(kind, msg, where){
