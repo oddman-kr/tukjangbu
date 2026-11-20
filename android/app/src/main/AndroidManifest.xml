@@ -42,7 +42,7 @@
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />
-                <data android:scheme="gagyebu" android:host="auth-callback" />
+                <data android:scheme="tukjangbu" android:host="auth-callback" />
             </intent-filter>
         </activity>
         <receiver android:name=".SpendWidget" android:exported="false" android:label="@string/widget_name">

@@ -169,8 +169,8 @@ public class MainActivity extends Activity {
         Uri d = intent == null ? null : intent.getData();
         String q = d == null ? null : d.getQuery();
         String HOME = home();
-        // 카카오·네이버·구글 로그인이 끝나면 gagyebu://auth-callback#access_token=... 으로 돌아와요
-        if (d != null && "gagyebu".equals(d.getScheme()) && "auth-callback".equals(d.getHost())) {
+        // 카카오·네이버·구글 로그인이 끝나면 tukjangbu://auth-callback#access_token=... 으로 돌아와요 (예전 앱과 겹치지 않게 주소를 바꿨어요)
+        if (d != null && "tukjangbu".equals(d.getScheme()) && "auth-callback".equals(d.getHost())) {
             String f = d.getEncodedFragment();
             return HOME_V2 + "?app=1" + (f != null ? "#" + f : "");
         }
@@ -391,7 +391,7 @@ public class MainActivity extends Activity {
             try { SpendWidget.save(getApplicationContext(), json); } catch (Exception ignored) { }
         }
         @JavascriptInterface public void openAuth(final String url) { runOnUiThread(() -> openAuthTab(url)); }
-        @JavascriptInterface public String authRedirect() { return "gagyebu://auth-callback"; }
+        @JavascriptInterface public String authRedirect() { return "tukjangbu://auth-callback"; }
         @JavascriptInterface public void setStart(final String url) {
             if (url != null && (url.equals(HOME_V1) || url.equals(HOME_V2))) getSharedPreferences("app", MODE_PRIVATE).edit().putString("start", url).apply();
         }

@@ -542,7 +542,7 @@ var Receipt = (function () {
 
   /* ---------- 로그인 화면 ---------- */
   function providers() { return fetch(URL + '/auth/v1/settings', { headers: { apikey: KEY } }).then(function (r) { return r.json(); }).then(function (o) { return (o && o.external) || {}; }).catch(function () { return {}; }); }
-  // 안드로이드 앱에서는 로그인을 크롬 탭으로 열고, 끝나면 gagyebu://auth-callback 으로 앱에 돌아와요
+  // 안드로이드 앱에서는 로그인을 크롬 탭으로 열고, 끝나면 tukjangbu://auth-callback 으로 앱에 돌아와요
   function native() { return !!(window.NativeApp && NativeApp.openAuth); }
   function back() { return native() ? NativeApp.authRedirect() : location.origin + location.pathname; }
   function go(url) { if (native()) NativeApp.openAuth(url); else location.href = url; }
