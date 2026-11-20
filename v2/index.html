@@ -598,7 +598,7 @@ var Receipt = (function () {
       '<button class="lbtn email" id="lEmail">이메일로 시작하기</button></div>' +
       '<div class="sub"><button id="lCode">초대 코드로 들어가기</button><i></i><button id="lOld">예전 방식으로 쓰기</button></div>' +
       '<div class="legal">시작하면 <a href="../terms.html" target="_blank">이용약관</a>과 <a href="../privacy.html" target="_blank">개인정보 처리방침</a>에 동의하게 돼요.</div>' +
-      '<div class="ver">화면 버전 2026.11.21a</div></div>';
+      '<div class="ver">화면 버전 2026.11.21b</div></div>';
     providers().then(function (ext) {
       g.querySelectorAll('[data-p]').forEach(function (b) {
         var p = b.dataset.p;
@@ -623,8 +623,9 @@ var Receipt = (function () {
     g.classList.remove('hello');
     g.innerHTML = '<h2>이메일로 시작하기</h2><div class="muted sm">메일로 6자리 코드(또는 로그인 링크)를 보내 드려요.</div>' +
       '<input id="eMail" class="inp" type="email" inputmode="email" autocomplete="email" placeholder="you@example.com" style="width:260px;margin-top:14px">' +
-      '<button class="btn pri" id="eSend" style="width:260px;margin-top:8px">코드 받기</button><button class="linkbtn" id="eBack" style="margin-top:10px">뒤로</button>';
+      '<button class="btn pri" id="eSend" style="width:260px;margin-top:8px">코드 받기</button><button class="linkbtn" id="ePw" style="margin-top:12px;font-size:13px">비밀번호로 로그인</button><button class="linkbtn" id="eBack" style="margin-top:4px">뒤로</button>';
     el('eBack').onclick = function () { gate(onReady); };
+    el('ePw').onclick = function () { pwStep(g, onReady); };
     el('eSend').onclick = function () {
       var email = el('eMail').value.trim(); if (!/.+@.+\..+/.test(email)) return say('이메일 주소를 확인해 주세요.');
       this.disabled = true;
@@ -644,6 +645,24 @@ var Receipt = (function () {
           el('eVerify').onclick = verify; el('eCode').oninput = function () { if (this.value.length === 6) verify(); };
         }).catch(function (e) { say(e.message); el('eSend').disabled = false; });
     };
+  }
+  // 비밀번호가 있는 계정(심사용 테스트 계정 등)으로 로그인
+  function pwStep(g, onReady) {
+    g.classList.remove('hello');
+    g.innerHTML = '<h2>비밀번호로 로그인</h2><div class="muted sm">비밀번호가 설정된 계정만 쓸 수 있어요.</div>' +
+      '<input id="pMail" class="inp" type="email" inputmode="email" autocomplete="username" placeholder="이메일" style="width:260px;margin-top:14px">' +
+      '<input id="pPw" class="inp" type="password" autocomplete="current-password" placeholder="비밀번호" style="width:260px;margin-top:8px">' +
+      '<button class="btn pri" id="pGo" style="width:260px;margin-top:8px">로그인</button><button class="linkbtn" id="pBack" style="margin-top:10px">뒤로</button>';
+    el('pBack').onclick = function () { emailStep(g, onReady); };
+    var go = function () {
+      var email = el('pMail').value.trim(), pw = el('pPw').value; if (!email || !pw) return say('이메일과 비밀번호를 넣어 주세요.');
+      el('pGo').disabled = true;
+      fetch(URL + '/auth/v1/token?grant_type=password', { method: 'POST', headers: { apikey: KEY, 'Content-Type': 'application/json' }, body: JSON.stringify({ email: email, password: pw }) })
+        .then(function (r) { return r.json().then(function (o) { if (!r.ok) throw new Error('이메일 또는 비밀번호가 맞지 않아요'); return o; }); })
+        .then(function (o) { setSess(fromToken(o)); afterLogin(g, onReady); })
+        .catch(function (e) { el('pGo').disabled = false; say(e.message); });
+    };
+    el('pGo').onclick = go; el('pPw').onkeydown = function (e) { if (e.key === 'Enter') go(); };
   }
   function kidStep(g, onReady) {
     g.classList.remove('hello');
@@ -1446,7 +1465,7 @@ function toast(msg, actLabel, actFn, ms){
   t.classList.add('on'); clearTimeout(toast._t); toast._t = setTimeout(function(){ t.classList.remove('on'); }, ms || (actFn ? 5000 : 2400));
 }
 function haptic(){ try { if (window.NativeApp && NativeApp.vibrate) NativeApp.vibrate(); else if (navigator.vibrate) navigator.vibrate(12); } catch (e) {} }
-var WEB_VER = '2026.11.21a';
+var WEB_VER = '2026.11.21b';
 (function(){ try { var v = window.NativeApp ? Number(NativeApp.version()) : 0; var a = (navigator.userAgent.match(/Android (\d+)/) || [])[1]; if (v && v <= 6 && Number(a) >= 15) document.documentElement.classList.add('old-native'); } catch (e) {} })();
 var errShown = 0;
 function logErr(kind, msg, where){
