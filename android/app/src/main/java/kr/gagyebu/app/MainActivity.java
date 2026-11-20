@@ -51,10 +51,10 @@ import java.util.ArrayList;
  */
 public class MainActivity extends Activity {
 
-    static final String HOME_V1 = "https://zkskslsk-del.github.io/gagyebu/";
-    static final String HOME_V2 = "https://zkskslsk-del.github.io/gagyebu/v2/";
+    static final String HOME_V1 = "https://oddman-kr.github.io/tukjangbu/";
+    static final String HOME_V2 = "https://oddman-kr.github.io/tukjangbu/v2/";
     PlayBilling billing;
-    static final String HOST = "zkskslsk-del.github.io";
+    static final String HOST = "oddman-kr.github.io";
     static final int REQ_MIC = 7;
     static final int REQ_FILE = 8;
     static final int REQ_AUTH = 9;

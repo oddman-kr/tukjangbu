@@ -11,8 +11,8 @@ function serviceKey(): string {
   return Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
 }
 const SELF = URL_ + "/functions/v1/naver-auth";
-const ALLOW = [/^https:\/\/zkskslsk-del\.github\.io\/gagyebu\//, /^gagyebu:\/\/auth-callback/];
-const DEFAULT_BACK = "https://zkskslsk-del.github.io/gagyebu/v2/";
+const ALLOW = [/^https:\/\/oddman-kr\.github\.io\/tukjangbu\//, /^gagyebu:\/\/auth-callback/];
+const DEFAULT_BACK = "https://oddman-kr.github.io/tukjangbu/v2/";
 
 const b64u = (b: Uint8Array) => btoa(String.fromCharCode(...b)).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
 const fromB64u = (s: string) => atob(s.replace(/-/g, "+").replace(/_/g, "/"));

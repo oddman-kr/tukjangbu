@@ -550,7 +550,7 @@ var Receipt = (function () {
     });
     el('lEmail').onclick = function () { emailStep(g, onReady); };
     el('lCode').onclick = function () { kidStep(g, onReady); };
-    el('lOld').onclick = function () { if (window.NativeApp && NativeApp.setStart) NativeApp.setStart('https://zkskslsk-del.github.io/gagyebu/'); location.href = '../?app=1'; };
+    el('lOld').onclick = function () { if (window.NativeApp && NativeApp.setStart) NativeApp.setStart('https://oddman-kr.github.io/tukjangbu/'); location.href = '../?app=1'; };
   }
   // 휴대폰 알림용 이 기기 전용 열쇠 (한 번 만들면 폰에 보관)
   function deviceToken() {
@@ -1948,7 +1948,7 @@ function opsGate(){
   v.innerHTML = '<div class="card" style="text-align:center;padding:28px 18px;margin-top:30px"><div style="font-size:40px">' + (old ? '⬆️' : '🛠️') + '</div><h3 style="margin:10px 0 6px">' + (old ? '업데이트가 필요해요' : '잠시 점검 중이에요') + '</h3>' +
     '<div class="sm" style="white-space:pre-wrap;line-height:1.6">' + esc(old ? '더 안전하고 정확하게 쓰실 수 있도록 새 버전으로 바꿔 주세요.\n지금 버전: v1.0.' + appVersion() : (mt.message || '더 좋은 툭장부를 위해 서버를 손보고 있어요. 잠시 뒤 다시 열어 주세요.')) + '</div>' +
     (old ? '<button class="btn pri block" id="gateUpd" style="margin-top:16px">새 버전 받기</button>' : '<button class="btn ghost block" id="gateRe" style="margin-top:16px">다시 확인하기</button>') + '</div>';
-  var gu = $('#gateUpd'); if (gu) gu.onclick = function(){ var u = (LS.get('update', {}) || {}).url || 'https://github.com/zkskslsk-del/gagyebu/releases/latest'; NativeApp.openExternal(u); };
+  var gu = $('#gateUpd'); if (gu) gu.onclick = function(){ var u = (LS.get('update', {}) || {}).url || 'https://github.com/oddman-kr/tukjangbu/releases/latest'; NativeApp.openExternal(u); };
   var gr = $('#gateRe'); if (gr) gr.onclick = function(){ load(); };
   return true;
 }
@@ -2828,7 +2828,7 @@ function bindSettings(){
   };
   $('#memInvite').onclick = function(){
     if (window.BACKEND) return $('#memAdd').click();
-    var txt = '우리 가족 가계부 "툭장부"에 초대해요!\n1) 이 링크로 앱 설치: https://github.com/zkskslsk-del/gagyebu/releases/latest\n2) 앱을 열고 가족 비밀번호 입력 (따로 알려 줄게요)\n3) 내 이름을 고르면 끝!';
+    var txt = '우리 가족 가계부 "툭장부"에 초대해요!\n1) 이 링크로 앱 설치: https://github.com/oddman-kr/tukjangbu/releases/latest\n2) 앱을 열고 가족 비밀번호 입력 (따로 알려 줄게요)\n3) 내 이름을 고르면 끝!';
     var done = function(){ toast('초대 문구를 복사했어요. 카카오톡에 붙여 넣어 보내세요. 비밀번호는 따로 알려 주세요'); };
     try { navigator.clipboard.writeText(txt).then(done, function(){ prompt('복사해서 보내세요', txt); }); } catch (e) { prompt('복사해서 보내세요', txt); }
   };
@@ -2851,7 +2851,7 @@ function bindSettings(){
   $('#tAutoSave').onchange = function(){ LS.set('autoSave', this.checked); };
   $('#sReload').onclick = function(){ load().then(flush); };
   var da = $('#delAcc'); if (da) da.onclick = openDeleteAccount;
-  var tv = $('#toV2'); if (tv) tv.onclick = function(){ if (window.NativeApp && NativeApp.setStart) NativeApp.setStart('https://zkskslsk-del.github.io/gagyebu/v2/'); location.href = 'v2/?app=1'; };
+  var tv = $('#toV2'); if (tv) tv.onclick = function(){ if (window.NativeApp && NativeApp.setStart) NativeApp.setStart('https://oddman-kr.github.io/tukjangbu/v2/'); location.href = 'v2/?app=1'; };
   var io = $('#impOpen'); if (io) io.onclick = openImport;
   var po = $('#plusOpen'); if (po) po.onclick = function(){ openPlus(); };
   var fbKind = '불편';
@@ -3303,7 +3303,7 @@ function checkUpdate(manual){
   var last = LS.get('updCheckedAt', 0);
   if (!manual && Date.now() - last < 12 * 3600e3) return;
   LS.set('updCheckedAt', Date.now());
-  fetch('https://api.github.com/repos/zkskslsk-del/gagyebu/releases/latest', { headers: { Accept: 'application/vnd.github+json' } })
+  fetch('https://api.github.com/repos/oddman-kr/tukjangbu/releases/latest', { headers: { Accept: 'application/vnd.github+json' } })
     .then(function(r){ return r.json(); })
     .then(function(rel){
       var v = Number(String(rel.tag_name || '').replace(/\D/g, '')) || 0;
