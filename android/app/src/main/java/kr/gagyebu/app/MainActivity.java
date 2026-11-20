@@ -158,8 +158,9 @@ public class MainActivity extends Activity {
             requestPermissions(new String[]{Manifest.permission.RECORD_AUDIO}, REQ_MIC);
         }
 
-        if (savedInstanceState != null) web.restoreState(savedInstanceState);
-        else web.loadUrl(urlFor(getIntent()));
+        // 로그인 창에서 돌아올 때 앱이 다시 만들어졌으면, 예전 화면 복원보다 로그인 정보를 먼저 처리해요
+        if (savedInstanceState != null && !isAuthReturn(getIntent())) web.restoreState(savedInstanceState);
+        else { web.loadUrl(urlFor(getIntent())); consumeAuth(); }
     }
 
     // 처음 켤 때는 로그인 버전. '예전 방식으로 쓰기'를 고르면 그걸 기억해요
@@ -196,11 +197,19 @@ public class MainActivity extends Activity {
         }
     }
 
+    static boolean isAuthReturn(Intent i) {
+        Uri d = i == null ? null : i.getData();
+        return d != null && "tukjangbu".equals(d.getScheme()) && "auth-callback".equals(d.getHost());
+    }
+    // 같은 로그인 정보를 화면 회전 등으로 두 번 처리하지 않게 비워요
+    void consumeAuth() { if (isAuthReturn(getIntent())) setIntent(new Intent(getIntent()).setData(null)); }
+
     @Override
     protected void onNewIntent(Intent intent) {
         super.onNewIntent(intent);
+        setIntent(intent);
         Uri d = intent.getData();
-        if (d != null) web.loadUrl(urlFor(intent));
+        if (d != null) { web.loadUrl(urlFor(intent)); consumeAuth(); }
     }
 
     @Override
@@ -393,7 +402,7 @@ public class MainActivity extends Activity {
             try { SpendWidget.save(getApplicationContext(), json); } catch (Exception ignored) { }
         }
         @JavascriptInterface public void openAuth(final String url) { runOnUiThread(() -> openAuthTab(url)); }
-        @JavascriptInterface public String authRedirect() { return "https://oddman-kr.github.io/tukjangbu/auth-return.html"; }
+        @JavascriptInterface public String authRedirect() { return "tukjangbu://auth-callback"; }
         @JavascriptInterface public void setStart(final String url) {
             if (url != null && (url.equals(HOME_V1) || url.equals(HOME_V2))) getSharedPreferences("app", MODE_PRIVATE).edit().putString("start", url).apply();
         }
