@@ -171,8 +171,10 @@ public class MainActivity extends Activity {
         String HOME = home();
         // 카카오·네이버·구글 로그인이 끝나면 tukjangbu://auth-callback#access_token=... 으로 돌아와요 (예전 앱과 겹치지 않게 주소를 바꿨어요)
         if (d != null && "tukjangbu".equals(d.getScheme()) && "auth-callback".equals(d.getHost())) {
+            // 토큰은 주소 뒤 #(예전 방식) 또는 ?(로그인 완료 페이지에서 넘어올 때)에 있어요
             String f = d.getEncodedFragment();
-            return HOME_V2 + "?app=1" + (f != null ? "#" + f : "");
+            if (f == null || f.isEmpty()) f = d.getEncodedQuery();
+            return HOME_V2 + "?app=1" + (f != null && !f.isEmpty() ? "#" + f : "");
         }
         if (q != null && q.contains("voice=1")) return HOME + "?voice=1&app=1";
         if (q != null && q.contains("manual=1")) return HOME + "?manual=1&app=1";
@@ -391,7 +393,7 @@ public class MainActivity extends Activity {
             try { SpendWidget.save(getApplicationContext(), json); } catch (Exception ignored) { }
         }
         @JavascriptInterface public void openAuth(final String url) { runOnUiThread(() -> openAuthTab(url)); }
-        @JavascriptInterface public String authRedirect() { return "tukjangbu://auth-callback"; }
+        @JavascriptInterface public String authRedirect() { return "https://oddman-kr.github.io/tukjangbu/auth-return.html"; }
         @JavascriptInterface public void setStart(final String url) {
             if (url != null && (url.equals(HOME_V1) || url.equals(HOME_V2))) getSharedPreferences("app", MODE_PRIVATE).edit().putString("start", url).apply();
         }
