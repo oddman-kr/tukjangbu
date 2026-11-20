@@ -598,7 +598,7 @@ var Receipt = (function () {
       '<button class="lbtn email" id="lEmail">이메일로 시작하기</button></div>' +
       '<div class="sub"><button id="lCode">초대 코드로 들어가기</button><i></i><button id="lOld">예전 방식으로 쓰기</button></div>' +
       '<div class="legal">시작하면 <a href="../terms.html" target="_blank">이용약관</a>과 <a href="../privacy.html" target="_blank">개인정보 처리방침</a>에 동의하게 돼요.</div>' +
-      '<div class="ver">화면 버전 2026.11.20f</div></div>';
+      '<div class="ver">화면 버전 2026.11.21a</div></div>';
     providers().then(function (ext) {
       g.querySelectorAll('[data-p]').forEach(function (b) {
         var p = b.dataset.p;
@@ -1446,7 +1446,7 @@ function toast(msg, actLabel, actFn, ms){
   t.classList.add('on'); clearTimeout(toast._t); toast._t = setTimeout(function(){ t.classList.remove('on'); }, ms || (actFn ? 5000 : 2400));
 }
 function haptic(){ try { if (window.NativeApp && NativeApp.vibrate) NativeApp.vibrate(); else if (navigator.vibrate) navigator.vibrate(12); } catch (e) {} }
-var WEB_VER = '2026.11.20f';
+var WEB_VER = '2026.11.21a';
 (function(){ try { var v = window.NativeApp ? Number(NativeApp.version()) : 0; var a = (navigator.userAgent.match(/Android (\d+)/) || [])[1]; if (v && v <= 6 && Number(a) >= 15) document.documentElement.classList.add('old-native'); } catch (e) {} })();
 var errShown = 0;
 function logErr(kind, msg, where){
@@ -1804,6 +1804,7 @@ function summaryCard(m, mode){
   var remain = bud - exp;
   var cls = pct >= 1 ? 'bad' : pct >= 0.85 ? 'warn' : '';
   var fc = isCur && mode && !isKid() ? forecast() : null, fcH = '';
+  var kidAl = isKid() && isCur ? allowLeft(S.me) : null;
   if (fc && fc.total > exp) fcH = '<div class="fc"><span>🔮</span><div>이 속도면 이번 달 <b class="num">' + won(fc.total) + '원</b> 정도 쓸 것 같아요' + (bud && fc.total > bud ? ' · <b style="color:var(--bad)">예산보다 ' + won(fc.total - bud) + '원 많아요</b>' : '') + '<div class="faint xs">' + fc.basis + ' · 정기지출 포함</div></div></div>';
   return '<div class="card' + (mode ? ' hero' : '') + '">' + (mode ? sumTabs('month') : '') +
     '<div class="row between"><span class="muted sm">' + (isCur ? '이번 달' : mLabel(m)) + ' 지출' + (periodRange(m) ? ' <span class="faint xs">' + periodRange(m) + '</span>' : '') + '</span>' + (bud ? '<span class="faint xs">예산 ' + won(bud) + '원</span>' : '') + '</div>' +
@@ -1811,7 +1812,8 @@ function summaryCard(m, mode){
     (bud ? '<div class="bar"><i class="' + cls + '" style="width:' + Math.min(100, pct * 100).toFixed(1) + '%"></i></div>' +
       '<div class="sm ' + (remain < 0 ? '' : 'muted') + '" style="' + (remain < 0 ? 'color:var(--bad)' : '') + '">' +
       (remain >= 0 ? '남은 예산 <b class="num">' + won(remain) + '원</b>' + (isCur && left > 0 ? ' · 하루 <b class="num">' + won(remain / left) + '원</b>씩 쓸 수 있어요 (' + left + '일 남음)' : '') : '예산을 <b class="num">' + won(-remain) + '원</b> 넘었어요') + '</div>' : '') +
-    '<div class="sumrow" style="margin-top:12px"><div><div class="k">수입</div><div class="v amt-수입">' + won(inc) + '</div></div><div><div class="k">저축·투자</div><div class="v amt-저축">' + won(sav) + '</div></div><div><div class="k">남은 돈</div><div class="v">' + won(inc - exp - sav) + '</div></div></div>' + fcH +
+    (kidAl ? '<div class="sumrow" style="margin-top:12px"><div><div class="k">' + (kidAl.p === '주' ? '이번 주' : '이번 달') + ' 용돈</div><div class="v">' + won(kidAl.total) + '</div></div><div><div class="k">쓴 용돈</div><div class="v">' + won(kidAl.used) + '</div></div><div><div class="k">남은 용돈</div><div class="v">' + won(kidAl.left) + '</div></div></div>'
+      : '<div class="sumrow" style="margin-top:12px"><div><div class="k">' + (isKid() ? '받은 돈' : '수입') + '</div><div class="v amt-수입">' + won(inc) + '</div></div><div><div class="k">' + (isKid() ? '모은 돈' : '저축·투자') + '</div><div class="v amt-저축">' + won(sav) + '</div></div><div><div class="k">남은 돈</div><div class="v">' + won(inc - exp - sav) + '</div></div></div>') + fcH +
     '</div>';
 }
 function sumTabs(on){ return '<div class="seg sm2" style="margin-bottom:10px" role="tablist"><button data-sm="month" class="' + (on === 'month' ? 'on' : '') + '">이번 달</button><button data-sm="year" class="' + (on === 'year' ? 'on' : '') + '">올해</button></div>'; }
