@@ -1,5 +1,5 @@
 // 구글 플레이 구독 영수증 확인 → subscriptions 표에 기록 (서버만 쓸 수 있어요)
-// 필요한 비밀값: GOOGLE_PLAY_SA (플레이 콘솔에 연결한 서비스 계정 JSON), PLAY_PACKAGE (기본 kr.gagyebu.app)
+// 필요한 비밀값: GOOGLE_PLAY_SA (플레이 콘솔에 연결한 서비스 계정 JSON), PLAY_PACKAGE (기본 kr.oddman.tukjangbu)
 import { createClient } from "npm:@supabase/supabase-js@2.45.4";
 
 const cors = { "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type" };
@@ -40,7 +40,7 @@ Deno.serve(async (req) => {
 
     const saRaw = Deno.env.get("GOOGLE_PLAY_SA");
     if (!saRaw) return json({ ok: false, message: "결제 확인 준비가 아직 안 됐어요" }, 503);
-    const pkg = Deno.env.get("PLAY_PACKAGE") ?? "kr.gagyebu.app";
+    const pkg = Deno.env.get("PLAY_PACKAGE") ?? "kr.oddman.tukjangbu";
     const tok = await googleToken(JSON.parse(saRaw));
     const g = await fetch(`https://androidpublisher.googleapis.com/androidpublisher/v3/applications/${pkg}/purchases/subscriptionsv2/tokens/${encodeURIComponent(purchaseToken)}`,
       { headers: { Authorization: "Bearer " + tok } }).then((x) => x.json());
@@ -54,7 +54,7 @@ Deno.serve(async (req) => {
     if (other) return json({ ok: false, message: "이미 다른 가계부에서 쓰인 결제예요" }, 409);
 
     await admin.from("subscriptions").upsert({ household_id: household, plan: "plus", period: PRODUCTS[productId], status: "active", expires_at: line.expiryTime ?? null,
-      source: "google_play", purchase_token: purchaseToken, product_id: productId, updated_at: new Date().toISOString() }, { onConflict: "household_id" });
+      source: "play", purchase_token: purchaseToken, product_id: productId, updated_at: new Date().toISOString() }, { onConflict: "household_id" });
 
     // 확인(acknowledge)하지 않으면 3일 뒤 구글이 자동 환불해요
     if (g.acknowledgementState === "ACKNOWLEDGEMENT_STATE_PENDING") {

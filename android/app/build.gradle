@@ -4,7 +4,7 @@ android {
     namespace 'kr.gagyebu.app'
     compileSdk 36
     defaultConfig {
-        applicationId 'kr.gagyebu.app'
+        applicationId 'kr.oddman.tukjangbu'
         minSdk 26
         targetSdk 36
         def runNo = System.getenv('GITHUB_RUN_NUMBER') ?: '1'
