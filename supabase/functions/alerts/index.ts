@@ -51,6 +51,25 @@ Deno.serve(async (req) => {
       (ns ?? []).filter((n) => (!n.ends_at || n.ends_at > nowIso) && (n.audience === "all" || (n.audience === "paid") === !!(sub && sub.plan !== "free" && sub.status === "active" && (!sub.expires_at || Date.parse(sub.expires_at) > Date.now())))).forEach((n) => out.push({ id: "notice_" + n.id, title: "📢 " + n.title, body: (n.body || "앱에서 확인해 보세요").slice(0, 120) }));
       (fbs ?? []).forEach((f) => out.push({ id: "reply_" + f.id + "_" + f.replied_at, title: "보내 주신 의견에 답이 왔어요", body: String(f.reply).slice(0, 120) }));
     }
+    // 가족톡: 내 내역이나 내가 댓글 단 내역에 다른 가족이 단 댓글, 다른 가족이 남긴 메모 (최근 3일)
+    {
+      const from = since && since > new Date(Date.now() - 3 * 864e5).toISOString() ? since : new Date(Date.now() - 3 * 864e5).toISOString();
+      const [{ data: cms }, { data: notes }] = await Promise.all([
+        db.from("tx_comments").select("id,tx_id,member_id,body,created_at").eq("household_id", hh).gt("created_at", from).neq("member_id", me.id).limit(50),
+        db.from("family_notes").select("id,member_id,body,adults_only,created_at").eq("household_id", hh).gt("created_at", from).neq("member_id", me.id).limit(20),
+      ]);
+      if (cms && cms.length) {
+        const ids = [...new Set(cms.map((c) => c.tx_id))];
+        const [{ data: txs }, { data: mine }] = await Promise.all([
+          db.from("transactions").select("id,member_id,description,category").in("id", ids),
+          db.from("tx_comments").select("tx_id").in("tx_id", ids).eq("member_id", me.id),
+        ]);
+        const joined = new Set((mine ?? []).map((x) => x.tx_id));
+        cms.forEach((c) => { const t = (txs ?? []).find((x) => x.id === c.tx_id); if (!t || !(t.member_id === me.id || joined.has(t.id))) return;
+          out.push({ id: "talk_c_" + c.id, title: name(c.member_id) + "님이 “" + (t.description || t.category || "내역") + "”에 댓글을 남겼어요", body: String(c.body).slice(0, 120) }); });
+      }
+      (notes ?? []).filter((n) => !n.adults_only || me.role !== "child").forEach((n) => out.push({ id: "talk_n_" + n.id, title: "📝 " + name(n.member_id) + "님이 가족 메모를 남겼어요", body: String(n.body).slice(0, 120) }));
+    }
     if (me.role === "child") return json({ alerts: out });
     // 1) 나에게 온 사 주세요 요청 (아이 → 어른 누구나, 어른 → 지정한 사람)
     const { data: reqs } = await db.from("wishes").select("client_id,id,name,price,reason,request_msg,requested_by,requested_to").eq("household_id", hh).eq("status", "요청");

@@ -266,13 +266,16 @@ var Receipt = (function () {
           return Promise.all([
             q('transactions', 'select=*&' + hhf() + '&deleted_at=is.null&date=gte.' + sinceS + '&order=date.desc&limit=5000'),
             adult ? rpc('hidden_personal_tx', { p_household: ctx.hh, p_from: sinceS, p_to: '2999-12-31' }).catch(function () { return []; }) : Promise.resolve([]),
-            Promise.all(ctx.members.filter(function (m) { return m.avatar_path; }).map(function (m) { return signedAvatar(m.avatar_path).then(function (u) { return [m.display_name, u]; }); }))
+            Promise.all(ctx.members.filter(function (m) { return m.avatar_path; }).map(function (m) { return signedAvatar(m.avatar_path).then(function (u) { return [m.display_name, u]; }); })),
+            q('tx_comments', 'select=id,tx_id,member_id,body,created_at&' + hhf() + '&created_at=gte.' + sinceS + '&order=created_at.asc&limit=3000').catch(function () { return []; }),
+            q('family_notes', 'select=*&' + hhf() + '&order=created_at.desc&limit=200').catch(function () { return []; })
           ]).then(function (b) {
             var lid = ctx.ledger ? ctx.ledger.id : null, isDef = !ctx.ledger || ctx.ledger.is_default;
             var tx = b[0].filter(function (t) { return isDef ? (!t.ledger_id || t.ledger_id === lid) : t.ledger_id === lid; });
             var d = build(me, a[0][0], a[1], isDef ? rec : [], a[3], a[4], tx, isDef ? b[1] : [], b[2]);
             d.ledgers = ctx.ledgers.map(function (l) { return { id: l.id, name: l.name, kind: l.kind, currency: l.currency, isDefault: l.is_default, starts: l.starts_on, ends: l.ends_on }; });
             d.ledger = lid; d.fx = ctx.fx || null;
+            d.talk = talkOf(b[0], b[3], b[4]);
             var conf = {}; (a[9] || []).forEach(function (x) { conf[x.key] = x.value; });
             d.plan = planOf(a[0][0], (a[6] || [])[0], (a[7] || [])[0], conf.free_limits);
             // 운영 공지·점검·최소 버전, 내가 보낸 의견과 답변
@@ -313,6 +316,23 @@ var Receipt = (function () {
         target: Number(w.target) || 0, status: w.status, by: memName(w.requested_by), msg: w.request_msg || '', reply: w.reply || '', handledBy: memName(w.handled_by),
         created: w.created_at || '', handled: w.handled_at || '', reason: w.reason || '', needBy: w.need_by || '', to: w.requested_to ? memName(w.requested_to) : '' }; })
     };
+  }
+
+  /* ---------- 가족톡: 내역 댓글과 가족 메모판 ---------- */
+  function talkOf(txRows, cms, notes) {
+    var key = {}; (txRows || []).forEach(function (t) { key[t.id] = t.client_id || t.id; });
+    var comments = {};
+    (cms || []).forEach(function (c) { var k = key[c.tx_id]; if (!k) return; (comments[k] = comments[k] || []).push(cmOut(c)); });
+    return { comments: comments, notes: (notes || []).map(noteOut) };
+  }
+  function cmOut(c) { return { id: c.id, who: memName(c.member_id), body: c.body, at: c.created_at, mine: c.member_id === ctx.meId }; }
+  function noteOut(n) { return { id: n.id, who: memName(n.member_id), body: n.body, pinned: !!n.pinned, adultsOnly: !!n.adults_only, done: !!n.done, at: n.created_at, updated: n.updated_at, mine: n.member_id === ctx.meId }; }
+  function addComment(p) { return rpc('add_tx_comment', { p_household: ctx.hh, p_tx_key: String(p.txId), p_body: String(p.body || '').slice(0, 500) }).then(function (r) { return { ok: true, comment: cmOut(Array.isArray(r) ? r[0] : r) }; }); }
+  function saveNote(n) {
+    var row = { body: String(n.body || '').slice(0, 1000), pinned: !!n.pinned, adults_only: !!n.adultsOnly, done: !!n.done, updated_at: new Date().toISOString() };
+    if (n.id) return upd('family_notes', 'id=eq.' + n.id, row).then(function () { return { ok: true }; });
+    row.household_id = ctx.hh; row.member_id = ctx.meId;
+    return ins('family_notes', [row], true).then(function (r) { return { ok: true, note: noteOut(r[0]) }; });
   }
 
   /* ---------- 툭장부 플러스: 구독 또는 무료 체험 중인지 ---------- */
@@ -490,6 +510,10 @@ var Receipt = (function () {
       case 'deleteAccount': return req('/functions/v1/delete-account', { method: 'POST', body: { confirm: p.confirm, reason: p.reason || '' } }).then(function (o) { if (!o || !o.ok) throw new Error((o && o.message) || '삭제 실패'); setSess(null); try { localStorage.removeItem('tuk_dev_token'); localStorage.removeItem('tuk_ledger'); } catch (e) {} return o; });
       case 'importRun': return importRun(p);
       case 'verifyPurchase': return req('/functions/v1/play-verify', { method: 'POST', body: { household: ctx.hh, productId: p.productId, purchaseToken: p.purchaseToken } }).then(function (o) { if (!o || !o.ok) throw new Error((o && o.message) || '확인 실패'); return o; });
+      case 'addComment': return addComment(p);
+      case 'delComment': return del('tx_comments', 'id=eq.' + p.id).then(function () { return { ok: true }; });
+      case 'saveNote': return saveNote(p.note || {});
+      case 'delNote': return del('family_notes', 'id=eq.' + p.id).then(function () { return { ok: true }; });
       case 'feedbackSeen': return rpc('mark_feedback_seen', {}).then(function () { return { ok: true }; });
       case 'feedback': return ins('feedback', { household_id: ctx.hh, kind: p.kind, body: String(p.text || '').slice(0, 2000), contact: p.contact || null, app_ver: p.ver || null, device: p.device || null }).then(function () { return { ok: true }; });
       case 'update': return update(p.tx);
@@ -835,6 +859,12 @@ textarea.say:focus{border-color:var(--pri)}
 .seg button.on{background:var(--card);color:var(--ink);box-shadow:var(--shadow)}
 .seg.sm2 button{padding:6px;font-size:13px}
 .fc{display:flex;gap:8px;align-items:flex-start;margin-top:12px;padding:10px 12px;border-radius:12px;background:var(--bg);font-size:14px;line-height:1.5}
+.cmt{display:inline-block;margin-left:6px;font-size:11.5px;color:var(--pri);font-weight:700;vertical-align:1px}
+.talk{display:flex;gap:8px;align-items:flex-start;margin:8px 0}.talk .bub{background:var(--chip);border-radius:4px 14px 14px 14px;padding:7px 11px;font-size:14px;white-space:pre-wrap;word-break:break-word;max-width:100%}
+.talk.mine{flex-direction:row-reverse}.talk.mine .bub{background:var(--pri);color:#fff;border-radius:14px 4px 14px 14px}
+.talk .meta{font-size:11px;color:var(--ink3);margin-top:2px}.talk.mine .meta{text-align:right}
+.note{border-top:1px solid var(--line);padding:10px 0}.note:first-child{border-top:0}.note.done .nb{color:var(--ink3);text-decoration:line-through}
+.note .nb{white-space:pre-wrap;word-break:break-word;font-size:14.5px}.note .nm{font-size:11.5px;color:var(--ink3);margin-top:3px;display:flex;gap:6px;flex-wrap:wrap;align-items:center}
 .ptag{display:inline-block;margin-left:6px;padding:1px 6px;border-radius:6px;font-size:11px;font-weight:600;background:var(--chip);color:var(--ink2);vertical-align:1px}
 .pill.sc-개인{background:var(--pri-soft);font-weight:600}
 details.fold>summary{display:flex;align-items:center;gap:8px;cursor:pointer;list-style:none}
@@ -1337,7 +1367,7 @@ function toast(msg, actLabel, actFn, ms){
   t.classList.add('on'); clearTimeout(toast._t); toast._t = setTimeout(function(){ t.classList.remove('on'); }, ms || (actFn ? 5000 : 2400));
 }
 function haptic(){ try { if (window.NativeApp && NativeApp.vibrate) NativeApp.vibrate(); else if (navigator.vibrate) navigator.vibrate(12); } catch (e) {} }
-var WEB_VER = '2026.11.18x';
+var WEB_VER = '2026.11.20a';
 (function(){ try { var v = window.NativeApp ? Number(NativeApp.version()) : 0; var a = (navigator.userAgent.match(/Android (\d+)/) || [])[1]; if (v && v <= 6 && Number(a) >= 15) document.documentElement.classList.add('old-native'); } catch (e) {} })();
 var errShown = 0;
 function logErr(kind, msg, where){
@@ -1612,6 +1642,7 @@ var ALERTS = [
   ['rec', '정기 지출 미리 알림', '정한 날짜 며칠 전에 알려 줘요', 'adult'],
   ['allow', '자녀 용돈 절반 이하', '아이 용돈이 절반 남거나 다 떨어지면 알려 줘요', 'adult'],
   ['bill', '카드 결제일 알림', '결제일 이틀 전에 청구 예정 금액을 알려 줘요', 'adult'],
+  ['talk', '가족톡 (댓글·메모)', '가족이 내역에 댓글을 달거나 메모를 남기면 알려 줘요', 'all'],
   ['update', '새 버전 안내', '앱 업데이트가 나오면 알려 줘요', 'all'],
   ['notice', '툭장부 소식', '새 기능·점검·이벤트 공지를 알려 줘요', 'all'],
   ['reply', '내 의견에 온 답변', '보내 주신 의견에 답이 오면 알려 줘요', 'all']
@@ -1796,6 +1827,7 @@ function homeHTML(){
       '<input type="file" id="rcCamIn" accept="image/*" capture="environment" hidden><input type="file" id="rcPickIn" accept="image/*" hidden>' +
       (fq.length ? '<div class="faint xs" style="margin-top:12px">자주 쓰는 내역 · 누르면 바로 입력</div><div class="quick">' + fq.map(function(t, i){ return '<button data-fq="' + i + '">' + icon(t.category) + ' ' + esc(t.desc) + '<small>' + won(t.amount) + '원</small></button>'; }).join('') + '</div>' : '') +
     '</div>' +
+    notesCardHTML() +
     '<div class="card"><div class="row between"><h3 style="margin:0">최근 내역</h3><button class="btn ghost sm" style="padding:6px 10px" id="seeAll">전체 보기</button></div>' +
       '<div class="list">' + (recent.length ? recent.map(itemHTML).join('') : '<div class="empty">아직 내역이 없어요. 위에 첫 지출을 입력해 보세요.</div>') + '</div></div>';
 }
@@ -1907,6 +1939,87 @@ function bindCards(){
   document.querySelectorAll('[data-bill]').forEach(function(b){ b.onclick = function(){ var c = cardOf(b.dataset.bill); if (c) openBill(c); }; });
   document.querySelectorAll('[data-billx]').forEach(function(b){ b.onclick = function(){ var sn = LS.get('billSeen', {}); sn[b.dataset.billx] = 1; LS.set('billSeen', sn); render(); }; });
   var bs = $('#billSetup'); if (bs) bs.onclick = function(){ var c = cards().filter(function(x){ return (x.kind || '신용') === '신용'; })[0]; if (c) editCard(payInfo(c.name), true); };
+}
+
+/* ---------- 가족톡: 내역 댓글 · 가족 메모판 (로그인 버전) ---------- */
+function talkOn(){ return !!(window.BACKEND && S.data && S.data.talk); }
+function talk(){ if (!S.data.talk) S.data.talk = { comments: {}, notes: [] }; return S.data.talk; }
+function cmCount(id){ var c = S.data && S.data.talk && S.data.talk.comments[id]; return c ? c.length : 0; }
+function relTime(at){
+  var d = new Date(at), sec = (Date.now() - d.getTime()) / 1000;
+  if (!(sec >= 0)) return '';
+  if (sec < 60) return '방금'; if (sec < 3600) return Math.floor(sec / 60) + '분 전'; if (sec < 86400) return Math.floor(sec / 3600) + '시간 전';
+  return (d.getMonth() + 1) + '월 ' + d.getDate() + '일';
+}
+function commentsInto(box, txId){
+  var list = talk().comments[txId] || [];
+  box.innerHTML = '<div class="faint xs" style="margin-bottom:4px">💬 가족톡 · 이 내역에 대해 이야기해요</div>' +
+    (list.length ? list.map(function(c){ return '<div class="talk' + (c.mine ? ' mine' : '') + '">' + avatar(c.who, 26) + '<div style="min-width:0"><div class="bub">' + esc(c.body) + '</div><div class="meta">' + esc(c.who) + ' · ' + relTime(c.at) +
+      (c.mine || !isKid() ? ' · <button class="x" data-cdel="' + esc(c.id) + '" style="font-size:11px;padding:0;color:inherit">지우기</button>' : '') + '</div></div></div>'; }).join('') : '<div class="faint sm" style="margin:6px 0">아직 댓글이 없어요. “이건 뭐야?”처럼 물어보세요.</div>') +
+    '<div class="row" style="gap:6px;margin-top:8px"><input class="inp grow" id="cmIn" maxlength="500" placeholder="댓글 쓰기" style="margin:0"><button class="btn pri" id="cmSend">보내기</button></div>';
+  var inp = box.querySelector('#cmIn'), send = box.querySelector('#cmSend');
+  var go = function(){
+    var t = inp.value.trim(); if (!t) return;
+    send.disabled = true;
+    call('addComment', { txId: txId, body: t }).then(function(r){
+      (talk().comments[txId] = talk().comments[txId] || []).push(r.comment || { id: 'tmp' + Date.now(), who: S.me, body: t, at: new Date().toISOString(), mine: true });
+      LS.set('cache', S.data); haptic(); commentsInto(box, txId); render();
+    }).catch(function(e){ toast(/찾지 못/.test(e.message) ? '방금 입력한 내역은 저장이 끝난 뒤에 댓글을 달 수 있어요' : '댓글을 보내지 못했어요'); send.disabled = false; });
+  };
+  send.onclick = go; inp.onkeydown = function(ev){ if (ev.key === 'Enter' && !ev.isComposing) { ev.preventDefault(); go(); } };
+  box.querySelectorAll('[data-cdel]').forEach(function(b){ b.onclick = function(){
+    if (b.dataset.sure !== '1') { b.dataset.sure = '1'; b.textContent = '정말 지우기'; return; }
+    call('delComment', { id: b.dataset.cdel }).then(function(){ talk().comments[txId] = (talk().comments[txId] || []).filter(function(c){ return c.id !== b.dataset.cdel; }); LS.set('cache', S.data); commentsInto(box, txId); render(); }).catch(function(){ toast('지우지 못했어요'); });
+  }; });
+}
+function notesSorted(){ return talk().notes.slice().sort(function(a, b){ if (a.done !== b.done) return a.done ? 1 : -1; if (a.pinned !== b.pinned) return a.pinned ? -1 : 1; return a.at < b.at ? 1 : -1; }); }
+function noteHTML(n, full){
+  return '<div class="note' + (n.done ? ' done' : '') + '"><div class="row" style="gap:8px;align-items:flex-start">' + (n.pinned ? '<span title="고정">📌</span>' : '') + '<div class="grow" style="min-width:0"><div class="nb">' + esc(n.body) + '</div>' +
+    '<div class="nm">' + avatar(n.who, 18) + esc(n.who) + ' · ' + relTime(n.updated || n.at) + (n.adultsOnly ? ' · <span class="ptag" style="margin:0">어른만</span>' : '') + '</div></div>' +
+    (full ? '<button class="btn ghost sm" data-ned="' + esc(n.id) + '" style="padding:4px 8px">' + (n.mine || !isKid() ? '고치기' : '보기') + '</button>' : '') + '</div></div>';
+}
+function notesCardHTML(){
+  if (!talkOn()) return '';
+  var ns = notesSorted().filter(function(n){ return !n.done; }), top = ns.slice(0, 3);
+  return '<div class="card"><div class="row between" style="margin-bottom:4px"><h3 style="margin:0">📝 가족 메모판</h3><div class="row" style="gap:6px">' + (talk().notes.length ? '<button class="btn ghost sm" style="padding:6px 10px" id="noteAll">전체 ' + talk().notes.length + '</button>' : '') + '<button class="btn ghost sm" style="padding:6px 10px" id="noteNew">+ 메모</button></div></div>' +
+    (top.length ? top.map(function(n){ return noteHTML(n, false); }).join('') + (ns.length > 3 ? '<div class="faint xs" style="margin-top:6px">그 밖에 ' + (ns.length - 3) + '개 더 있어요</div>' : '') : '<div class="faint sm">“이번 달 외식 줄이기”, “다음 주 부모님 용돈 20만 원”처럼 가족이 같이 볼 메모를 남겨요.</div>') + '</div>';
+}
+function bindNotesCard(){
+  var a = $('#noteAll'); if (a) a.onclick = openNotes;
+  var n = $('#noteNew'); if (n) n.onclick = function(){ editNote(null); };
+}
+function openNotes(){
+  var sh = $('#sheet');
+  sh.innerHTML = '<div class="row between"><h3 style="margin:0">📝 가족 메모판</h3><button class="x" id="nClose" style="font-size:24px" aria-label="닫기">×</button></div>' +
+    '<button class="btn pri block" id="nNew" style="margin:12px 0 4px">+ 새 메모</button>' +
+    (talk().notes.length ? notesSorted().map(function(n){ return noteHTML(n, true); }).join('') : '<div class="empty">아직 메모가 없어요.</div>');
+  $('#nClose').onclick = closeSheet; $('#nNew').onclick = function(){ editNote(null); };
+  sh.querySelectorAll('[data-ned]').forEach(function(b){ b.onclick = function(){ editNote(talk().notes.filter(function(n){ return n.id === b.dataset.ned; })[0]); }; });
+  $('#sheetBg').classList.add('on');
+}
+function editNote(n){
+  var isNew = !n, e = n ? JSON.parse(JSON.stringify(n)) : { body: '', pinned: false, adultsOnly: false, done: false }, can = isNew || n.mine || !isKid(), sh = $('#sheet');
+  sh.innerHTML = '<div class="row between"><h3 style="margin:0">' + (isNew ? '새 메모' : '메모') + '</h3><button class="x" id="nmClose" style="font-size:24px" aria-label="닫기">×</button></div>' +
+    '<div class="fld"><textarea class="inp" id="nmBody" rows="4" maxlength="1000" placeholder="예) 이번 달 외식은 2번까지만!"' + (can ? '' : ' readonly') + '>' + esc(e.body) + '</textarea></div>' +
+    (can ? '<div class="chips"><button class="chip' + (e.pinned ? ' on' : '') + '" data-nt="pinned">📌 맨 위에 고정</button>' + (!isKid() ? '<button class="chip' + (e.adultsOnly ? ' on' : '') + '" data-nt="adultsOnly">🔒 어른만 보기</button>' : '') + (isNew ? '' : '<button class="chip' + (e.done ? ' on' : '') + '" data-nt="done">✓ 끝났어요</button>') + '</div>' +
+      '<div class="row" style="margin-top:12px">' + (isNew ? '' : '<button class="btn danger" id="nmDel">삭제</button>') + '<button class="btn pri grow" id="nmSave">저장</button></div>' : '<div class="faint xs">' + esc(n.who) + '님이 쓴 메모예요.</div>');
+  $('#nmClose').onclick = function(){ isNew ? closeSheet() : openNotes(); };
+  sh.querySelectorAll('[data-nt]').forEach(function(b){ b.onclick = function(){ e[b.dataset.nt] = !e[b.dataset.nt]; b.classList.toggle('on', e[b.dataset.nt]); }; });
+  var sv = $('#nmSave'); if (sv) sv.onclick = function(){
+    e.body = $('#nmBody').value.trim(); if (!e.body) return toast('메모를 적어 주세요');
+    sv.disabled = true;
+    call('saveNote', { note: e }).then(function(r){
+      if (isNew) talk().notes.unshift(r.note || { id: 'tmp' + Date.now(), who: S.me, body: e.body, pinned: e.pinned, adultsOnly: e.adultsOnly, done: false, at: new Date().toISOString(), mine: true });
+      else talk().notes = talk().notes.map(function(x){ return x.id === e.id ? Object.assign(x, e, { updated: new Date().toISOString() }) : x; });
+      LS.set('cache', S.data); haptic(); closeSheet(); render(); toast(isNew ? '메모를 남겼어요' : '메모를 고쳤어요');
+    }).catch(function(){ toast('저장하지 못했어요. 인터넷 연결을 확인해 주세요'); sv.disabled = false; });
+  };
+  var dl = $('#nmDel'); if (dl) dl.onclick = function(){
+    if (dl.dataset.sure !== '1') { dl.dataset.sure = '1'; dl.textContent = '정말 삭제'; return; }
+    call('delNote', { id: e.id }).then(function(){ talk().notes = talk().notes.filter(function(x){ return x.id !== e.id; }); LS.set('cache', S.data); closeSheet(); render(); toast('메모를 지웠어요'); }).catch(function(){ toast('지우지 못했어요'); });
+  };
+  $('#sheetBg').classList.add('on');
+  if (isNew) setTimeout(function(){ var b = $('#nmBody'); if (b) b.focus(); }, 80);
 }
 
 /* ---------- 운영: 공지, 의견 답변, 점검, 강제 업데이트 (로그인 버전) ---------- */
@@ -2136,7 +2249,7 @@ function itemHTML(t){
   var sign = t.type === '지출' ? '-' : t.type === '수입' ? '+' : '';
   var hid = masked(t);
   var sub = (hid ? [esc('개인 용돈'), esc(t.who)] : [esc(t.category), t.method ? payDot(t.method) + esc(t.method) : '', esc(t.who)]).filter(Boolean).join(' · ') + (instOf(t) ? ' · ' + esc(instOf(t)) : '');
-  return '<div class="item' + (hid ? ' locked' : '') + '" data-id="' + esc(t.id) + '"><div class="ico">' + (hid ? '🔒' : icon(t.category)) + '</div><div class="grow"><div class="t">' + esc(hid ? '개인 지출' : (t.desc || t.category)) + (t.scope === '개인' && t.type === '지출' && !hid ? '<span class="ptag">개인</span>' : '') + '</div><div class="s">' + sub + '</div></div><div class="a amt-' + t.type + '">' + sign + won(t.amount) + '</div></div>';
+  return '<div class="item' + (hid ? ' locked' : '') + '" data-id="' + esc(t.id) + '"><div class="ico">' + (hid ? '🔒' : icon(t.category)) + '</div><div class="grow"><div class="t">' + esc(hid ? '개인 지출' : (t.desc || t.category)) + (t.scope === '개인' && t.type === '지출' && !hid ? '<span class="ptag">개인</span>' : '') + (!hid && cmCount(t.id) ? '<span class="cmt">💬' + cmCount(t.id) + '</span>' : '') + '</div><div class="s">' + sub + '</div></div><div class="a amt-' + t.type + '">' + sign + won(t.amount) + '</div></div>';
 }
 
 function catOptions(type, sel){
@@ -2261,6 +2374,7 @@ function saveItems(items){
 }
 
 function bindHome(){
+  bindNotesCard();
   bindOps();
   var say = $('#say');
   var tm;
@@ -2512,7 +2626,8 @@ function openEdit(t, prefill){
       (isNew && e.type === '지출' ? '<div class="fld"><label>할부</label><select class="inp" id="eInst">' + [1, 2, 3, 4, 5, 6, 10, 12, 18, 24].map(function(n){ return '<option value="' + n + '"' + (n === (e.inst || 1) ? ' selected' : '') + '>' + (n === 1 ? '일시불' : n + '개월') + '</option>'; }).join('') + '</select>' +
         (e.inst > 1 && e.amount ? '<div class="faint xs" style="margin-top:4px">매달 약 ' + won(Math.floor(e.amount / e.inst)) + '원씩 ' + e.inst + '번, 결제한 날과 같은 날짜로 기록돼요. 나중에 회차 하나를 지우면 그 뒤 회차도 함께 지워져요</div>' : '') + '</div>' : '') +
       (e.type === '지출' ? '<div class="fld"><label>누구 돈으로 썼나요?</label><div class="seg">' + [['공용', '가족 공용'], ['개인', '개인 용돈']].map(function(o){ return '<button data-sc="' + o[0] + '" class="' + (o[0] === e.scope ? 'on' : '') + '">' + o[1] + '</button>'; }).join('') + '</div></div>' : '') +
-      '<div class="row" style="margin-top:8px">' + (isNew ? '' : '<button class="btn danger" id="eDel">삭제</button>') + '<button class="btn pri grow" id="eSave">저장</button></div>';
+      '<div class="row" style="margin-top:8px">' + (isNew ? '' : '<button class="btn danger" id="eDel">삭제</button>') + '<button class="btn pri grow" id="eSave">저장</button></div>' +
+      (!isNew && talkOn() ? '<div id="cmBox" style="margin-top:16px;border-top:1px solid var(--line);padding-top:12px"></div>' : '');
     sh.querySelectorAll('[data-ty]').forEach(function(b){ b.onclick = function(){ pull(); e.type = b.dataset.ty; var c = cats(e.type); e.category = (c[0] || {}).name || ''; catTouched = true; draw(); }; });
     sh.querySelectorAll('[data-ca]').forEach(function(b){ b.onclick = function(){ pull(); e.category = b.dataset.ca; catTouched = true; draw(); }; });
     sh.querySelectorAll('[data-sc]').forEach(function(b){ b.onclick = function(){ pull(); e.scope = b.dataset.sc; draw(); }; });
@@ -2555,6 +2670,7 @@ function openEdit(t, prefill){
         toast('수정했어요', '되돌리기', function(){ if (!old) return; S.data.tx = S.data.tx.map(function(x){ return x.id === old.id ? old : x; }); queue({ op: 'update', tx: old }); render(); toast('수정을 되돌렸어요'); });
       }
     };
+    drawCm();
     var del = $('#eDel'); if (del) del.onclick = function(){
       if (del.dataset.sure !== '1') { del.dataset.sure = '1'; del.textContent = '정말 삭제'; return; }
       var gm = /^(.+)-\d+$/.exec(e.id), grp = instOf(e) && gm ? S.data.tx.filter(function(x){ return x.id.indexOf(gm[1] + '-') === 0 && x.date >= e.date; }) : [];
@@ -2569,6 +2685,7 @@ function openEdit(t, prefill){
       toast('삭제했어요', '실행 취소', function(){ if (!gone) return; S.data.tx.push(gone); queue({ op: 'add', items: [gone] }); render(); toast('삭제를 취소했어요'); });
     };
   }
+  function drawCm(){ var b = $('#cmBox'); if (b) commentsInto(b, e.id); }
   function pull(){
     var a = $('#eAmt'); if (!a) return;
     e.amount = digits(a.value); e.desc = $('#eDesc').value.trim(); e.date = $('#eDate').value || ymd(new Date());
