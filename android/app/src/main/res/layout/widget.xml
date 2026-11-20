@@ -19,7 +19,7 @@
             android:text="-" android:textSize="22sp" android:textStyle="bold" android:textColor="#1C1B19" android:maxLines="1" />
         <ProgressBar android:id="@+id/w_bar" style="?android:attr/progressBarStyleHorizontal"
             android:layout_width="match_parent" android:layout_height="6dp" android:layout_marginTop="4dp"
-            android:max="100" android:progress="0" android:progressTint="#2F4B7C" android:progressBackgroundTint="#E7E4DC" />
+            android:max="100" android:progress="0" android:progressTint="#3366E6" android:progressBackgroundTint="#E7E4DC" />
         <TextView android:id="@+id/w_sub" android:layout_width="wrap_content" android:layout_height="wrap_content"
             android:layout_marginTop="4dp" android:text="앱을 한 번 열면 표시돼요" android:textSize="12sp" android:textColor="#5F5C55" android:maxLines="1" />
     </LinearLayout>

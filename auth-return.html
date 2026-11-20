@@ -2,14 +2,14 @@
 <title>툭장부 로그인</title>
 <meta name="robots" content="noindex">
 <style>
-:root{--bg:#F6F7FA;--ink:#1B1E26;--ink2:#5A6070;--pri:#2F4B7C}
-@media (prefers-color-scheme:dark){:root{--bg:#121419;--ink:#ECEEF3;--ink2:#A9AFBC;--pri:#9DB8EA}}
+:root{--bg:#F2F4F8;--ink:#191F28;--ink2:#4E5968;--pri:#3366E6}
+@media (prefers-color-scheme:dark){:root{--bg:#121419;--ink:#ECEEF3;--ink2:#A9AFBC;--pri:#7AA2FF}}
 body{margin:0;background:var(--bg);color:var(--ink);font-family:"Pretendard","Apple SD Gothic Neo","Noto Sans KR",system-ui,sans-serif;display:grid;place-items:center;min-height:100vh;padding:0 20px;box-sizing:border-box;text-align:center}
 .box{max-width:360px;width:100%}
 h1{font-size:21px;margin:16px 0 6px}p{color:var(--ink2);font-size:15px;line-height:1.6;margin:0 0 22px}
 a.btn{display:block;background:var(--pri);color:#fff;text-decoration:none;font-weight:700;font-size:17px;padding:16px;border-radius:14px}
 a.sub{display:inline-block;margin-top:16px;color:var(--ink2);font-size:14px}
-.mark{width:64px;height:64px;border-radius:18px;background:#2F4B7C;display:inline-grid;place-items:center;color:#FFF8EF;font-weight:900;font-size:28px}
+.mark{width:64px;height:64px;border-radius:18px;background:linear-gradient(135deg,#5B8BF5,#2347BF);display:inline-grid;place-items:center;color:#fff;font-weight:900;font-size:28px}
 </style></head><body><div class="box" id="b"></div>
 <script>
 // 카카오·네이버·구글·메일 로그인이 끝나면 이 페이지로 와요. 토큰을 앱(툭장부)으로 넘겨줘요.
@@ -26,15 +26,18 @@ a.sub{display:inline-block;margin-top:16px;color:var(--ink2);font-size:14px}
     var q = {}; h.split('&').forEach(function (kv) { var i = kv.indexOf('='); if (i > 0) q[decodeURIComponent(kv.slice(0, i))] = decodeURIComponent(kv.slice(i + 1)); });
     fetch('https://tognnsgghtmnwfwksegp.supabase.co/functions/v1/auth-handoff', { method: 'POST', headers: { 'Content-Type': 'application/json', apikey: 'sb_publishable_VaTsnqKViXWOaoh3SmTd3g_VceRqIa9' },
       body: JSON.stringify({ op: 'put', n: nm[1], access_token: q.access_token, refresh_token: q.refresh_token, expires_in: q.expires_in }) })
-      .then(function (r) { var t = document.getElementById('st'); if (t) t.textContent = r.ok ? '앱으로 돌아가면 바로 로그인돼요.' : '잠시 뒤 다시 시도해 주세요.'; })
-      .catch(function () {});
+      .then(function (r) { var t = document.getElementById('st'); if (t) t.textContent = r.ok ? '앱으로 돌아가면 바로 로그인돼요.' : '잠시 뒤 다시 시도해 주세요.'; jump(); })
+      .catch(function () { jump(); });
   }
   b.innerHTML = '<div class="mark">툭</div><h1>' + (ok ? '로그인됐어요' : '로그인하지 못했어요') + '</h1>' +
     '<p id="st">' + (ok ? '툭장부 앱으로 돌아가세요.' : decodeURIComponent(err[1].replace(/\+/g, ' '))) + '</p>' +
     '<a class="btn" id="go" href="' + intent + '">툭장부 앱으로 돌아가기</a>' +
     (ok ? '<p style="margin-top:14px;font-size:13px">버튼이 안 되면 이 창을 닫거나(왼쪽 위 ×) 뒤로 가기를 눌러도 앱에서 로그인돼요.</p><a class="sub" href="' + app + '#' + h + '">앱이 없으면 웹에서 계속하기</a>' : '');
   // 크롬이 허락하면 바로 앱으로 넘어가요 (막히면 위 버튼을 누르면 돼요)
-  if (/Android/i.test(navigator.userAgent)) setTimeout(function () { location.href = intent; }, 150);
+  // 맡겨 두기가 끝나면 바로 앱으로 (늦어도 1.2초 뒤)
+  var jumped = false;
+  function jump() { if (jumped || !/Android/i.test(navigator.userAgent)) return; jumped = true; location.href = intent; }
+  if (/Android/i.test(navigator.userAgent)) setTimeout(jump, ok && nm ? 1200 : 150);
   else location.replace(app + '#' + h);
 })();
 </script></body></html>

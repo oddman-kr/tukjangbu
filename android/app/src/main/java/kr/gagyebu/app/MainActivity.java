@@ -89,9 +89,9 @@ public class MainActivity extends Activity {
         if (Build.VERSION.SDK_INT >= 29) { w.setNavigationBarContrastEnforced(false); w.setStatusBarContrastEnforced(false); }
 
         root = new FrameLayout(this);
-        root.setBackgroundColor(Color.parseColor("#F6F5F1"));
+        root.setBackgroundColor(Color.parseColor("#F2F4F8"));
         web = new WebView(this);
-        web.setBackgroundColor(Color.parseColor("#F6F5F1"));
+        web.setBackgroundColor(Color.parseColor("#F2F4F8"));
         root.addView(web, new FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT));
         setContentView(root);
         root.setOnApplyWindowInsetsListener((v, ins) -> {
@@ -408,6 +408,24 @@ public class MainActivity extends Activity {
         }
         @JavascriptInterface public void buy(final String productId) { runOnUiThread(() -> playBilling().buy(productId)); }
         @JavascriptInterface public void restorePurchases() { runOnUiThread(() -> playBilling().restore()); }
+        // 글 보내기: pkg가 있으면 그 앱(카카오톡 등)으로 바로, 없거나 설치 안 됐으면 공유 목록
+        @JavascriptInterface public boolean shareText(final String text, final String pkg) {
+            final boolean[] ok = { true };
+            runOnUiThread(() -> {
+                Intent i = new Intent(Intent.ACTION_SEND); i.setType("text/plain"); i.putExtra(Intent.EXTRA_TEXT, text);
+                if (pkg != null && !pkg.isEmpty()) {
+                    try { Intent d = new Intent(i); d.setPackage(pkg); startActivity(d); return; } catch (Exception ignored) { }
+                }
+                try { startActivity(Intent.createChooser(i, "초대 보내기")); } catch (Exception ignored) { }
+            });
+            return ok[0];
+        }
+        @JavascriptInterface public void sendSms(final String text) {
+            runOnUiThread(() -> {
+                try { Intent i = new Intent(Intent.ACTION_SENDTO, Uri.parse("smsto:")); i.putExtra("sms_body", text); startActivity(i); }
+                catch (Exception e) { try { Intent i = new Intent(Intent.ACTION_SEND); i.setType("text/plain"); i.putExtra(Intent.EXTRA_TEXT, text); startActivity(Intent.createChooser(i, "초대 보내기")); } catch (Exception ignored) { } }
+            });
+        }
         @JavascriptInterface public void openExternal(final String url) {
             runOnUiThread(() -> { try { startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse(url))); } catch (Exception ignored) { } });
         }

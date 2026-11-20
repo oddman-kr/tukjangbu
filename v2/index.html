@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
 <title>툭장부</title>
-<meta name="theme-color" content="#2F4B7C">
+<meta name="theme-color" content="#3366E6">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="툭장부">
@@ -557,21 +557,25 @@ var Receipt = (function () {
     return n;
   }
   function back() { return native() ? RETURN + '?n=' + nonce() : location.origin + location.pathname; }
-  var polling = null;
+  var polling = null, gateReady = null, taking = false;
   function pollHandoff() {
     var o = null; try { o = JSON.parse(localStorage.getItem('tuk_handoff') || 'null'); } catch (e) {}
     if (!o || !o.n || Date.now() - o.t > 180000 || getSess()) { stopPoll(); return; }
+    if (taking) return; taking = true; setTimeout(function () { taking = false; }, 4000);
     fetch(HANDOFF, { method: 'POST', headers: { apikey: KEY, 'Content-Type': 'application/json' }, body: JSON.stringify({ op: 'take', n: o.n }) })
       .then(function (r) { return r.json(); }).then(function (r) {
+        taking = false;
         if (!r || !r.ready || !r.session) return;
         stopPoll(); try { localStorage.removeItem('tuk_handoff'); } catch (e) {}
-        setSess(fromToken(r.session)); location.replace(location.pathname + '?app=1');
-      }).catch(function () {});
+        setSess(fromToken(r.session));
+        if (gateReady && !el('gate').classList.contains('hidden')) afterLogin(el('gate'), gateReady); else location.replace(location.pathname + '?app=1');
+      }).catch(function () { taking = false; });
   }
   function stopPoll() { if (polling) { clearInterval(polling); polling = null; } }
-  function startPoll() { if (!native()) return; stopPoll(); polling = setInterval(pollHandoff, 1500); }
-  document.addEventListener('visibilitychange', function () { if (document.visibilityState === 'visible') pollHandoff(); });
-  window.addEventListener('focus', function () { pollHandoff(); });
+  function startPoll() { if (!native()) return; stopPoll(); polling = setInterval(pollHandoff, 700); }
+  function burst() { pollHandoff(); [250, 600, 1000].forEach(function (t) { setTimeout(pollHandoff, t); }); }
+  document.addEventListener('visibilitychange', function () { if (document.visibilityState === 'visible') burst(); });
+  window.addEventListener('focus', burst);
   function go(url) { if (native()) { startPoll(); NativeApp.openAuth(url); } else location.href = url; }
   // 카카오·구글은 매번 어떤 계정으로 들어갈지 고르게 해요
   function oauth(p) { go(URL + '/auth/v1/authorize?provider=' + p + '&redirect_to=' + enc(back()) + (p === 'google' || p === 'kakao' ? '&prompt=select_account' : '')); }
@@ -579,19 +583,22 @@ var Receipt = (function () {
   function say(m) { if (typeof window.__toast === 'function') window.__toast(m); else alert(m); }
   function gate(onReady) {
     var g = el('gate'); el('app').classList.add('hidden'); g.classList.remove('hidden');
+    gateReady = onReady;
     if (getSess()) return afterLogin(g, onReady);
     if (native()) { pollHandoff(); startPoll(); }
-    var logo = (document.querySelector('.top h1 .logo') || {}).outerHTML || '';
-    g.innerHTML = '<div class="gatelogo">' + logo + '</div><h2>툭장부</h2><div class="muted sm" style="margin-top:-4px">말로 툭, 가족 가계부</div>' +
-      '<div class="loginbtns">' +
+    var logo = ((document.querySelector('.top h1 .logo') || {}).outerHTML || '').replace(/tkbg1/g, 'tkbgG');
+    g.classList.add('hello');
+    g.innerHTML = '<div class="hhead"><div class="gatelogo">' + logo + '</div><h2>툭장부</h2><div class="tag">말로 툭, 가족 가계부</div>' +
+      '<div class="demo" aria-hidden="true"><div class="say"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg>“가족 저녁 식사 8만원”</div>' +
+      '<div class="got"><i>🍚</i><div><b>식비 80,000원</b><span>공용 · 오늘 · 저장했어요</span></div></div></div></div>' +
+      '<div class="hbody"><div class="loginbtns">' +
       '<button class="lbtn kakao" data-p="kakao"><b>K</b>카카오로 시작하기</button>' +
       '<button class="lbtn naver" data-p="naver"><b>N</b>네이버로 시작하기</button>' +
       '<button class="lbtn google" data-p="google"><b>G</b>Google로 시작하기</button>' +
-      '<button class="lbtn email" id="lEmail">이메일로 시작하기</button>' +
-      '<button class="linkbtn" id="lCode" style="margin-top:6px">초대 코드를 받았어요 (아이)</button></div>' +
-      '<div class="faint xs" style="margin-top:14px;max-width:280px;text-align:center">시작하면 <a href="../terms.html" target="_blank">이용약관</a>과 <a href="../privacy.html" target="_blank">개인정보 처리방침</a>에 동의하는 것으로 봐요.</div>' +
-      '<button class="linkbtn" id="lOld" style="margin-top:18px;font-weight:500;color:var(--ink3)">예전 방식(가족 비밀번호)으로 계속 쓰기</button>' +
-      '<div class="faint xs" style="margin-top:10px;opacity:.6">화면 버전 2026.11.20e</div>';
+      '<button class="lbtn email" id="lEmail">이메일로 시작하기</button></div>' +
+      '<div class="sub"><button id="lCode">초대 코드로 들어가기</button><i></i><button id="lOld">예전 방식으로 쓰기</button></div>' +
+      '<div class="legal">시작하면 <a href="../terms.html" target="_blank">이용약관</a>과 <a href="../privacy.html" target="_blank">개인정보 처리방침</a>에 동의하게 돼요.</div>' +
+      '<div class="ver">화면 버전 2026.11.20f</div></div>';
     providers().then(function (ext) {
       g.querySelectorAll('[data-p]').forEach(function (b) {
         var p = b.dataset.p;
@@ -613,6 +620,7 @@ var Receipt = (function () {
     return rpc('register_device', { p_household: ctx.hh }).then(function (tok) { try { localStorage.setItem('tuk_dev_token', tok); } catch (e) {} return tok; });
   }
   function emailStep(g, onReady) {
+    g.classList.remove('hello');
     g.innerHTML = '<h2>이메일로 시작하기</h2><div class="muted sm">메일로 6자리 코드(또는 로그인 링크)를 보내 드려요.</div>' +
       '<input id="eMail" class="inp" type="email" inputmode="email" autocomplete="email" placeholder="you@example.com" style="width:260px;margin-top:14px">' +
       '<button class="btn pri" id="eSend" style="width:260px;margin-top:8px">코드 받기</button><button class="linkbtn" id="eBack" style="margin-top:10px">뒤로</button>';
@@ -638,6 +646,7 @@ var Receipt = (function () {
     };
   }
   function kidStep(g, onReady) {
+    g.classList.remove('hello');
     g.innerHTML = '<h2>초대 코드로 들어가기</h2><div class="muted sm">부모님이 보내 준 8자리 코드를 넣어 주세요.</div>' +
       '<input id="kCode" class="inp" maxlength="8" style="width:220px;margin-top:14px;text-transform:uppercase;text-align:center;letter-spacing:4px;font-size:22px">' +
       '<button class="btn pri" id="kGo" style="width:220px;margin-top:8px">들어가기</button><button class="linkbtn" id="kBack" style="margin-top:10px">뒤로</button>';
@@ -652,6 +661,7 @@ var Receipt = (function () {
     };
   }
   function afterLogin(g, onReady) {
+    g.classList.remove('hello');
     g.innerHTML = '<div class="loading">가족 정보를 불러오는 중…</div>';
     loadCtx().then(function (me) {
       if (me) return onReady();
@@ -682,20 +692,20 @@ var Receipt = (function () {
     var s = getSess(); if (!s || !s.access_token) return '';
     try { var p = JSON.parse(decodeURIComponent(escape(atob(s.access_token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/'))))); var a = p.app_metadata || {}, u = p.user_metadata || {}; return u.provider === 'naver' ? 'naver' : (a.provider || 'email'); } catch (e) { return ''; }
   }
-  window.BACKEND = { call: call, gate: gate, logout: logout, ctx: ctx, deviceToken: deviceToken, url: URL, key: KEY, provider: provider, loggedIn: function () { return !!getSess(); } };
+  window.BACKEND = { call: call, rpc: rpc, gate: gate, logout: logout, ctx: ctx, deviceToken: deviceToken, url: URL, key: KEY, provider: provider, loggedIn: function () { return !!getSess(); } };
 })();
 </script>
 <style>
 :root{
-  --bg:#F6F5F1; --card:#FFFFFF; --ink:#1C1B19; --ink2:#5F5C55; --ink3:#9A968C; --line:#E7E4DC;
-  --pri:#2F4B7C; --pri-ink:#FFFFFF; --pri-soft:#E7EDF6; --exp:#1C1B19; --inc:#2459C9; --sav:#0F7A3D;
-  --warn:#B45309; --warn-soft:#FDF0DC; --bad:#C2410C; --bad-soft:#FCE6DB; --chip:#F0EEE8;
+  --bg:#F2F4F8; --card:#FFFFFF; --ink:#191F28; --ink2:#4E5968; --ink3:#8B95A1; --line:#E5E8EB;
+  --pri:#3366E6; --pri-ink:#FFFFFF; --pri-soft:#E8EEFC; --exp:#191F28; --inc:#3366E6; --sav:#0F8A4A;
+  --warn:#B45309; --warn-soft:#FDF0DC; --bad:#E0452B; --bad-soft:#FDE8E4; --chip:#EDF0F4;
   --shadow:0 1px 2px rgba(0,0,0,.05),0 4px 16px rgba(0,0,0,.04); --r:16px;
 }
 @media (prefers-color-scheme: dark){
-  :root{ --bg:#141413; --card:#1F1E1C; --ink:#F2F0EA; --ink2:#B9B5AB; --ink3:#7E7A71; --line:#2E2C29;
-    --pri:#9DB8EA; --pri-ink:#0E1A33; --pri-soft:#1C2A44; --exp:#F2F0EA; --inc:#7FA7FF; --sav:#5BD08A;
-    --warn:#F5B556; --warn-soft:#3A2D16; --bad:#FF8A5C; --bad-soft:#3D2117; --chip:#2A2926; --shadow:none; }
+  :root{ --bg:#101318; --card:#1A1E25; --ink:#ECEFF4; --ink2:#A9B1BE; --ink3:#6F7886; --line:#272C35;
+    --pri:#7AA2FF; --pri-ink:#0B1A3D; --pri-soft:#1B2747; --exp:#ECEFF4; --inc:#7AA2FF; --sav:#5BD08A;
+    --warn:#F5B556; --warn-soft:#3A2D16; --bad:#FF7A62; --bad-soft:#3D1F1A; --chip:#232831; --shadow:none; }
 }
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 html,body{margin:0;background:var(--bg);color:var(--ink);font-family:-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Pretendard","Noto Sans KR","Malgun Gothic",sans-serif;font-size:15px;line-height:1.45}
@@ -722,10 +732,10 @@ textarea.say{width:100%;min-height:64px;border:1.5px solid var(--line);border-ra
 textarea.say:focus{border-color:var(--pri)}
 .saybox{position:relative}
 .voice{display:flex;align-items:center;gap:14px;margin:4px 0 12px}
-.micbig{flex:none;width:76px;height:76px;border-radius:50%;border:0;background:var(--pri);color:var(--pri-ink);display:flex;align-items:center;justify-content:center;box-shadow:0 6px 18px rgba(47,75,124,.28);cursor:pointer;position:relative}
+.micbig{flex:none;width:76px;height:76px;border-radius:50%;border:0;background:var(--pri);color:var(--pri-ink);display:flex;align-items:center;justify-content:center;box-shadow:0 6px 18px rgba(var(--pri-rgb),.28);cursor:pointer;position:relative}
 .micbig svg{width:34px;height:34px}
-.micbig.rec{background:var(--bad);box-shadow:0 0 0 0 rgba(194,65,12,.5);animation:ring 1.4s infinite}
-@keyframes ring{0%{box-shadow:0 0 0 0 rgba(194,65,12,.45)}70%{box-shadow:0 0 0 18px rgba(194,65,12,0)}100%{box-shadow:0 0 0 0 rgba(194,65,12,0)}}
+.micbig.rec{background:var(--bad);box-shadow:0 0 0 0 rgba(224,69,43,.5);animation:ring 1.4s infinite}
+@keyframes ring{0%{box-shadow:0 0 0 0 rgba(224,69,43,.45)}70%{box-shadow:0 0 0 18px rgba(224,69,43,0)}100%{box-shadow:0 0 0 0 rgba(224,69,43,0)}}
 .micbig.hint{animation:hint 1.6s infinite}
 @keyframes hint{50%{transform:scale(1.06)}}
 .vt{min-width:0;flex:1}
@@ -742,7 +752,7 @@ textarea.say:focus{border-color:var(--pri)}
 .spin{width:18px;height:18px;border-radius:50%;border:2.5px solid var(--line);border-top-color:var(--pri);animation:sp .8s linear infinite;flex:none}
 @keyframes sp{to{transform:rotate(360deg)}}
 .toast .tact{margin-left:12px;border:0;background:transparent;color:#5EEAD4;font-weight:700;padding:6px 4px;pointer-events:auto;flex:none}
-@media (prefers-color-scheme: dark){ .toast .tact{color:#2F4B7C} }
+@media (prefers-color-scheme: dark){ .toast .tact{color:var(--pri-lo)} }
 .toast.has-act{pointer-events:auto;display:flex;align-items:center;width:min(92vw,440px)}
 .toast.has-act span{flex:1;min-width:0}
 .banner{display:flex;align-items:center;gap:10px;background:var(--pri-soft);border-radius:14px;padding:12px 14px;margin:12px 0;font-size:14px}
@@ -783,10 +793,10 @@ textarea.say:focus{border-color:var(--pri)}
 .item.locked .t{color:var(--ink2)}
 .flex-row{padding:6px 0}
 .addrow{display:flex;gap:8px;margin-top:10px;align-items:center}
-.micsm{flex:none;width:48px;height:48px;border-radius:50%;border:0;background:var(--pri);color:var(--pri-ink);display:flex;align-items:center;justify-content:center;cursor:pointer;box-shadow:0 2px 6px rgba(47,75,124,.25)}
+.micsm{flex:none;width:48px;height:48px;border-radius:50%;border:0;background:var(--pri);color:var(--pri-ink);display:flex;align-items:center;justify-content:center;cursor:pointer;box-shadow:0 2px 6px rgba(var(--pri-rgb),.25)}
 .micsm svg{width:22px;height:22px}
 .micsm.rec{background:var(--bad);animation:pulse 1.2s infinite}
-@keyframes pulse{0%{box-shadow:0 0 0 0 rgba(194,65,12,.45)}100%{box-shadow:0 0 0 14px rgba(194,65,12,0)}}
+@keyframes pulse{0%{box-shadow:0 0 0 0 rgba(224,69,43,.45)}100%{box-shadow:0 0 0 14px rgba(224,69,43,0)}}
 .loginbtns{display:flex;flex-direction:column;gap:10px;width:280px;margin-top:22px}
 .lbtn{position:relative;border:0;border-radius:14px;padding:14px 16px;font-weight:700;font-size:15px;cursor:pointer}
 .lbtn b{position:absolute;left:18px;top:50%;transform:translateY(-50%);font-weight:900}
@@ -794,6 +804,7 @@ textarea.say:focus{border-color:var(--pri)}
 .lbtn.naver{background:#03C75A;color:#fff}
 .lbtn.google{background:#fff;color:#1f1f1f;border:1px solid #DADCE0}
 .lbtn.email{background:var(--chip);color:var(--ink)}
+.btn.ivk{background:#FEE500;color:#191919;border:0;position:relative;display:flex;align-items:center;justify-content:center}.btn.ivk b{position:absolute;left:18px;font-weight:900}
 .invcode{font-size:34px;font-weight:800;letter-spacing:6px;text-align:center;margin:18px 0 6px;font-variant-numeric:tabular-nums}
 .ledgerbar{display:flex;align-items:center;gap:10px;margin:2px 0 4px}
 .ledgerbar button{border:1px solid var(--line);background:var(--card);border-radius:999px;padding:7px 14px;font-weight:700;color:var(--ink)}
@@ -835,7 +846,10 @@ textarea.say:focus{border-color:var(--pri)}
 .old-native body{padding-top:36px}
 .toggle{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 0;border-bottom:1px solid var(--line)}
 .toggle:last-of-type{border-bottom:0}
-.toggle input{width:44px;height:26px;accent-color:var(--pri)}
+.toggle input[type=checkbox]{-webkit-appearance:none;appearance:none;flex:none;width:48px;height:28px;border-radius:999px;background:var(--line);position:relative;cursor:pointer;transition:background .2s;margin:0}
+.toggle input[type=checkbox]::after{content:"";position:absolute;top:3px;left:3px;width:22px;height:22px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.25);transition:transform .2s}
+.toggle input[type=checkbox]:checked{background:var(--pri)}
+.toggle input[type=checkbox]:checked::after{transform:translateX(20px)}
 @media (prefers-reduced-motion: reduce){.micbig.rec,.micbig.hint{animation:none}}
 .mic{position:absolute;right:8px;top:8px;width:36px;height:36px;border-radius:50%;border:0;background:var(--pri-soft);color:var(--pri);display:none;align-items:center;justify-content:center;font-size:18px}
 .mic.on{display:flex} .mic.rec{background:var(--bad);color:#fff;animation:pulse 1.2s infinite}
@@ -933,11 +947,11 @@ h3{font-size:15px;margin:0 0 8px}
 
 /* ---------- 툭장부 디자인 다듬기 ---------- */
 html,body{font-family:"Pretendard","Pretendard Variable","Apple SD Gothic Neo","Noto Sans KR",-apple-system,BlinkMacSystemFont,Roboto,"Malgun Gothic",sans-serif;letter-spacing:-.15px}
-:root{--r:20px;--shadow:0 1px 1px rgba(16,24,20,.03),0 6px 20px rgba(16,24,20,.05)}
+:root{--r:20px;--shadow:0 1px 1px rgba(16,24,20,.03),0 6px 20px rgba(16,24,20,.05);--brand:#3366E6;--pri-hi:#5B8BF5;--pri-lo:#2347BF;--pri-rgb:51,102,230;--logo-ink:#FFFFFF}
 .top{padding:10px 0 6px}
 .top h1{display:flex;align-items:center;gap:8px;font-size:21px;font-weight:800;letter-spacing:-.6px}
 .top h1 .logo{width:30px;height:30px;flex:none;border-radius:9px}
-.gatelogo .logo{width:76px;height:76px;border-radius:22px;box-shadow:0 10px 30px rgba(47,75,124,.3)}
+.gatelogo .logo{width:76px;height:76px;border-radius:22px;box-shadow:0 10px 30px rgba(var(--pri-rgb),.3)}
 .card{border-radius:var(--r);padding:18px;border-color:transparent}
 @media (prefers-color-scheme: dark){ .card{border-color:var(--line)} }
 .card h3{font-size:16px;font-weight:750;letter-spacing:-.3px}
@@ -949,7 +963,7 @@ html,body{font-family:"Pretendard","Pretendard Variable","Apple SD Gothic Neo","
 .item{padding:12px 2px}
 .item .t{font-weight:650}
 /* 홈 요약 카드: 브랜드 색 */
-.card.hero{background:linear-gradient(145deg,#41639E 0%,#2F4B7C 55%,#22375C 100%);color:#fff;border:0;box-shadow:0 12px 30px rgba(47,75,124,.28)}
+.card.hero{background:linear-gradient(145deg,var(--pri-hi) 0%,var(--brand) 55%,var(--pri-lo) 100%);color:#fff;border:0;box-shadow:0 12px 30px rgba(var(--pri-rgb),.28)}
 .card.hero .muted,.card.hero .faint{color:rgba(255,255,255,.78)}
 .card.hero .big{font-size:34px}
 .card.hero .bar{background:rgba(255,255,255,.22)}
@@ -960,12 +974,12 @@ html,body{font-family:"Pretendard","Pretendard Variable","Apple SD Gothic Neo","
 .card.hero .sumrow .v,.card.hero .amt-수입,.card.hero .amt-저축{color:#fff}
 .card.hero .seg{background:rgba(0,0,0,.16)}
 .card.hero .seg button{color:rgba(255,255,255,.8)}
-.card.hero .seg button.on{background:#fff;color:#22375C;box-shadow:none}
+.card.hero .seg button.on{background:#fff;color:var(--pri-lo);box-shadow:none}
 .card.hero .fc{background:rgba(0,0,0,.14);color:#fff}
 .card.hero b[style*="--bad"]{color:#FFD6C7 !important}
 .card.hero .num b,.card.hero b{color:#fff}
 /* 마이크 */
-.micbig{width:84px;height:84px;background:radial-gradient(circle at 35% 30%,#4F74B3,#2F4B7C 70%);box-shadow:0 0 0 8px var(--pri-soft),0 10px 24px rgba(47,75,124,.32)}
+.micbig{width:84px;height:84px;background:radial-gradient(circle at 35% 30%,var(--pri-hi),var(--brand) 70%);box-shadow:0 0 0 8px var(--pri-soft),0 10px 24px rgba(var(--pri-rgb),.32)}
 .voice{gap:16px;margin:6px 0 14px}
 .vt b{font-size:17px;font-weight:750}
 /* 아래 메뉴 */
@@ -976,7 +990,7 @@ html,body{font-family:"Pretendard","Pretendard Variable","Apple SD Gothic Neo","
 .banner{border-radius:16px}
 .toast{border-radius:14px;box-shadow:0 10px 30px rgba(0,0,0,.18)}
 .sheet{border-radius:24px 24px 0 0}
-.plusbadge{display:inline-block;font-size:10.5px;font-weight:800;letter-spacing:.06em;color:#fff;background:linear-gradient(135deg,#41639E,#22375C);border-radius:6px;padding:2px 6px;vertical-align:2px;margin-left:2px}
+.plusbadge{display:inline-block;font-size:10.5px;font-weight:800;letter-spacing:.06em;color:#fff;background:linear-gradient(135deg,var(--pri-hi),var(--pri-lo));border-radius:6px;padding:2px 6px;vertical-align:2px;margin-left:2px}
 .card.plus{background:linear-gradient(160deg,var(--pri-soft),var(--card) 70%)}
 .pfeat{margin-top:8px;border-top:1px solid var(--line);border-bottom:1px solid var(--line);padding:4px 0}
 .pplans{display:flex;gap:8px;margin-top:12px}
@@ -985,6 +999,37 @@ html,body{font-family:"Pretendard","Pretendard Variable","Apple SD Gothic Neo","
 .pplans button.on{border-color:var(--pri);box-shadow:0 0 0 1px var(--pri) inset;background:var(--pri-soft)}
 .locked{position:relative}
 .locked .lockcta{display:flex;align-items:center;justify-content:space-between;gap:10px}
+
+/* 시작(로그인) 화면 */
+.gate.hello{justify-content:flex-start;padding:0 0 calc(24px + env(safe-area-inset-bottom,0px));min-height:100vh;position:relative;overflow:hidden}
+.hello .hhead{width:100%;padding:calc(56px + env(safe-area-inset-top,0px)) 24px 30px;background:radial-gradient(120% 90% at 50% 0%,var(--pri-soft) 0%,transparent 70%);display:flex;flex-direction:column;align-items:center}
+.hello .gatelogo .logo{width:72px;height:72px;border-radius:21px;box-shadow:0 12px 28px rgba(var(--pri-rgb),.28)}
+.hello h2{font-size:28px;font-weight:850;letter-spacing:-1px;margin:16px 0 4px}
+.hello .tag{font-size:15px;color:var(--ink2);font-weight:550}
+.hello .demo{margin-top:26px;width:100%;max-width:300px;display:flex;flex-direction:column;gap:8px}
+.hello .say{align-self:flex-end;display:flex;align-items:center;gap:8px;background:var(--brand);color:#fff;padding:10px 14px;border-radius:18px 18px 4px 18px;font-size:14.5px;font-weight:650;box-shadow:0 6px 16px rgba(var(--pri-rgb),.22);animation:hin .5s .1s both}
+.hello .say svg{width:16px;height:16px;flex:none;opacity:.85}
+.hello .got{align-self:flex-start;display:flex;align-items:center;gap:10px;background:var(--card);padding:10px 14px 10px 10px;border-radius:18px 18px 18px 4px;box-shadow:var(--shadow);text-align:left;animation:hin .5s .7s both}
+.hello .got i{width:30px;height:30px;border-radius:10px;background:var(--pri-soft);display:grid;place-items:center;font-style:normal;font-size:15px}
+.hello .got b{display:block;font-size:14px}.hello .got span{font-size:12px;color:var(--ink3)}
+@keyframes hin{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+.hello .hbody{width:100%;max-width:340px;padding:0 24px;display:flex;flex-direction:column;align-items:center;margin-top:auto}
+.hello .loginbtns{width:100%;margin-top:0}
+.hello .lbtn{height:52px;padding:0 16px;font-size:15.5px;border-radius:14px;display:flex;align-items:center;justify-content:center}
+.hello .lbtn b{left:20px;font-size:17px}
+.hello .lbtn.email{background:transparent;color:var(--ink);border:1px solid var(--line)}
+.hello .sub{display:flex;justify-content:center;gap:14px;margin-top:14px;font-size:13.5px}
+.hello .sub button{border:0;background:none;color:var(--ink2);font-weight:600;padding:6px 4px;cursor:pointer}
+.hello .sub i{width:1px;background:var(--line);margin:6px 0}
+.hello .legal{margin-top:12px;font-size:11.5px;color:var(--ink3);line-height:1.6}
+.hello .legal a{color:var(--ink2);text-decoration:underline;text-underline-offset:2px}
+.hello .ver{margin-top:6px;font-size:10.5px;color:var(--ink3);opacity:.7}
+/* 설정 목록형 메뉴 */
+.mlist{margin:4px -4px 0;border-top:1px solid var(--line)}
+.mlist>a,.mlist>button{display:flex;align-items:center;justify-content:space-between;width:100%;padding:14px 4px;border:0;border-bottom:1px solid var(--line);background:none;color:var(--ink);font-size:15px;font-weight:600;text-decoration:none;cursor:pointer;text-align:left}
+.mlist>:last-child{border-bottom:0}
+.mlist>*::after{content:"";width:7px;height:7px;border-right:2px solid var(--ink3);border-top:2px solid var(--ink3);transform:rotate(45deg);margin-right:4px}
+.mlist .quiet{color:var(--ink3);font-weight:500;font-size:14px}
 </style>
 </head>
 <body>
@@ -992,7 +1037,7 @@ html,body{font-family:"Pretendard","Pretendard Variable","Apple SD Gothic Neo","
 <div id="app" class="hidden">
   <div class="wrap">
     <div class="top">
-      <h1 id="title"><svg class="logo" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200"><defs><linearGradient id="tkbg1" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#3B5B95"/><stop offset="1" stop-color="#22375C"/></linearGradient></defs><rect width="200" height="200" rx="46" fill="url(#tkbg1)"/><g transform="rotate(-6 100 106)" fill="none" stroke="#FFF8EF"><rect x="27" y="29" width="146" height="146" rx="26" stroke-width="10"/><g stroke-width="12.5" stroke-linecap="square" stroke-linejoin="miter" transform="translate(0 2)"><path d="M134 56H66V92H134"/><path d="M66 74H128"/><path d="M50 112H150"/><path d="M100 112V124"/><path d="M68 140H132V156"/></g></g></svg><span>툭장부</span></h1>
+      <h1 id="title"><svg class="logo" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200"><defs><linearGradient id="tkbg1" x1="0" y1="0" x2="1" y2="1"><stop offset="0" style="stop-color:var(--pri-hi)"/><stop offset="1" style="stop-color:var(--pri-lo)"/></linearGradient></defs><rect width="200" height="200" rx="46" fill="url(#tkbg1)"/><g transform="rotate(-6 100 106)" fill="none" style="stroke:var(--logo-ink)"><rect x="27" y="29" width="146" height="146" rx="26" stroke-width="10"/><g stroke-width="12.5" stroke-linecap="square" stroke-linejoin="miter" transform="translate(0 2)"><path d="M134 56H66V92H134"/><path d="M66 74H128"/><path d="M50 112H150"/><path d="M100 112V124"/><path d="M68 140H132V156"/></g></g></svg><span>툭장부</span></h1>
       <div class="sync" id="sync"><span class="dot"></span><span>동기화됨</span></div>
     </div>
     <div id="view"></div>
@@ -1401,7 +1446,7 @@ function toast(msg, actLabel, actFn, ms){
   t.classList.add('on'); clearTimeout(toast._t); toast._t = setTimeout(function(){ t.classList.remove('on'); }, ms || (actFn ? 5000 : 2400));
 }
 function haptic(){ try { if (window.NativeApp && NativeApp.vibrate) NativeApp.vibrate(); else if (navigator.vibrate) navigator.vibrate(12); } catch (e) {} }
-var WEB_VER = '2026.11.20e';
+var WEB_VER = '2026.11.20f';
 (function(){ try { var v = window.NativeApp ? Number(NativeApp.version()) : 0; var a = (navigator.userAgent.match(/Android (\d+)/) || [])[1]; if (v && v <= 6 && Number(a) >= 15) document.documentElement.classList.add('old-native'); } catch (e) {} })();
 var errShown = 0;
 function logErr(kind, msg, where){
@@ -1417,7 +1462,7 @@ window.addEventListener('unhandledrejection', function(ev){ logErr('promise', ev
 function syncStatusBar(){
   if (!window.NativeApp || !NativeApp.statusBar) return;
   var dark = window.matchMedia && matchMedia('(prefers-color-scheme: dark)').matches;
-  try { NativeApp.statusBar(S.locked ? (dark ? '#141413' : '#F6F5F1') : (dark ? '#141413' : '#F6F5F1'), !dark); } catch (e) {}
+  try { NativeApp.statusBar(S.locked ? (dark ? '#101318' : '#F2F4F8') : (dark ? '#101318' : '#F2F4F8'), !dark); } catch (e) {}
 }
 if (window.matchMedia) { try { matchMedia('(prefers-color-scheme: dark)').addEventListener('change', syncStatusBar); } catch (e) {} }
 function icon(c){ return ICON[c] || (c ? c.charAt(0) : '•'); }
@@ -1508,7 +1553,7 @@ function isFixed(c){ return c.fixed != null ? !!c.fixed : FIXED_RE.test(c.name);
 function cards(){ return S.data && S.data.cfg.cards ? S.data.cfg.cards : []; }
 function cardOf(name){ return cards().filter(function(c){ return c.name === name; })[0]; }
 var PAY_KINDS = ['신용', '체크', '현금', '계좌이체', '페이', '기타'];
-var PAY_COLORS = ['#2F4B7C', '#2459C9', '#C2410C', '#9333EA', '#BE185D', '#B45309', '#0F7A3D', '#1C1B19', '#64748B', '#0891B2'];
+var PAY_COLORS = ['#3366E6', '#2F4B7C', '#C2410C', '#9333EA', '#BE185D', '#B45309', '#0F7A3D', '#1C1B19', '#64748B', '#0891B2'];
 function guessKind(n){ return /체크/.test(n) ? '체크' : /현금/.test(n) ? '현금' : /이체|계좌|송금/.test(n) ? '계좌이체' : /페이/.test(n) ? '페이' : '신용'; }
 // 결제수단 정보: 등록한 카드면 그 정보, 아니면 이름으로 짐작
 function payInfo(n){ var c = cardOf(n) || {}; return { name: n, kind: c.kind || guessKind(n), color: c.color || '#9A968C', owner: c.owner || '', target: c.target || 0, benefits: c.benefits || '', exclude: c.exclude || [], memo: c.memo || '' }; }
@@ -1588,7 +1633,7 @@ function showGate(){
   g.innerHTML = '<div class="loading">확인 중…</div>';
   call('status').then(function(r){
     var first = !r.hasPin;
-    g.innerHTML = '<div class="gatelogo"><svg class="logo" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200"><defs><linearGradient id="tkbg2" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#3B5B95"/><stop offset="1" stop-color="#22375C"/></linearGradient></defs><rect width="200" height="200" rx="46" fill="url(#tkbg2)"/><g transform="rotate(-6 100 106)" fill="none" stroke="#FFF8EF"><rect x="27" y="29" width="146" height="146" rx="26" stroke-width="10"/><g stroke-width="12.5" stroke-linecap="square" stroke-linejoin="miter" transform="translate(0 2)"><path d="M134 56H66V92H134"/><path d="M66 74H128"/><path d="M50 112H150"/><path d="M100 112V124"/><path d="M68 140H132V156"/></g></g></svg></div><h2>툭장부</h2><div class="muted sm" style="margin-top:-4px">말로 툭, 가족 가계부</div>' +
+    g.innerHTML = '<div class="gatelogo"><svg class="logo" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200"><defs><linearGradient id="tkbg2" x1="0" y1="0" x2="1" y2="1"><stop offset="0" style="stop-color:var(--pri-hi)"/><stop offset="1" style="stop-color:var(--pri-lo)"/></linearGradient></defs><rect width="200" height="200" rx="46" fill="url(#tkbg2)"/><g transform="rotate(-6 100 106)" fill="none" style="stroke:var(--logo-ink)"><rect x="27" y="29" width="146" height="146" rx="26" stroke-width="10"/><g stroke-width="12.5" stroke-linecap="square" stroke-linejoin="miter" transform="translate(0 2)"><path d="M134 56H66V92H134"/><path d="M66 74H128"/><path d="M50 112H150"/><path d="M100 112V124"/><path d="M68 140H132V156"/></g></g></svg></div><h2>툭장부</h2><div class="muted sm" style="margin-top:-4px">말로 툭, 가족 가계부</div>' +
       '<div class="muted">' + (first ? '처음이시네요. 가족이 함께 쓸 <b>비밀번호</b>(숫자 4~8자리)를 정해 주세요.' : '가족 비밀번호를 입력해 주세요.') + '</div>' +
       '<input id="pinIn" class="inp pin" type="password" inputmode="numeric" maxlength="8" autocomplete="off">' +
       (first ? '<input id="pinIn2" class="inp pin" style="margin-top:0" type="password" inputmode="numeric" maxlength="8" placeholder="한 번 더">' : '') +
@@ -2802,7 +2847,8 @@ function settingsHTML(){
     '<div class="card" data-sec="me"><h3>가족 구성원</h3>' +
       members().map(function(m){ var k = kids().indexOf(m) >= 0; return '<div class="memrow">' + avatar(m, 36) + '<div class="grow"><b>' + esc(m) + '</b>' + (m === S.me ? ' <span class="faint xs">이 폰</span>' : '') + '<div class="faint xs">' + (k ? '자녀 · “사 주세요” 요청을 보내요' : '어른 · 모든 내역과 설정을 볼 수 있어요') + '</div></div><span class="rolebadge' + (k ? ' kid' : '') + '">' + (k ? '자녀' : '어른') + '</span></div>'; }).join('') +
       '<button class="btn ghost block" id="memAdd" style="margin-top:10px">+ 가족 추가 (자녀·배우자)</button>' +
-      (window.BACKEND ? '<div class="tip">가족을 추가하면 <b>초대 코드</b>가 나와요. 코드를 받은 가족이 앱에서 코드를 넣으면 함께 써요. <button class="linkbtn" id="memInvite">초대하기</button></div>' :
+      (window.BACKEND ? '<div class="tip">가족을 추가하면 <b>초대 코드</b>가 나와요. 코드를 받은 가족이 앱에서 코드를 넣으면 함께 써요. 이미 따로 가입해서 쓰고 있어도 괜찮아요. <button class="linkbtn" id="memInvite">초대하기</button></div>' +
+        (isKid() ? '' : '<button class="btn ghost block" id="memJoin" style="margin-top:8px">초대 코드를 받았어요 · 가족 가계부와 합치기</button>') :
         '<div class="tip">새 가족의 휴대폰에서는 <b>툭장부를 설치 → 같은 가족 비밀번호 입력 → 자기 이름 선택</b>하면 함께 써요. <button class="linkbtn" id="memInvite">초대 안내 문구 복사</button></div>') +
       (window.BACKEND ? '' : '<details style="margin-top:10px"><summary class="sm faint" style="cursor:pointer">이름·자녀 지정 직접 고치기</summary>' +
       '<div class="fld"><label>구성원 (쉼표로 구분)</label><input class="inp" id="sMembers" value="' + esc(members().join(', ')) + '"></div>' +
@@ -2844,7 +2890,7 @@ function settingsHTML(){
       (window.BACKEND ? '<div class="tip">모든 기록은 툭장부 서버에 암호화된 연결로 저장돼요. 폰을 바꾸거나 잃어버려도 같은 계정으로 로그인하면 그대로 이어져요.</div>' : '<div class="tip">모든 내역은 구글 시트 <b>“거래내역”</b> 탭에 쌓여요. 컴퓨터에서 시트를 열면 엑셀처럼 정리하거나 내려받을 수 있어요.</div>') + '</div>' +
     (window.BACKEND ? '<div class="card" data-sec="app"><h3>계정</h3>' +
       '<div class="row between" style="margin-bottom:10px"><span class="row" style="gap:10px">' + avatar(S.me, 34) + '<span><b>' + esc(S.me) + '</b><div class="faint xs">' + esc(acctLabel()) + '</div></span></span><button class="btn ghost" id="sLogout2" style="padding:8px 14px">로그아웃</button></div>' +
-      '<div class="row" style="gap:8px;flex-wrap:wrap"><a class="btn ghost grow" href="../terms.html" target="_blank" style="text-align:center;text-decoration:none">이용약관</a><a class="btn ghost grow" href="../privacy.html" target="_blank" style="text-align:center;text-decoration:none">개인정보 처리방침</a><button class="btn ghost grow" id="delAcc" style="color:var(--bad)">계정 삭제(탈퇴)</button></div></div>' : '') +
+      '<div class="mlist"><a href="../terms.html" target="_blank">이용약관</a><a href="../privacy.html" target="_blank">개인정보 처리방침</a><button id="delAcc" class="quiet">계정 삭제(탈퇴)</button></div></div>' : '') +
     '<div class="card" data-sec="app"><h3>앱 정보</h3>' +
       '<div class="row between sm" style="padding:4px 0"><span class="muted">앱 버전</span><span class="num">' + (window.NativeApp ? 'v1.0.' + appVersion() : '웹') + ' <span class="faint xs">(화면 ' + WEB_VER.slice(2) + ')</span></span></div>' +
       (window.NativeApp ? '<button class="btn ghost block" id="updCheck" style="margin-top:8px">업데이트 확인</button>' : '') +
@@ -2952,6 +2998,7 @@ function bindSettings(){
     }).catch(function(e){ toast('바꾸지 못했어요: ' + e.message); }).then(function(){ btn.disabled = false; });
   };
   function busy(btn, p, ok){ btn.disabled = true; p.then(function(){ toast(ok); return load(true); }).catch(function(e){ toast('실패: ' + e.message); }).then(function(){ btn.disabled = false; }); }
+  if ($('#memJoin')) $('#memJoin').onclick = openJoin;
   $('#memAdd').onclick = function(){
     if (members().length >= ((plan() || {}).memberFree || 2) && needPlus('family')) return;
     var sh = $('#sheet'), role = '자녀';
@@ -2983,14 +3030,21 @@ function bindSettings(){
     draw(); $('#sheetBg').classList.add('on'); setTimeout(function(){ $('#mName').focus(); }, 80);
   };
   window.showInvite = function(n, code){
-    var link = location.origin + location.pathname;
-    var txt = '"툭장부" 우리 가족 가계부에 초대해요!\n1) 앱 열기: ' + link + '\n2) "초대 코드를 받았어요"를 누르고 코드 입력: ' + code + '\n(코드는 7일 동안 쓸 수 있어요)';
+    var link = 'https://oddman-kr.github.io/tukjangbu/v2/';
+    var txt = '[툭장부] ' + n + '님, 우리 가족 가계부에 초대해요!\n\n① 앱 열기: ' + link + '\n② "초대 코드로 들어가기"를 누르고 아래 코드 입력\n\n초대 코드: ' + code + '\n(7일 동안 한 번 쓸 수 있어요)';
+    var nat = window.NativeApp && NativeApp.shareText, web = !nat && navigator.share;
     var sh = $('#sheet');
     sh.innerHTML = '<h3 style="margin:0">' + esc(n) + '님 초대 코드</h3><div class="invcode">' + esc(code) + '</div><div class="faint sm" style="text-align:center">7일 동안 한 번 쓸 수 있어요</div>' +
-      '<button class="btn pri block" id="ivCopy" style="margin-top:14px">초대 메시지 복사</button><button class="btn ghost block" id="ivClose" style="margin-top:8px">닫기</button>';
+      (nat ? '<button class="btn block ivk" id="ivKakao" style="margin-top:14px"><b>K</b>카카오톡으로 보내기</button>' +
+        '<div class="row" style="gap:8px;margin-top:8px"><button class="btn ghost grow" id="ivSms">문자로 보내기</button><button class="btn ghost grow" id="ivMore">다른 앱으로</button></div>'
+      : web ? '<button class="btn pri block" id="ivMore" style="margin-top:14px">카카오톡·문자로 보내기</button>' : '') +
+      '<button class="btn ' + (nat || web ? 'ghost' : 'pri') + ' block" id="ivCopy" style="margin-top:8px">초대 메시지 복사</button><button class="linkbtn" id="ivClose" style="display:block;margin:10px auto 0">닫기</button>';
     $('#sheetBg').classList.add('on');
     $('#ivClose').onclick = closeSheet;
-    $('#ivCopy').onclick = function(){ try { navigator.clipboard.writeText(txt).then(function(){ toast('복사했어요. 카카오톡에 붙여 넣어 보내세요'); }, function(){ prompt('복사해서 보내세요', txt); }); } catch (e) { prompt('복사해서 보내세요', txt); } };
+    if ($('#ivKakao')) $('#ivKakao').onclick = function(){ NativeApp.shareText(txt, 'com.kakao.talk'); };
+    if ($('#ivSms')) $('#ivSms').onclick = function(){ if (NativeApp.sendSms) NativeApp.sendSms(txt); else NativeApp.shareText(txt, ''); };
+    if ($('#ivMore')) $('#ivMore').onclick = function(){ if (nat) NativeApp.shareText(txt, ''); else navigator.share({ text: txt }).catch(function(){}); };
+    $('#ivCopy').onclick = function(){ try { navigator.clipboard.writeText(txt).then(function(){ toast('복사했어요. 카카오톡이나 문자에 붙여 넣어 보내세요'); }, function(){ prompt('복사해서 보내세요', txt); }); } catch (e) { prompt('복사해서 보내세요', txt); } };
   };
   $('#memInvite').onclick = function(){
     if (window.BACKEND) return $('#memAdd').click();
@@ -3428,6 +3482,34 @@ function allowHTML(){
       return '<div class="flex-row"><div class="row between"><span>' + avatar(x.m, 22) + ' ' + esc(x.m) + (kids().indexOf(x.m) >= 0 ? ' <span class="faint xs">자녀</span>' : '') + '</span><span class="num sm">' + (out ? '<b style="color:var(--bad)">' + (x.l.left < 0 ? won(-x.l.left) + '원 넘게 씀' : '다 썼어요') + '</b>' : '<b>' + won(x.l.left) + '원</b> <span class="faint xs">남음</span>') + '</span></div>' +
         '<div class="bar thin"><i class="' + (out ? 'bad' : low ? 'warn' : '') + '" style="width:' + (pct * 100).toFixed(1) + '%"></i></div><div class="faint xs">' + (x.l.p === '주' ? '이번 주' : '이번 달') + ' ' + won(x.l.used) + ' / ' + won(x.l.total) + '원</div></div>';
     }).join('') + '</div>';
+}
+
+/* ---------- 따로 가입한 뒤 초대 코드로 가족 가계부에 합치기 ---------- */
+function openJoin(){
+  var sh = $('#sheet');
+  sh.innerHTML = '<h3 style="margin:0">가족 가계부와 합치기</h3><div class="faint sm" style="margin-top:4px">가족에게 받은 8자리 초대 코드를 넣어 주세요.</div>' +
+    '<input class="inp" id="jCode" maxlength="8" autocomplete="off" style="margin-top:12px;text-transform:uppercase;text-align:center;letter-spacing:5px;font-size:22px;font-weight:800">' +
+    '<button class="btn pri block" id="jNext" style="margin-top:10px">확인</button><button class="linkbtn" id="jClose" style="display:block;margin:10px auto 0">닫기</button>';
+  $('#sheetBg').classList.add('on'); $('#jClose').onclick = closeSheet; setTimeout(function(){ $('#jCode').focus(); }, 80);
+  $('#jNext').onclick = function(){
+    var code = $('#jCode').value.trim().toUpperCase(); if (code.length !== 8) return toast('8자리 코드를 넣어 주세요');
+    var btn = this; btn.disabled = true;
+    BACKEND.rpc('join_preview', { p_code: code }).then(function(pv){
+      var mine = (pv.mine || [])[0] || { tx: 0, others: 0, name: '' }, alone = !mine.others;
+      sh.innerHTML = '<h3 style="margin:0">' + esc(pv.family) + '</h3><div class="faint sm" style="margin-top:4px">' + esc(pv.by || '가족') + '님이 <b>' + esc(pv.as || '') + '</b> 자리로 초대했어요.</div>' +
+        '<div class="fld" style="margin-top:12px"><label>가족에게 보일 내 이름</label><input class="inp" id="jName" maxlength="20" value="' + esc(pv.as || S.me || '') + '"></div>' +
+        (mine.tx ? '<label class="toggle" style="margin-top:4px"><span>내가 쓴 내역 ' + mine.tx.toLocaleString() + '건 가져가기<br><span class="faint xs">카드·정기 지출·위시도 함께 옮겨요</span></span><input type="checkbox" id="jBring" checked></label>' : '') +
+        '<div class="tip" style="margin-top:10px">' + (alone ? '지금 혼자 쓰던 “' + esc(mine.name) + '”는 합친 뒤 없어져요. ' + (mine.tx ? '가져가지 않은 내역은 함께 지워져요.' : '') : '지금 함께 쓰던 “' + esc(mine.name) + '”에서는 나가요. 남은 가족의 기록은 그대로 있어요.') + ' 되돌릴 수 없어요.</div>' +
+        '<button class="btn pri block" id="jGo" style="margin-top:12px">합치기</button><button class="linkbtn" id="jClose2" style="display:block;margin:10px auto 0">취소</button>';
+      $('#jClose2').onclick = closeSheet;
+      $('#jGo').onclick = function(){
+        var b2 = this; b2.disabled = true; b2.textContent = '합치는 중…';
+        BACKEND.rpc('join_family', { p_code: code, p_display_name: $('#jName').value.trim() || null, p_bring: $('#jBring') ? $('#jBring').checked : true })
+          .then(function(){ try { localStorage.removeItem('tuk_dev_token'); } catch (e) {} toast('가족 가계부와 합쳤어요'); setTimeout(function(){ location.replace(location.pathname + '?app=1'); }, 600); })
+          .catch(function(e){ b2.disabled = false; b2.textContent = '합치기'; toast(e.message || '합치지 못했어요'); });
+      };
+    }).catch(function(e){ btn.disabled = false; toast(e.message || '코드를 확인해 주세요'); });
+  };
 }
 function sayEx(){ return isKid() ? '예) 떡볶이 4천원, 문구점 2천원' : '예) 개인 용돈 술자리 3만원, 가족 저녁 식사 8만원'; }
 function allowPct(){ var v = S.data && S.data.cfg && +S.data.cfg.allowAlert; return v >= 10 && v <= 90 ? v : 50; }
