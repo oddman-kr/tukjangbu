@@ -1,15 +1,15 @@
 <!doctype html><html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>툭장부 관리자</title><meta name="robots" content="noindex,nofollow"><meta name="theme-color" content="#22375C"><link rel="icon" href="../icon-192.png">
+<title>툭장부 관리자</title><meta name="robots" content="noindex,nofollow"><meta name="theme-color" content="#191F28"><link rel="icon" href="../icon-192.png">
 <style>
-:root{--bg:#F2F3F6;--card:#fff;--ink:#1B1E26;--ink2:#555B68;--ink3:#8A90A0;--line:#E2E5EC;--pri:#2F4B7C;--nav:#1B2A47;--soft:#E7EDF6;--ok:#167A46;--okbg:#E3F3EA;--warn:#9A5B00;--warnbg:#FBEFD9;--bad:#B3261E;--badbg:#FBE4E2}
-@media (prefers-color-scheme:dark){:root{--bg:#111318;--card:#1B1E26;--ink:#ECEEF3;--ink2:#B3B8C4;--ink3:#7E8494;--line:#2B303B;--pri:#9DB8EA;--nav:#0C1424;--soft:#1E2A42;--ok:#5BD08A;--okbg:#16301F;--warn:#F2B860;--warnbg:#3A2D16;--bad:#FF8A80;--badbg:#3D1E1B;color-scheme:dark}}
+:root{--bg:#F2F4F8;--card:#fff;--ink:#191F28;--ink2:#4E5968;--ink3:#8B95A1;--line:#E5E8EB;--pri:#3366E6;--nav:#191F28;--soft:#E8EEFC;--up:#0F8A4A;--down:#E0452B;--c2:#8FB0F7;--ok:#167A46;--okbg:#E3F3EA;--warn:#9A5B00;--warnbg:#FBEFD9;--bad:#B3261E;--badbg:#FBE4E2}
+@media (prefers-color-scheme:dark){:root{--bg:#111318;--card:#1B1E26;--ink:#ECEEF3;--ink2:#B3B8C4;--ink3:#7E8494;--line:#2B303B;--pri:#7AA2FF;--nav:#0B0E13;--soft:#1B2747;--up:#5BD08A;--down:#FF7A62;--c2:#3A5590;--ok:#5BD08A;--okbg:#16301F;--warn:#F2B860;--warnbg:#3A2D16;--bad:#FF8A80;--badbg:#3D1E1B;color-scheme:dark}}
 *{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font-family:"Pretendard","Apple SD Gothic Neo","Noto Sans KR",sans-serif;font-size:14.5px;line-height:1.5}
 .topbar{background:var(--nav);color:#fff;padding:0 max(16px,env(safe-area-inset-left))}
 .topbar .in{max-width:1180px;margin:0 auto;display:flex;align-items:center;gap:14px;height:56px}
 .topbar img{width:30px;height:30px;border-radius:8px}.topbar b{font-size:16px}.topbar .sp{flex:1}.topbar .who{font-size:12.5px;opacity:.8}
 .tabs{display:flex;gap:2px;max-width:1180px;margin:0 auto;padding:0 0 0 0;overflow-x:auto}
 .tabs button{background:none;border:0;color:rgba(255,255,255,.7);padding:10px 14px;font:inherit;font-weight:600;cursor:pointer;border-bottom:3px solid transparent;white-space:nowrap}
-.tabs button.on{color:#fff;border-bottom-color:#9DB8EA}
+.tabs button.on{color:#fff;border-bottom-color:#7AA2FF}
 .wrap{max-width:1180px;margin:0 auto;padding:18px max(16px,env(safe-area-inset-left)) 60px}
 .btn{border:1px solid var(--line);background:var(--card);border-radius:10px;padding:7px 12px;cursor:pointer;color:inherit;font:inherit;font-weight:600}
 .btn.pri{background:var(--pri);border-color:var(--pri);color:#fff}.btn.danger{color:var(--bad);border-color:var(--bad)}.btn.ghostw{background:transparent;color:#fff;border-color:rgba(255,255,255,.3)}
@@ -47,6 +47,36 @@ textarea.inp{width:100%;min-height:80px;resize:vertical}
 .lvl-info{background:var(--soft);color:var(--pri)}.lvl-warn{background:var(--warnbg);color:var(--warn)}.lvl-event{background:var(--okbg);color:var(--ok)}
 .form label.sw,.sw{display:flex;align-items:center;gap:8px;cursor:pointer;color:var(--ink);font-size:14px}.form label .inp,.form label select{color:var(--ink)}.form h2{margin-bottom:0}.sw input{width:18px;height:18px}
 .mini{font-size:12px;padding:4px 8px}
+
+/* 대시보드 */
+.dh{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;margin:2px 0 12px}.dh h1{font-size:20px;margin:0}.dh .note{flex:1}
+.sec{font-size:13px;font-weight:700;color:var(--ink3);letter-spacing:.02em;margin:22px 0 8px}
+.hero{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}@media(max-width:980px){.hero{grid-template-columns:repeat(2,minmax(0,1fr))}}@media(max-width:520px){.hero{grid-template-columns:1fr}}
+.hk{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:14px 16px 10px;min-width:0;display:flex;flex-direction:column}
+.hk .l{font-size:13px;color:var(--ink2);font-weight:600;display:flex;justify-content:space-between;gap:6px}
+.hk .v{font-size:32px;font-weight:800;letter-spacing:-.02em;font-variant-numeric:tabular-nums;line-height:1.15;margin-top:6px}.hk .v small{font-size:15px;font-weight:700;color:var(--ink2);margin-left:2px}
+.hk .s{font-size:12.5px;color:var(--ink3);margin-top:2px}
+.dl{font-size:12px;font-weight:700;border-radius:99px;padding:1px 7px;white-space:nowrap;font-variant-numeric:tabular-nums}.dl.up{color:var(--up);background:var(--okbg)}.dl.down{color:var(--down);background:var(--badbg)}.dl.flat{color:var(--ink3);background:var(--bg)}
+.spark{display:block;width:100%;height:34px;margin-top:8px}
+.mini{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:10px}
+.mk{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:11px 14px;min-width:0}.mk .l{font-size:12.5px;color:var(--ink3)}.mk .v{font-size:22px;font-weight:800;font-variant-numeric:tabular-nums;margin-top:1px}.mk .s{font-size:12px;color:var(--ink2)}
+.meter{height:6px;border-radius:99px;background:var(--line);margin-top:7px;overflow:hidden}.meter i{display:block;height:100%;background:var(--pri);border-radius:99px}
+.ch{position:relative}.vb{display:flex;align-items:flex-end;gap:3px;height:170px;border-bottom:1px solid var(--line);padding-top:18px;position:relative}
+.vb .c{flex:1;height:100%;display:flex;flex-direction:column;justify-content:flex-end;align-items:center;position:relative;min-width:0;cursor:default}
+.vb .b{width:100%;max-width:26px;background:var(--pri);border-radius:4px 4px 0 0;min-height:2px;transition:opacity .15s}.vb .b.z{background:var(--line)}
+.vb .c:hover .b{opacity:.75}.vb .lab{font-size:10.5px;font-weight:700;color:var(--ink2);margin-bottom:2px;font-variant-numeric:tabular-nums;white-space:nowrap}
+.vb .tip{display:none;position:absolute;bottom:calc(100% + 4px);left:50%;transform:translateX(-50%);background:var(--ink);color:var(--card);font-size:12px;border-radius:8px;padding:4px 8px;white-space:nowrap;z-index:3;pointer-events:none}
+.vb .c:hover .tip{display:block}
+.vb .avg{position:absolute;left:0;right:0;border-top:1.5px dashed var(--ink3);opacity:.6;pointer-events:none}
+.vb .avg span{position:absolute;left:0;top:-17px;font-size:10.5px;color:var(--ink3);background:var(--card);padding:0 3px}
+.xa{display:flex;gap:3px;margin-top:4px}.xa span{flex:1;font-size:10.5px;color:var(--ink3);text-align:center;white-space:nowrap;overflow:visible;min-width:0}
+.chh{display:flex;justify-content:space-between;align-items:baseline;gap:8px;margin-bottom:6px}.chh h2{margin:0}.chh .tot{font-size:13px;color:var(--ink2)}.chh .tot b{color:var(--ink);font-size:15px}
+@media(max-width:700px){.vb .lab{display:none}.vb .lab.kk{display:block}}
+.topbar .btn{white-space:nowrap}@media(max-width:520px){.topbar b{font-size:14px;white-space:nowrap}.topbar .btn{padding:5px 8px;font-size:12.5px}}
+.hb{display:flex;flex-direction:column;gap:9px}.hb .r{display:grid;grid-template-columns:90px 1fr 74px;align-items:center;gap:10px;font-size:13.5px}.hb .t{height:10px;background:var(--bg);border-radius:99px;overflow:hidden}.hb .t i{display:block;height:100%;background:var(--pri);border-radius:99px}.hb .n{text-align:right;font-variant-numeric:tabular-nums}.hb .n small{color:var(--ink3);margin-left:4px}
+.fun{display:flex;flex-direction:column;gap:8px}.fun .r{display:grid;grid-template-columns:130px 1fr 110px;align-items:center;gap:10px;font-size:13.5px}.fun .t{height:26px;background:var(--bg);border-radius:8px;overflow:hidden}.fun .t i{display:flex;align-items:center;height:100%;background:var(--pri);border-radius:8px;color:#fff;font-size:12px;font-weight:700;padding-left:8px;min-width:30px;font-variant-numeric:tabular-nums}.fun .n{text-align:right;font-size:12.5px;color:var(--ink2)}
+@media(max-width:560px){.fun .r{grid-template-columns:96px 1fr 70px}.hb .r{grid-template-columns:72px 1fr 64px}}
+.three{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}@media(max-width:980px){.three{grid-template-columns:1fr}}
 </style></head><body>
 <div id="app"></div><div class="toast" id="toast"></div>
 <script>
@@ -136,62 +166,114 @@ function fail(e){ if (e.login) return loginView('다시 로그인해 주세요.'
 function k(l, v, s){ return '<div class="k"><div class="l">' + l + '</div><div class="v">' + v + '</div>' + (s ? '<div class="s">' + s + '</div>' : '') + '</div>'; }
 var PROV = { kakao: '카카오', google: '구글', naver: '네이버', email: '이메일', anonymous: '자녀(초대 코드)' };
 function dash(){
-  rpc('admin_stats').then(function(s){
-    var paid = s.paid_month + s.paid_year, mrr = s.paid_month * 2900 + s.paid_year * 29000 / 12;
-    var sig = s.signups_by_day || [], mx = Math.max.apply(null, sig.map(function(x){ return x.n; }).concat([1])), src = s.tx_by_source || {}, prov = s.providers || {};
-    var SRC = { manual: '직접·말', voice: '말로', receipt: '영수증', recurring: '정기 지출', import: '옮겨 오기', wish: '위시', allowance: '용돈' };
-    $('#view').innerHTML = '<div class="grid">' +
-      k('전체 계정', won(s.users), '오늘 +' + s.users_today + ' · 7일 +' + s.users_7d) + k('가계부(가족)', won(s.households), '참여 ' + s.members_joined + ' · 초대 대기 ' + s.members_pending + ' · 자녀 ' + s.kids) +
-      k('활동 가족 (7일)', s.active_7d, '오늘 ' + s.active_1d + ' · 30일 ' + s.active_30d) + k('유료 구독', paid, '월간 ' + s.paid_month + ' · 연간 ' + s.paid_year) +
-      k('무료 체험 중', s.trial, '7일 안에 끝남 ' + s.trial_ending_7d) + k('예상 월 매출', won(mrr) + '원', '수수료·부가세 뺀 순매출 약 ' + won(mrr / 1.1 * 0.85) + '원') +
-      k('기록 수', won(s.tx_total), '최근 7일 ' + won(s.tx_7d)) + k('영수증 인식 (이번 달)', won(s.ocr_month), '') + k('알림 켠 기기', s.devices, '오늘 확인 ' + s.devices_seen_1d) + k('새 의견', s.feedback_new, '탈퇴(30일) ' + s.deleted_30d) + '</div>' + '<div id="more"><div class="card note">핵심 지표 불러오는 중…</div></div>' +
-      '<div class="two"><div class="card"><h2>최근 30일 가입</h2><div class="bars">' + sig.map(function(x){ return '<div title="' + x.d + ' · ' + x.n + '명" style="height:' + (x.n / mx * 100).toFixed(1) + '%"></div>'; }).join('') + '</div><div class="axis"><span>' + ((sig[0] || {}).d || '') + '</span><span>' + ((sig[sig.length - 1] || {}).d || '') + '</span></div></div>' +
-      '<div class="card"><h2>가입 방법</h2>' + Object.keys(prov).map(function(p){ return '<div class="kv"><span>' + (PROV[p] || p) + '</span><b>' + prov[p] + '</b></div>'; }).join('') + '<h2 style="margin-top:14px">최근 30일 기록 방법</h2>' + (Object.keys(src).length ? Object.keys(src).map(function(p){ return '<div class="kv"><span>' + (SRC[p] || p) + '</span><b>' + won(src[p]) + '</b></div>'; }).join('') : '<div class="note">아직 없어요</div>') + '</div></div>' +
-            '<div class="card"><h2>최근 탈퇴 이유</h2>' + ((s.deletion_reasons || []).length ? s.deletion_reasons.map(function(d){ return '<div class="kv"><span>' + esc(d.reason || '(이유 없음)') + '</span><span class="note">' + d8(d.at) + '</span></div>'; }).join('') : '<div class="note">아직 없어요.</div>') + '</div>';
-    return Promise.all([rpc('admin_metrics'), rpc('admin_active')]).then(function(r){ var el = $('#more'); if (el) el.innerHTML = kpiHTML(r[1], r[0], s) + metricsHTML(r[0], s); });
+  $('#view').innerHTML = '<div class="dh"><h1>대시보드</h1><span class="note" id="asof"></span><button class="btn" id="rf">새로고침</button></div><div class="card note">불러오는 중…</div>';
+  $('#rf').onclick = dash;
+  Promise.all([rpc('admin_stats'), rpc('admin_active').catch(function(){ return {}; }), rpc('admin_metrics').catch(function(){ return {}; })]).then(function(r){
+    var s = r[0] || {}, a = r[1] || {}, m = r[2] || {};
+    $('#view').innerHTML = dashHTML(s, a, m);
+    $('#rf').onclick = dash;
+    $('#asof').textContent = new Date().toLocaleString('ko-KR', { month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' }) + ' 기준';
   }).catch(fail);
 }
-function bars(list){
-  var mx = Math.max.apply(null, list.map(function(x){ return x.n; }).concat([1]));
-  return '<div class="bars">' + list.map(function(x){ return '<div title="' + x.d + ' · ' + x.n + '" style="height:' + (x.n / mx * 100).toFixed(1) + '%"></div>'; }).join('') + '</div><div class="axis"><span>' + ((list[0] || {}).d || '') + '</span><span>' + ((list[list.length - 1] || {}).d || '') + '</span></div>';
+// 지난 기간 대비 변화 (앞 n일 합 vs 그 전 n일 합)
+function sumN(list, from, n){ return list.slice(Math.max(0, list.length - from - n), list.length - from).reduce(function(t, x){ return t + (x.n || 0); }, 0); }
+function delta(cur, prev, unit){
+  if (!prev && !cur) return '<span class="dl flat">변화 없음</span>';
+  if (!prev) return '<span class="dl up">새로 생김</span>';
+  var p = Math.round((cur - prev) / prev * 100);
+  return '<span class="dl ' + (p > 0 ? 'up' : p < 0 ? 'down' : 'flat') + '">' + (p > 0 ? '▲ ' : p < 0 ? '▼ ' : '') + Math.abs(p) + '%' + (unit ? ' ' + unit : '') + '</span>';
+}
+function spark(list){
+  if (!list || list.length < 2) return '';
+  var mx = Math.max.apply(null, list.map(function(x){ return x.n; }).concat([1])), w = 100, h = 30, st = w / (list.length - 1);
+  var pts = list.map(function(x, i){ return (i * st).toFixed(1) + ',' + (h - 2 - (x.n / mx) * (h - 4)).toFixed(1); });
+  return '<svg class="spark" viewBox="0 0 100 30" preserveAspectRatio="none" aria-hidden="true"><polygon points="0,30 ' + pts.join(' ') + ' 100,30" fill="var(--soft)"/><polyline points="' + pts.join(' ') + '" fill="none" stroke="var(--pri)" stroke-width="1.6" vector-effect="non-scaling-stroke" stroke-linejoin="round"/></svg>';
+}
+function hk(label, value, unit, sub, dl, sp){ return '<div class="hk"><div class="l"><span>' + label + '</span>' + (dl || '') + '</div><div class="v">' + value + (unit ? '<small>' + unit + '</small>' : '') + '</div><div class="s">' + (sub || '&nbsp;') + '</div>' + (sp || '') + '</div>'; }
+function mk(label, value, sub, meter){ return '<div class="mk"><div class="l">' + label + '</div><div class="v">' + value + '</div>' + (sub ? '<div class="s">' + sub + '</div>' : '') + (meter != null ? '<div class="meter"><i style="width:' + Math.min(100, Math.max(0, meter)).toFixed(0) + '%"></i></div>' : '') + '</div>'; }
+// 세로 막대: 막대 위에 숫자를 바로 보여 주고, 마우스를 올리면 날짜와 함께 바로 떠요
+function vbars(list, unit){
+  list = list || [];
+  if (!list.length) return '<div class="note">아직 데이터가 없어요.</div>';
+  var ns = list.map(function(x){ return x.n || 0; }), mx = Math.max.apply(null, ns.concat([1])), tot = ns.reduce(function(t, n){ return t + n; }, 0), avg = tot / list.length;
+  var mxi = ns.indexOf(Math.max.apply(null, ns)), step = list.length > 20 ? 5 : list.length > 10 ? 2 : 1;
+  return '<div class="ch"><div class="vb">' + (avg > 0 ? '<div class="avg" style="bottom:' + (avg / mx * 152).toFixed(0) + 'px"><span>평균 ' + (avg >= 10 ? Math.round(avg) : avg.toFixed(1)) + '</span></div>' : '') +
+    list.map(function(x, i){ var n = x.n || 0;
+      return '<div class="c"><span class="tip">' + esc(x.d || x.m || '') + ' · ' + won(n) + (unit || '') + '</span>' + (n ? '<span class="lab' + (i === mxi || i === list.length - 1 ? ' kk' : '') + '">' + won(n) + '</span>' : '') + '<div class="b' + (n ? '' : ' z') + '" style="height:' + (n / mx * 152).toFixed(0) + 'px"></div></div>';
+    }).join('') + '</div><div class="xa">' + list.map(function(x, i){ return '<span>' + ((i % step === 0 || i === list.length - 1) && (i === list.length - 1 || list.length - 1 - i >= step / 2) ? esc(x.d || x.m || '') : '') + '</span>'; }).join('') + '</div></div>';
+}
+function chart(title, list, unit, totLabel){
+  var tot = (list || []).reduce(function(t, x){ return t + (x.n || 0); }, 0);
+  return '<div class="card"><div class="chh"><h2>' + title + '</h2><span class="tot">' + (totLabel || '합계') + ' <b>' + won(tot) + '</b>' + (unit || '') + '</span></div>' + vbars(list, unit) + '</div>';
+}
+function hbars(obj, names){
+  var ks = Object.keys(obj || {}).filter(function(k){ return obj[k]; }).sort(function(x, y){ return obj[y] - obj[x]; });
+  if (!ks.length) return '<div class="note">아직 없어요.</div>';
+  var tot = ks.reduce(function(t, k){ return t + obj[k]; }, 0), mx = obj[ks[0]];
+  return '<div class="hb">' + ks.map(function(k){ return '<div class="r"><span>' + esc((names || {})[k] || k) + '</span><div class="t"><i style="width:' + (obj[k] / mx * 100).toFixed(0) + '%"></i></div><span class="n">' + won(obj[k]) + '<small>' + Math.round(obj[k] / tot * 100) + '%</small></span></div>'; }).join('') + '</div>';
 }
 function pct(a, b){ return b ? Math.round(a / b * 100) + '%' : '-'; }
-function heat(a, b, ripe){ if (!ripe) return '<span class="note">아직</span>'; var p = b ? a / b : 0; return '<span class="heat" style="background:rgba(47,75,124,' + (0.08 + p * 0.8).toFixed(2) + ');color:' + (p > 0.45 ? '#fff' : 'inherit') + '">' + pct(a, b) + '</span>'; }
+function heat(a, b, ripe){ if (!ripe) return '<span class="note">아직</span>'; var p = b ? a / b : 0; return '<span class="heat" style="background:rgba(51,102,230,' + (0.08 + p * 0.8).toFixed(2) + ');color:' + (p > 0.45 ? '#fff' : 'inherit') + '">' + pct(a, b) + '</span>'; }
 function mb(n){ return n > 1e9 ? (n / 1e9).toFixed(2) + 'GB' : (n / 1e6).toFixed(1) + 'MB'; }
-function kpiHTML(a, m, s){
-  var c = m.conversion || {}, rt = a.retention || {};
-  var gross = s.paid_month * 2900 + s.paid_year * 29000 / 12, net = gross / 1.1 * 0.85, payers = s.paid_month + s.paid_year;
-  var churn = (c.paid_now + c.churned_30d) ? c.churned_30d / (c.paid_now + c.churned_30d) : 0;
-  var arppu = payers ? net / payers : 0, ltv = churn ? arppu / churn : 0;
-  var r = function(x){ return x && x.base ? Math.round(x.kept / x.base * 100) + '%' : '-'; }, rs = function(x){ return x && x.base ? x.kept + ' / ' + x.base + '명' : '대상 없음'; };
-  var ms = a.mau_series || [];
-  return '<div class="card"><h2>핵심 지표 (사람 기준, 앱을 연 날을 셈)</h2><div class="grid">' +
-    k('DAU (오늘)', won(a.dau), '30일 평균 ' + a.dau_avg30) + k('WAU (7일)', won(a.wau), '') + k('MAU (30일)', won(a.mau), '안드로이드 앱 ' + won(a.android_30)) +
-    k('고착도 DAU÷MAU', pct(a.dau_avg30, a.mau), '20% 넘으면 좋은 편') +
-    k('D1 잔존율', r(rt.d1), rs(rt.d1)) + k('D7 잔존율', r(rt.d7), rs(rt.d7)) + k('D30 잔존율', r(rt.d30), rs(rt.d30)) +
-    k('결제 전환 (MAU 중)', pct(payers, a.mau), '결제 가족 ' + payers) +
-    k('ARPU (월)', won(a.mau ? net / a.mau : 0) + '원', '순매출 ÷ MAU') + k('ARPPU (월)', won(arppu) + '원', '순매출 ÷ 결제 가족') +
-    k('월 해지율', churn ? Math.round(churn * 100) + '%' : '-', '최근 30일') + k('LTV (예상)', ltv ? won(ltv) + '원' : '-', 'ARPPU ÷ 월 해지율') + '</div>' +
-    '<div class="two" style="margin-top:12px"><div style="min-width:0"><div class="note" style="margin-bottom:6px">일별 접속자 (30일)</div>' + bars(a.series || []) + '</div><div style="min-width:0"><div class="note" style="margin-bottom:6px">월별 접속자 (MAU 추이)</div>' +
-      (ms.length ? ms.map(function(x){ return '<div class="kv"><span>' + x.m + '</span><b>' + won(x.n) + '</b></div>'; }).join('') : '<div class="note">아직 없어요</div>') + '</div></div>' +
-    '<div class="note" style="margin-top:8px">접속 기록은 ' + (a.since ? d8(a.since) : '오늘') + '부터 있어요 (그 전은 기록을 남긴 날로 채웠어요). 설치·삭제 수, 별점, 앱 비정상 종료는 구글 플레이 콘솔 → 통계·Android vitals 에서 봐요.</div></div>';
-}
-function metricsHTML(m, s){
-  var c = m.conversion || {}, st = m.storage || {}, co = m.cohorts || [];
-  return '<div class="two"><div class="card"><h2>일별 활동 가족 (기록한 가족 수, 30일)</h2>' + bars(m.dau || []) + '<div class="note" style="margin-top:6px">하루 평균 ' + ((m.dau || []).reduce(function(a, x){ return a + x.n; }, 0) / Math.max(1, (m.dau || []).length)).toFixed(1) + '가족 · 이번 주 활동 가족 ÷ 전체 가족 = ' + pct(s.active_7d, s.households) + '</div></div>' +
-    '<div class="card"><h2>유료 전환</h2>' +
-      '<div class="kv"><span>체험이 끝난 가족</span><b>' + won(c.households_past_trial) + '</b></div>' +
-      '<div class="kv"><span>한 번이라도 결제한 가족</span><b>' + won(c.paid_ever) + '</b></div>' +
-      '<div class="kv"><span>체험 → 결제 전환율</span><b>' + pct(c.paid_ever, c.households_past_trial) + '</b></div>' +
-      '<div class="kv"><span>지금 결제 중</span><b>' + won(c.paid_now) + '</b></div>' +
-      '<div class="kv"><span>최근 30일 해지·만료</span><b>' + won(c.churned_30d) + '</b></div>' +
-      '<div class="kv"><span>관리자가 지급한 플러스</span><b>' + won(c.comp_now) + '</b></div>' +
-      '<div class="note" style="margin-top:6px">무료 체험은 30일이에요. 결제는 구글 플레이 결제만 셈해요.</div></div></div>' +
+function dashHTML(s, a, m){
+  var SRC = { manual: '직접 입력', voice: '말로', receipt: '영수증', recurring: '정기 지출', import: '옮겨 오기', wish: '위시', allowance: '용돈' };
+  var c = m.conversion || {}, rt = a.retention || {}, st = m.storage || {}, co = m.cohorts || [];
+  var sig = s.signups_by_day || [], act = a.series || [], hh = m.dau || [];
+  var payers = (s.paid_month || 0) + (s.paid_year || 0), gross = (s.paid_month || 0) * 2900 + (s.paid_year || 0) * 29000 / 12, net = gross / 1.1 * 0.85;
+  var churn = (c.paid_now + c.churned_30d) ? c.churned_30d / (c.paid_now + c.churned_30d) : 0, arppu = payers ? net / payers : 0, ltv = churn ? arppu / churn : 0;
+  var rr = function(x){ return x && x.base ? Math.round(x.kept / x.base * 100) : null; }, rs = function(x){ return x && x.base ? x.kept + ' / ' + x.base + '명' : '아직 대상 없음'; };
+  var stick = a.mau ? (a.dau_avg30 || 0) / a.mau * 100 : 0;
+  var su7 = sumN(sig, 0, 7), su7p = sumN(sig, 7, 7), ac7 = sumN(act, 0, 7) / 7, ac7p = sumN(act, 7, 7) / 7;
+  var ms = (a.mau_series || []).map(function(x){ return { d: x.m.slice(2).replace('-', '.'), n: x.n }; });
+  var funnel = [['가입한 사람', s.users], ['가계부 만든 가족', s.households], ['체험 끝난 가족', c.households_past_trial], ['결제한 가족', c.paid_ever], ['지금 결제 중', c.paid_now]];
+  var f0 = Math.max(1, funnel[0][1] || 0);
+  return '<div class="dh"><h1>대시보드</h1><span class="note" id="asof"></span><button class="btn" id="rf">새로고침</button></div>' +
+    // 1. 큰 지표
+    '<div class="hero">' +
+      hk('월간 이용자 (MAU)', won(a.mau), '명', 'DAU 오늘 ' + won(a.dau) + ' · WAU ' + won(a.wau), delta(ac7, ac7p, '일평균'), spark(act)) +
+      hk('신규 가입 (7일)', won(su7), '명', '오늘 +' + won(s.users_today) + ' · 전체 ' + won(s.users) + '명', delta(su7, su7p), spark(sig)) +
+      hk('유료 구독', won(payers), '가족', '월간 ' + s.paid_month + ' · 연간 ' + s.paid_year + ' · 체험 중 ' + won(s.trial), '', '') +
+      hk('예상 월 매출 (MRR)', won(gross), '원', '수수료·부가세 뺀 순매출 약 ' + won(net) + '원', '', '') +
+    '</div>' +
+    // 2. 참여·잔존
+    '<div class="sec">참여와 잔존</div><div class="mini">' +
+      mk('고착도 (DAU÷MAU)', stick ? stick.toFixed(0) + '%' : '-', '20% 넘으면 좋은 편', stick * 2.5) +
+      mk('D1 잔존율', rr(rt.d1) == null ? '-' : rr(rt.d1) + '%', rs(rt.d1), rr(rt.d1)) +
+      mk('D7 잔존율', rr(rt.d7) == null ? '-' : rr(rt.d7) + '%', rs(rt.d7), rr(rt.d7)) +
+      mk('D30 잔존율', rr(rt.d30) == null ? '-' : rr(rt.d30) + '%', rs(rt.d30), rr(rt.d30)) +
+      mk('활동 가족 (7일)', won(s.active_7d), '전체 가족의 ' + pct(s.active_7d, s.households), s.households ? s.active_7d / s.households * 100 : 0) +
+      mk('기록 수 (7일)', won(s.tx_7d), '전체 ' + won(s.tx_total) + '건') +
+    '</div>' +
+    // 3. 추이 차트
+    '<div class="sec">최근 30일 추이</div>' +
+    '<div class="two">' + chart('일별 접속자', act, '명', '30일 연인원') + chart('일별 신규 가입', sig, '명') + '</div>' +
+    '<div class="two">' + chart('일별 기록한 가족', hh, '가족', '30일 연인원') + '<div class="card"><div class="chh"><h2>월별 이용자 (MAU)</h2><span class="tot">이번 달 <b>' + won((ms[ms.length - 1] || {}).n || 0) + '</b>명</span></div>' + vbars(ms, '명') + '</div></div>' +
+    // 4. 수익
+    '<div class="sec">수익과 전환</div><div class="two"><div class="card"><h2>가입에서 결제까지</h2><div class="fun">' +
+      funnel.map(function(f, i){ var v = f[1] || 0; return '<div class="r"><span>' + f[0] + '</span><div class="t"><i style="width:' + Math.max(3, v / f0 * 100).toFixed(0) + '%">' + won(v) + '</i></div><span class="n">' + (i ? '앞 단계의 ' + pct(v, funnel[i - 1][1]) : '100%') + '</span></div>'; }).join('') +
+      '</div><div class="note" style="margin-top:8px">무료 체험은 30일, 결제는 구글 플레이 결제만 셈해요. 관리자가 지급한 플러스 ' + won(c.comp_now) + '가족은 빼요.</div></div>' +
+      '<div class="card"><h2>구독 지표</h2><div class="mini">' +
+        mk('결제 전환 (MAU 중)', pct(payers, a.mau), '결제 가족 ' + payers) + mk('ARPU (월)', won(a.mau ? net / a.mau : 0) + '원', '순매출 ÷ MAU') +
+        mk('ARPPU (월)', won(arppu) + '원', '순매출 ÷ 결제 가족') + mk('월 해지율', churn ? Math.round(churn * 100) + '%' : '-', '최근 30일 ' + won(c.churned_30d) + '가족') +
+        mk('LTV (예상)', ltv ? won(ltv) + '원' : '-', 'ARPPU ÷ 해지율') + mk('체험 7일 안에 끝남', won(s.trial_ending_7d), '결제 유도 알림 대상') +
+      '</div></div></div>' +
+    // 5. 사용자 구성
+    '<div class="sec">사용자 구성</div><div class="three">' +
+      '<div class="card"><h2>가입 방법</h2>' + hbars(s.providers, PROV) + '</div>' +
+      '<div class="card"><h2>기록 방법 (30일)</h2>' + hbars(s.tx_by_source, SRC) + '</div>' +
+      '<div class="card"><h2>가족 구성</h2>' + hbars({ '참여한 가족원': s.members_joined, '초대 대기': s.members_pending, '자녀': s.kids }) + '<div class="mini" style="margin-top:12px">' + mk('알림 켠 기기', won(s.devices), '오늘 확인 ' + won(s.devices_seen_1d)) + mk('영수증 인식 (이번 달)', won(s.ocr_month), '') + '</div></div>' +
+    '</div>' +
+    // 6. 재방문 코호트
     '<div class="card"><h2>가입 주별 재방문 (다시 와서 기록한 비율)</h2>' + (co.length ? '<div class="tbl" style="border:0"><table class="cohort"><thead><tr><th>가입 주 (월요일)</th><th>가입</th><th>2주차 재방문</th><th>5주차 재방문</th></tr></thead><tbody>' +
       co.map(function(r){ return '<tr style="cursor:default"><td>' + r.week + '</td><td class="c">' + r.size + '</td><td class="c">' + heat(r.w1, r.size, r.ripe1) + '</td><td class="c">' + heat(r.w4, r.size, r.ripe4) + '</td></tr>'; }).join('') + '</tbody></table></div>' : '<div class="note">최근 10주 가입자가 아직 없어요.</div>') +
       '<div class="note" style="margin-top:6px">가계부 앱은 2주차 재방문 30% 이상이면 좋은 편이에요. 자녀 계정은 빼고 셈해요.</div></div>' +
-    '<div class="card"><h2>서버 사용량</h2><div class="kv"><span>데이터베이스</span><b>' + mb(st.db_bytes || 0) + ' / 무료 500MB · Pro 8GB</b></div><div class="kv"><span>올린 파일 (프로필 사진 등)</span><b>' + won(st.files) + '개 · ' + mb(st.file_bytes || 0) + '</b></div>' +
-      '<div class="note" style="margin-top:6px">함수 오류·접속 기록 같은 서버 상태는 Supabase 대시보드 → Logs 에서 자세히 볼 수 있어요.</div></div>';
+    // 7. 운영
+    '<div class="sec">운영</div><div class="three">' +
+      '<div class="card"><h2>의견과 탈퇴</h2><div class="mini">' + mk('새 의견', won(s.feedback_new), '사용자 의견 탭에서 답해요') + mk('탈퇴 (30일)', won(s.deleted_30d), '') + '</div>' +
+        '<div class="note" style="margin:12px 0 4px">최근 탈퇴 이유</div>' + ((s.deletion_reasons || []).length ? s.deletion_reasons.slice(0, 5).map(function(d){ return '<div class="kv"><span>' + esc(d.reason || '(이유 없음)') + '</span><span class="note">' + d8(d.at) + '</span></div>'; }).join('') : '<div class="note">아직 없어요.</div>') + '</div>' +
+      '<div class="card"><h2>서버 사용량</h2>' + mk('데이터베이스', mb(st.db_bytes || 0), '무료 500MB · Pro 8GB', (st.db_bytes || 0) / 5e8 * 100) + '<div style="height:10px"></div>' + mk('올린 파일', won(st.files) + '개', mb(st.file_bytes || 0) + ' · 무료 1GB', (st.file_bytes || 0) / 1e9 * 100) + '</div>' +
+      '<div class="card"><h2>참고</h2><div class="note" style="line-height:1.7">· 접속 기록은 ' + (a.since ? d8(a.since) : '오늘') + '부터 있어요.<br>· 설치·삭제 수, 별점, 비정상 종료는 플레이 콘솔 → 통계·Android vitals에서 봐요.<br>· 함수 오류와 서버 로그는 Supabase → Logs에서 봐요.<br>· 매출은 구독 수로 계산한 예상치예요. 실제 정산은 플레이 콘솔 → 재무 보고서가 정확해요.</div></div>' +
+    '</div>';
 }
 function planPill(u){
   if (u.banned_until && Date.parse(u.banned_until) > Date.now()) return '<span class="pill p-ban">정지</span>';
