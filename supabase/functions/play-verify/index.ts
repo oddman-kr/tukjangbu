@@ -53,8 +53,9 @@ Deno.serve(async (req) => {
     const { data: other } = await admin.from("subscriptions").select("household_id").eq("purchase_token", purchaseToken).neq("household_id", household).maybeSingle();
     if (other) return json({ ok: false, message: "이미 다른 가계부에서 쓰인 결제예요" }, 409);
 
-    await admin.from("subscriptions").upsert({ household_id: household, plan: "plus", period: PRODUCTS[productId], status: "active", expires_at: line.expiryTime ?? null,
+    const { error: upErr } = await admin.from("subscriptions").upsert({ household_id: household, plan: "plus", period: PRODUCTS[productId], status: "active", expires_at: line.expiryTime ?? null,
       source: "play", purchase_token: purchaseToken, product_id: productId, updated_at: new Date().toISOString() }, { onConflict: "household_id" });
+    if (upErr) return json({ ok: false, message: "구독을 기록하지 못했어요" }, 500);
 
     // 확인(acknowledge)하지 않으면 3일 뒤 구글이 자동 환불해요
     if (g.acknowledgementState === "ACKNOWLEDGEMENT_STATE_PENDING") {

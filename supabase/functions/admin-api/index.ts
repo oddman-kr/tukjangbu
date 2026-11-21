@@ -151,7 +151,8 @@ Deno.serve(async (req) => {
         const { data: cur } = await db.from("subscriptions").select("expires_at,status,plan").eq("household_id", hid).maybeSingle();
         const base = cur && cur.status === "active" && cur.plan !== "free" && cur.expires_at && Date.parse(cur.expires_at) > Date.now() ? new Date(cur.expires_at) : new Date();
         base.setMonth(base.getMonth() + months);
-        await db.from("subscriptions").upsert({ household_id: hid, plan: "plus", status: "active", period: "comp", source: "admin", expires_at: base.toISOString(), updated_at: new Date().toISOString() }, { onConflict: "household_id" });
+        const { error: upErr } = await db.from("subscriptions").upsert({ household_id: hid, plan: "plus", status: "active", period: "comp", source: "admin", expires_at: base.toISOString(), updated_at: new Date().toISOString() }, { onConflict: "household_id" });
+        if (upErr) return json({ ok: false, message: "지급하지 못했어요: " + upErr.message }, 500);
         await audit("플러스 지급", uid, { months, until: base.toISOString(), memo: body.memo || null });
         return json({ ok: true, until: base.toISOString() });
       }
