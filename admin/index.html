@@ -136,7 +136,7 @@ function loginView(msg){
 }
 
 // ---------- 화면 ----------
-var tab = 'dash', users = [], uq = '', uf = 'all', fbF = '새 의견', ROLE = 'owner';
+var tab = 'dash', users = [], uq = '', uf = 'all', up = 'all', uj = 'all', ui = 0, fbF = '새 의견', ROLE = 'owner';
 var isOwner = function(){ return ROLE === 'owner'; };
 try { tab = localStorage.getItem('adm_tab') || 'dash'; } catch (e) {}
 function shell(){
@@ -280,12 +280,16 @@ function planPill(u){
   return { paid: '<span class="pill p-paid">유료</span>', trial: '<span class="pill p-trial">체험</span>', free: '<span class="pill p-free">무료</span>' }[u.plan] || '<span class="pill p-free">가계부 없음</span>';
 }
 function usersView(){
-  $('#view').innerHTML = '<div class="toolbar"><input class="inp" id="q" placeholder="이메일, 이름, 가계부 이름으로 찾기" style="flex:1;min-width:200px" value="' + esc(uq) + '"><button class="btn pri" id="go">찾기</button>' + (isOwner() ? '<button class="btn" id="csv">CSV 내보내기</button>' : '') + '</div>' +
-    '<div class="toolbar">' + [['all', '전체'], ['paid', '유료'], ['trial', '체험 중'], ['free', '무료'], ['banned', '정지']].map(function(f){ return '<button class="chip' + (uf === f[0] ? ' on' : '') + '" data-uf="' + f[0] + '">' + f[1] + '</button>'; }).join('') + '<span class="note" id="cnt"></span></div><div class="tbl" id="ut"><div class="note" style="padding:14px">불러오는 중…</div></div>';
+  $('#view').innerHTML = '<div class="toolbar"><input class="inp" id="q" placeholder="이메일, 이름, 가족원 이름, 가계부 이름, 회원 번호, 카카오·네이버 번호" style="flex:1;min-width:200px" value="' + esc(uq) + '"><button class="btn pri" id="go">찾기</button>' + (isOwner() ? '<button class="btn" id="csv">CSV 내보내기</button>' : '') + '</div>' +
+    '<div class="toolbar">' + [['all', '전체'], ['paid', '유료'], ['trial', '체험 중'], ['free', '무료'], ['banned', '정지']].map(function(f){ return '<button class="chip' + (uf === f[0] ? ' on' : '') + '" data-uf="' + f[0] + '">' + f[1] + '</button>'; }).join('') + '</div>' +
+    '<div class="toolbar"><span class="note">로그인</span>' + [['all', '전체'], ['kakao', '카카오'], ['naver', '네이버'], ['google', '구글'], ['email', '이메일'], ['anonymous', '자녀']].map(function(f){ return '<button class="chip' + (up === f[0] ? ' on' : '') + '" data-up="' + f[0] + '">' + f[1] + '</button>'; }).join('') +
+    '<span class="note" style="margin-left:6px">가입</span><select id="uj">' + [['all', '전체 기간'], ['today', '오늘'], ['7d', '최근 7일'], ['30d', '최근 30일']].map(function(f){ return '<option value="' + f[0] + '"' + (uj === f[0] ? ' selected' : '') + '>' + f[1] + '</option>'; }).join('') + '</select>' +
+    '<span class="note" style="margin-left:6px">접속</span><select id="ui">' + [['0', '전체'], ['7', '7일 넘게 안 옴'], ['30', '30일 넘게 안 옴'], ['90', '90일 넘게 안 옴']].map(function(f){ return '<option value="' + f[0] + '"' + (String(ui) === f[0] ? ' selected' : '') + '>' + f[1] + '</option>'; }).join('') + '</select>' +
+    '<span class="note" id="cnt"></span></div><div class="tbl" id="ut"><div class="note" style="padding:14px">불러오는 중…</div></div>';
   var run = function(){ uq = $('#q').value.trim(); $('#ut').innerHTML = '<div class="note" style="padding:14px">불러오는 중…</div>';
-    api('users', { q: uq, filter: uf }).then(function(r){ users = r.users; $('#cnt').textContent = '총 ' + r.total + '명' + (r.total > 500 ? ' (앞 500명 표시)' : '');
-      $('#ut').innerHTML = users.length ? '<table><thead><tr><th>이름</th><th>로그인</th><th>이메일</th><th>가계부</th><th>상태</th><th>가입</th><th>최근 로그인</th></tr></thead><tbody>' + users.map(function(u){
-        return '<tr data-u="' + u.id + '"><td><b>' + esc(u.name || '-') + '</b>' + (u.admin ? ' <span class="pill p-adm">관리자</span>' : '') + '</td><td>' + (PROV[u.provider] || u.provider) + '</td><td>' + esc(u.email && !/\.invalid$/.test(u.email) ? u.email : '-') + '</td><td>' + (u.household ? esc(u.household.name) + (u.household.owner ? ' 👑' : '') : '-') + '</td><td>' + planPill(u) + '</td><td>' + d8(u.created_at) + '</td><td>' + dt(u.last_sign_in_at) + '</td></tr>';
+    api('users', { q: uq, filter: uf, provider: up, joined: uj, idle: ui }).then(function(r){ users = r.users; $('#cnt').textContent = '총 ' + r.total + '명' + (r.total > 500 ? ' (앞 500명 표시)' : '');
+      $('#ut').innerHTML = users.length ? '<table><thead><tr><th>이름</th><th>로그인</th><th>이메일</th><th>가계부</th><th>상태</th><th>가입</th><th>최근 접속</th></tr></thead><tbody>' + users.map(function(u){
+        return '<tr data-u="' + u.id + '"><td><b>' + esc(u.name || '-') + '</b>' + (u.admin ? ' <span class="pill p-adm">관리자</span>' : '') + '</td><td>' + (PROV[u.provider] || u.provider) + '</td><td>' + esc(u.email && !/\.invalid$/.test(u.email) ? u.email : '-') + '</td><td>' + (u.household ? esc(u.household.name) + (u.household.owner ? ' 👑' : '') + ((u.family || []).length > 1 ? '<div class="note">' + esc(u.family.join(', ')) + '</div>' : '') : '-') + '</td><td>' + planPill(u) + '</td><td>' + d8(u.created_at) + '</td><td>' + (u.last_seen ? dt(u.last_seen) : '-') + '</td></tr>';
       }).join('') + '</tbody></table>' : '<div class="note" style="padding:14px">해당하는 회원이 없어요.</div>';
       document.querySelectorAll('[data-u]').forEach(function(tr){ tr.onclick = function(){ openUser(tr.dataset.u); }; });
     }).catch(fail); };
@@ -299,6 +303,9 @@ function usersView(){
     }).catch(function(e){ toast(e.message); }).then(function(){ cb.disabled = false; }); };
   $('#go').onclick = run; $('#q').onkeydown = function(e){ if (e.key === 'Enter') run(); };
   document.querySelectorAll('[data-uf]').forEach(function(b){ b.onclick = function(){ uf = b.dataset.uf; document.querySelectorAll('[data-uf]').forEach(function(x){ x.classList.toggle('on', x === b); }); run(); }; });
+  document.querySelectorAll('[data-up]').forEach(function(b){ b.onclick = function(){ up = b.dataset.up; document.querySelectorAll('[data-up]').forEach(function(x){ x.classList.toggle('on', x === b); }); run(); }; });
+  $('#uj').onchange = function(){ uj = this.value; run(); };
+  $('#ui').onchange = function(){ ui = Number(this.value) || 0; run(); };
   run();
 }
 var ROLE_KO = { owner: '주인', adult: '어른', child: '자녀' }, SRC_KO = { manual: '직접·말', voice: '말로', receipt: '영수증', recurring: '정기 지출', import: '옮겨 오기', wish: '위시', allowance: '용돈' };
@@ -398,7 +405,7 @@ function fbView(){
 }
 var FB_ST = ['새 의견', '확인함', '반영 예정', '반영 완료', '보류'];
 function fbItem(f){
-  return '<div class="fb"><div class="m"><span class="pill p-trial">' + esc(f.kind) + '</span><span>' + dt(f.created_at) + '</span>' + (f.app_ver ? '<span>' + esc(f.app_ver) + '</span>' : '') + (f.contact ? '<span>📮 ' + esc(f.contact) + '</span>' : '') +
+  return '<div class="fb"><div class="m"><span class="pill p-trial">' + esc(f.kind) + '</span><span>' + dt(f.created_at) + '</span>' + (f.app_ver ? '<span>' + esc(f.app_ver) + '</span>' : '') + (f.contact ? '<span>📮 ' + esc(f.contact) + '</span>' : '') + (f.user_id ? '<span title="회원 번호">#' + esc(String(f.user_id).slice(0, 8)) + '</span>' : '') +
     '<select data-id="' + f.id + '">' + FB_ST.map(function(x){ return '<option' + (x === f.status ? ' selected' : '') + '>' + x + '</option>'; }).join('') + '</select>' + (f.user_id ? '<button class="btn mini" data-who="' + f.user_id + '">회원 보기</button>' : '') + '</div><div class="b">' + esc(f.body) + '</div>' +
     (f.reply ? '<div class="reply"><b>답변</b> · ' + dt(f.replied_at) + (f.reply_seen ? ' · 읽음' : '') + '<br>' + esc(f.reply) + '</div>' : '') +
     '<div data-rbox="' + f.id + '" hidden><textarea class="inp" placeholder="회원에게 보낼 답변 (앱의 ‘의견 보내기’ 아래와 휴대폰 알림으로 전해져요)">' + esc(f.reply || '') + '</textarea><div style="display:flex;gap:6px;margin-top:6px"><button class="btn pri mini" data-rsend="' + f.id + '">답변 보내기</button>' + (f.reply ? '<button class="btn mini" data-rdel="' + f.id + '">답변 지우기</button>' : '') + '</div></div>' +

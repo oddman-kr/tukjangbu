@@ -48,6 +48,15 @@ Deno.serve(async (req) => {
         hhIds.length ? db.from("subscriptions").select("household_id,plan,status,period,expires_at,source").in("household_id", hhIds) : Promise.resolve({ data: [] }),
       ]);
       const now = Date.now();
+      // 가족 안에서 쓰는 이름들 (같은 가계부의 다른 가족원 이름 포함)
+      const { data: allMem } = hhIds.length ? await db.from("members").select("household_id,display_name").in("household_id", hhIds) : { data: [] };
+      // 최근 접속: 하루 접속 기록 중 가장 늦은 날 (로그인 기록보다 정확해요)
+      const since = new Date(now - 400 * 864e5).toISOString().slice(0, 10);
+      const lastDay: Record<string, string> = {};
+      for (let i = 0; i < ids.length; i += 300) {
+        const { data: da } = await db.from("daily_active").select("user_id,day").in("user_id", ids.slice(i, i + 300)).gte("day", since).order("day", { ascending: false }).limit(20000);
+        (da ?? []).forEach((r: any) => { if (!lastDay[r.user_id]) lastDay[r.user_id] = r.day; });
+      }
       return users.map((u) => {
         const m = (mem ?? []).find((x: any) => x.user_id === u.id);
         const h = m ? (hhs ?? []).find((x: any) => x.id === m.household_id) : null;
@@ -59,6 +68,9 @@ Deno.serve(async (req) => {
           created_at: u.created_at, last_sign_in_at: u.last_sign_in_at, banned_until: u.banned_until || null, admin: !!(u.email && adminSet.has(u.email.toLowerCase())),
           household: h ? { id: h.id, name: h.name, owner: h.owner_id === u.id, trial_ends_at: h.trial_ends_at } : null, role: m?.role || null,
           plan: paid ? "paid" : trial ? "trial" : h ? "free" : "-", sub: s ? { period: s.period, expires_at: s.expires_at, source: s.source, status: s.status } : null,
+          family: m ? (allMem ?? []).filter((x: any) => x.household_id === m.household_id).map((x: any) => x.display_name) : [],
+          social_ids: [u.user_metadata?.naver_id, ...((u.identities ?? []).map((i: any) => i.identity_data?.provider_id || i.identity_data?.sub || i.id))].filter((v: any) => v && v !== u.id).map(String),
+          last_seen: (() => { const a = lastDay[u.id] ? Date.parse(lastDay[u.id] + "T12:00:00+09:00") : 0, b2 = u.last_sign_in_at ? Date.parse(u.last_sign_in_at) : 0; const t = Math.max(a, b2); return t ? new Date(t).toISOString() : null; })(),
         };
       });
     }
@@ -67,9 +79,16 @@ Deno.serve(async (req) => {
       const q = String(body.q || "").trim().toLowerCase();
       let users = await allUsers();
       let rows = await enrich(users);
-      if (q) rows = rows.filter((r) => [r.email, r.name, r.household?.name, r.id].some((v) => v && String(v).toLowerCase().includes(q)));
+      if (q) rows = rows.filter((r) => [r.email, r.name, r.household?.name, r.id, ...(r.family || []), ...(r.social_ids || [])].some((v) => v && String(v).toLowerCase().includes(q)));
       const f = String(body.filter || "all");
       if (f !== "all") rows = rows.filter((r) => f === "banned" ? !!r.banned_until && Date.parse(r.banned_until) > Date.now() : r.plan === f);
+      const pv = String(body.provider || "all");
+      if (pv !== "all") rows = rows.filter((r) => r.provider === pv);
+      const day = 864e5, nowT = Date.now();
+      const jn = String(body.joined || "all"), jd: Record<string, number> = { today: 1, "7d": 7, "30d": 30 };
+      if (jd[jn]) { const from = jn === "today" ? nowT - ((nowT + 9 * 3600e3) % day) : nowT - jd[jn] * day; rows = rows.filter((r) => r.created_at && Date.parse(r.created_at) >= from); }
+      const idle = Number(body.idle || 0);
+      if (idle > 0) rows = rows.filter((r) => !r.last_seen || nowT - Date.parse(r.last_seen) > idle * day);
       rows.sort((a, b) => (b.created_at || "").localeCompare(a.created_at || ""));
       return json({ ok: true, total: rows.length, users: rows.slice(0, 500) });
     }
